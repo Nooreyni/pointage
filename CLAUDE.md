@@ -32,7 +32,7 @@
 | Visibilité collègues | Voir qui est présent / absent (sans motif), surtout dans son équipe |
 | Motif d'absence | **N+1 voit tout** (codes « Mal », etc.). Seuls les collègues voient juste « absent » |
 | Accès inter-services | Un N+1 peut recevoir un **droit d'accès à un autre service** (lecture et/ou validation), accordé par admin/direction |
-| Pause midi | **Déduite automatiquement, ~30 min** (comme Dinclock) — seuil exact à confirmer |
+| Pause midi | **Déduite automatiquement, 30 min, jamais pointée** (comme Dinclock). Si quelqu'un pointe quand même une sortie à midi, pas de double déduction. Seuil (6h) à confirmer |
 | Défaut des règles | Si non précisé : **reprendre le paramétrage Dinclock du CFB** |
 | Oubli de pointage | Correction par l'employé **auto-validée**, le N+1 peut revenir dessus (question, annulation) |
 | Heures sup | **Politique : pas d'heures sup.** Exceptions validées **manuellement** |
