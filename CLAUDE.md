@@ -30,6 +30,16 @@
 | Temps partiels | Existent (4/5, 37h30, horaires variables par jour) — voir docs/dinclock-audit-2026-10-30.md |
 | Hors périmètre | Paie, fiches de paie, planning, notes de frais, biométrie |
 | Visibilité collègues | Voir qui est présent / absent (sans motif), surtout dans son équipe |
+| Motif d'absence | **N+1 voit tout** (codes « Mal », etc.). Seuls les collègues voient juste « absent » |
+| Accès inter-services | Un N+1 peut recevoir un **droit d'accès à un autre service** (lecture et/ou validation), accordé par admin/direction |
+| Pause midi | **Déduite automatiquement, ~30 min** (comme Dinclock) — seuil exact à confirmer |
+| Défaut des règles | Si non précisé : **reprendre le paramétrage Dinclock du CFB** |
+| Oubli de pointage | Correction par l'employé **auto-validée**, le N+1 peut revenir dessus (question, annulation) |
+| Heures sup | **Politique : pas d'heures sup.** Exceptions validées **manuellement** |
+| Solde négatif | Autorisé (comme Dinclock), avec alerte — paramétrable par compteur |
+| Congés temps partiel | Calcul **automatique au prorata** du régime, RH valide en 1 clic |
+| Rappels | **Notifications push** en priorité, e-mail en secours |
+| Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
 
 ## Stack
 - **Simple à maintenir** : l'IT = 1 personne aujourd'hui, successeur inconnu, gestion à distance possible.
