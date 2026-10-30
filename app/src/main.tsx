@@ -10,5 +10,5 @@ import App from './App'
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register('/sw.js').catch(() => { /* PWA facultative */ })
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => { /* PWA facultative */ })
 }

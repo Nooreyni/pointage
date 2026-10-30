@@ -8,7 +8,8 @@ import Espace from './screens/Espace'
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
-  const [demo, setDemo] = useState(() => new URLSearchParams(location.search).has('demo') && import.meta.env.VITE_MODE_DEMO === '1')
+  const [demo, setDemo] = useState(() => import.meta.env.VITE_DEMO_SEUL === '1'
+    || (new URLSearchParams(location.search).has('demo') && import.meta.env.VITE_MODE_DEMO === '1'))
 
   useEffect(() => {
     if (!supabase) return

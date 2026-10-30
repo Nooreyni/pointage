@@ -37,7 +37,7 @@ export default function Connexion({ onDemo }: { onDemo: () => void }) {
   return (
     <div className="connexion">
       <div className="carte">
-        <img src="/icons/icon.svg" alt="" />
+        <img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />
         <h1>CFB Pointage</h1>
         <p className="doux">Centre Familial de Bruxelles</p>
 

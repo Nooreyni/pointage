@@ -52,7 +52,7 @@ export default function Espace({ api, onQuitter }: { api: Api; onQuitter: () => 
   return (
     <div className="app">
       <header className="entete">
-        <div className="marque"><img src="/icons/icon.svg" alt="" />CFB Pointage</div>
+        <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
         <div className="espace" />
         <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} onClick={() => setOnglet('alertes')}>
           <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues}</span>}
