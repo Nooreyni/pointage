@@ -13,14 +13,24 @@
 - **Propriété transférable** au CFB (pas de dépendance à un compte perso), hébergeable sur un
   serveur interne CFB à terme.
 
+## Vocabulaire
+- Toujours des **rôles génériques**, jamais de noms de personnes (« la direction », « chef de service »,
+  « RH », « admin RH », « responsable ISP »). Les titulaires changent.
+
 ## Règles métier confirmées (31/10/2026)
 | Sujet | Règle |
 |---|---|
-| IP | **Stockée** (contrôle du même appareil, comme Dinclock). Pas de géolocalisation. Réseau CFB / externe détecté |
-| Validation congés | Le **chef de service** (N+1) accepte ou refuse. Seuls les chefs de service sont N+1 |
-| Directrice (Brigitte) | N+1 des chefs de service ; peut accepter/refuser **pour tout le monde** |
-| Services sans équipe (logistique, SIPP…) | Leur membre ne supervise personne → traité comme un employé |
-| ISP | Rattaché à un service ; accord oral du service, puis demande dans l'appli, **acceptée par la responsable administrative / responsable ISP / agent administratif RH** ; rapports d'heures pour le CPAS |
-| Temps partiels | Existent (4/5…) ; règles à relever dans Dinclock |
+| IP | **Adresse IP stockée** (comme Dinclock) + indicateur réseau CFB / externe. **Pas** d'infos appareil, **pas** de géolocalisation. Durée de conservation : à décider par Ousmane |
+| Hiérarchie | Direction → chefs de service, équipe RH (3 RH + 1 admin RH) et services sans équipe (logistique, SIPP…) → employés des services |
+| Validation congés | **Décentralisée** : le N+1 accepte ou refuse, **c'est définitif**. La RH ne fait que constater |
+| N+1 | Employé → son chef de service. Chef de service, RH, admin RH, services sans équipe → la direction |
+| Direction | Peut accepter/refuser **pour tout le monde**. Par défaut ne reçoit que ses N-1 ; reçoit les demandes d'un service si son chef est absent. Peut régler quels types / quelles personnes lui remontent |
+| ISP | Rattaché à un service. Accepté par **le chef de service OU** la responsable ISP / admin RH (l'un ou l'autre). Rapports d'heures pour le CPAS |
+| Rappels | Automatiser les relances (oublis de pointage, anomalies, demandes en attente) avant la fin du mois pour décharger la RH |
+| Temps partiels | Existent (4/5, 37h30, horaires variables par jour) — voir docs/dinclock-audit-2026-10-30.md |
 | Hors périmètre | Paie, fiches de paie, planning, notes de frais, biométrie |
 | Visibilité collègues | Voir qui est présent / absent (sans motif), surtout dans son équipe |
+
+## Stack
+- **Simple à maintenir** : l'IT = 1 personne aujourd'hui, successeur inconnu, gestion à distance possible.
+- Intégrations Microsoft (Outlook, Teams) : optionnelles, pas au MVP.
