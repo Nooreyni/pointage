@@ -3,7 +3,7 @@
 ## D1 — API : schéma privé + fonctions contrôlées (30/10/2026)
 - Tables dans `pointage` (non exposé par l'API REST Supabase).
 - Lecture : vues `security_invoker` dans `public` → la RLS s'applique.
-- Écriture : **uniquement** via fonctions RPC (`pointer`, `soumettre_demande`, `decider_n1`, `traiter_rh`…)
+- Écriture : **uniquement** via fonctions RPC (`pointer`, `corriger_pointage`, `soumettre_demande`, `decider`…)
   qui vérifient identité, rôle et workflow. Aucun INSERT/UPDATE direct possible.
 - Raison : la v0.1 (droits d'écriture + RLS) permettait l'auto-validation et la création de
   demandes déjà accordées. Ce modèle ferme la classe de failles entière.
@@ -17,7 +17,7 @@
 ## D3 — Hébergement (coût / qualité / sécurité)
 | Brique | Choix | Coût prod / mois | Pourquoi |
 |---|---|---|---|
-| Front PWA | Azure Static Web Apps (Europe de l'Ouest) — Free en dev, Standard en prod | 0 € dev ; Standard ≈ 9 $ (à confirmer au calculateur Azure) | Même tenant que M365, pas de nouveau fournisseur, SLA en Standard |
+| Front PWA | **Cloudflare Pages** (le CFB n'a pas d'abonnement Azure) | 0 € | Rien à maintenir, compte au nom du CFB |
 | Base + API + Auth | Supabase Pro, org CFB, Francfort | 25 $ (inclut 10 $ de compute = 1 instance Micro) | RLS testée, auth Entra native, sauvegardes quotidiennes, pas de mise en pause |
 | Tâches (Graph, rappels Teams) | Supabase Edge Functions + pg_cron | Inclus | Pas d'infra en plus |
 | **Total** | | **≈ 35 $/mois** | |
@@ -29,3 +29,16 @@
 
 Sécurité Graph : permissions applicatives limitées par Exchange RBAC for Applications
 (accès aux seules boîtes du groupe « CFB Pointage »), secrets dans les secrets Edge Functions.
+
+## D4 — Modèle v0.3 (31/10/2026)
+- **Régimes hebdomadaires** (minutes par jour, lundi → dimanche) + historique par personne. Remplace les ~45 journées types Dinclock.
+- **Circuit décentralisé** : la décision du N+1 est définitive, la RH « constate ».
+  N+1 = chef du service ; service sans chef, chef qui demande pour lui ou chef absent → service parent (direction).
+- **Direction** : peut décider pour tous ; ne reçoit par défaut que ses N-1 (+ services suivis).
+- **ISP** : chef de service OU responsable ISP / admin RH.
+- **Accès inter-services** accordés par la direction (lecture, ou lecture + validation).
+- **Journée calculée** à la volée : paires entrée→sortie, pause auto si non pointée, boni plafonné au max journalier,
+  dépassement = « heures à valider » (politique : pas d'heures sup).
+- **Boni** : période de référence (trimestre), report posé automatiquement à la clôture ; hors limites = alerte RH, jamais de perte automatique.
+- **Règles chiffrées** dans `parametres`, marquées `provisoire` tant qu'elles ne viennent pas du règlement de travail.
+- **Rappels** : `generer_rappels()` toutes les 15 min (pg_cron) → table `notifications` ; envoi push / e-mail par Edge Function (à faire).

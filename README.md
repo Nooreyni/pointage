@@ -14,8 +14,11 @@ Application de pointage (PWA mobile + PC) du Centre Familial de Bruxelles, rempl
 ```bash
 supabase/tests/run.sh
 ```
-Lance un PostgreSQL 16 temporaire, applique les migrations et le seed, puis exécute 64 tests
-(RLS, workflow N+1 → RH, soldes, clôture, audit, confidentialité).
+Lance un PostgreSQL 16 temporaire, applique les migrations et le seed, puis exécute 101 tests
+(accès, hiérarchie, circuit décentralisé, ISP, accès inter-services, calcul des journées,
+boni, heures à valider, rappels, congés au prorata, clôture, audit).
+
+> Plusieurs tests utilisent des dates d'octobre-novembre 2026 : à rafraîchir si on les relance plus tard.
 
 ## Environnements
 | Env | Base | Données |

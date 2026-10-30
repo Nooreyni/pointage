@@ -12,4 +12,4 @@ $P -c "alter database postgres set timezone to 'Europe/Brussels'"
 $P -f tests/00_stub_supabase.sql
 for f in migrations/*.sql; do $P -f "$f"; done
 $P -f seed.sql
-$P -f tests/10_securite.sql
+for t in tests/1*.sql; do $P -f "$t"; done
