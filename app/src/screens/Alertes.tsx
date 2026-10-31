@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Notif } from '../lib/types'
+import type { Api, Notif } from '../lib/types'
 import { dateCourte, decalerJour, heure, jourBxl } from '../lib/temps'
+import NotifAppareil from '../components/NotifAppareil'
 
 export type Destination = 'pointer' | 'conges' | 'conges-valider' | 'rh' | 'equipe'
 type Famille = 'pointage' | 'conges' | 'equipe'
@@ -32,8 +33,8 @@ function groupeDe(iso: string): string {
   return 'Plus ancien'
 }
 
-export default function Alertes({ notifs, onVu, onAller, aFaire }: {
-  notifs: Notif[]; onVu: () => void; onAller: (d: Destination) => void
+export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
+  api: Api; notifs: Notif[]; onVu: () => void; onAller: (d: Destination) => void
   aFaire: { anomalies: number; aValider: number }
 }) {
   const [famille, setFamille] = useState<Famille | null>(null)
@@ -114,6 +115,7 @@ export default function Alertes({ notifs, onVu, onAller, aFaire }: {
           </ul>
           {aFaire.anomalies === 0 && aFaire.aValider === 0 && <p className="doux petit" style={{ margin: 0 }}>Tout est à jour 👍</p>}
         </section>
+        <NotifAppareil api={api} />
         <section className="carte">
           <h2>Comment ça marche</h2>
           <p className="doux petit" style={{ margin: 0 }}>

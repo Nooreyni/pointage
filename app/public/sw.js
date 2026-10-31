@@ -1,6 +1,8 @@
 // CFB Pointage — service worker (app installable + écran disponible hors ligne)
-const CACHE = 'cfb-pointage-v1'
-const COQUILLE = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png']
+const CACHE = 'cfb-pointage-v2'
+// Chemins relatifs à l'emplacement de l'appli (racine d'un domaine ou sous-dossier d'un serveur interne)
+const COQUILLE = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png']
+const ACCUEIL = new URL('./index.html', self.registration.scope).href
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(COQUILLE)).then(() => self.skipWaiting()))
@@ -23,8 +25,8 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)
-        .then((rep) => { caches.open(CACHE).then((c) => c.put('/index.html', rep.clone())); return rep })
-        .catch(() => caches.match('/index.html')),
+        .then((rep) => { caches.open(CACHE).then((c) => c.put(ACCUEIL, rep.clone())); return rep })
+        .catch(() => caches.match(ACCUEIL)),
     )
     return
   }
@@ -37,15 +39,27 @@ self.addEventListener('fetch', (e) => {
   )
 })
 
-// Notifications push (envoyées par le moteur de rappels)
+// Notifications push (envoyées par le service d'envoi ; message chiffré de bout en bout)
 self.addEventListener('push', (e) => {
-  const d = e.data ? e.data.json() : {}
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch { d = { corps: e.data ? e.data.text() : '' } }
+  const icone = new URL('icons/icon-192.png', self.registration.scope).href
   e.waitUntil(self.registration.showNotification(d.titre || 'CFB Pointage', {
-    body: d.corps || '', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', data: { lien: d.lien || '/' },
+    body: d.corps || '', icon: icone, badge: icone, tag: d.tag, renotify: Boolean(d.tag),
+    data: { lien: new URL(d.lien || './?onglet=alertes', self.registration.scope).href },
   }))
 })
 
+// Clic : réutilise une fenêtre de l'appli déjà ouverte, sinon en ouvre une
 self.addEventListener('notificationclick', (e) => {
   e.notification.close()
-  e.waitUntil(self.clients.openWindow(e.notification.data.lien || '/'))
+  const cible = (e.notification.data && e.notification.data.lien) || self.registration.scope
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((fenetres) => {
+    const ouverte = fenetres.find((f) => f.url.startsWith(self.registration.scope))
+    if (ouverte) return ouverte.navigate(cible).then((f) => (f || ouverte).focus()).catch(() => ouverte.focus())
+    return self.clients.openWindow(cible)
+  }))
 })
+
+// Abonnement renouvelé par le navigateur : l'appli le réenregistrera à la prochaine ouverture
+self.addEventListener('pushsubscriptionchange', () => {})

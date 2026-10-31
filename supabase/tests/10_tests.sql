@@ -20,10 +20,10 @@ create function test.connecte(prenom text) returns void language sql as $$
 create function test.pid(prenom text) returns uuid language sql as $$ select id from pointage.personnes where prenom = $1 $$;
 create function test.notifs(prenom text, type text) returns bigint language sql as $$
   select count(*) from pointage.notifications where personne_id = test.pid($1) and type = $2 $$;
-grant usage on schema test to authenticated, anon;
-grant all on all tables in schema test to authenticated, anon;
-grant all on all sequences in schema test to authenticated, anon;
-grant execute on all functions in schema test to authenticated, anon;
+grant usage on schema test to authenticated, anon, service_role;
+grant all on all tables in schema test to authenticated, anon, service_role;
+grant all on all sequences in schema test to authenticated, anon, service_role;
+grant execute on all functions in schema test to authenticated, anon, service_role;
 
 -- Comptes Microsoft Entra : e-mail vérifié par le fournisseur
 insert into auth.users (email, email_confirmed_at, raw_app_meta_data)
@@ -572,6 +572,66 @@ select test.connecte('Sofia'); set role authenticated;
 select test.ok((select regime is not null from public.mon_profil), 'Serveur à UTC−11 : profil et régime du jour corrects');
 reset role;
 set timezone = 'Europe/Brussels';
+
+
+-- ===================== Envoi des notifications (R9) =====================
+select test.ok((select count(*) > 0 from pointage.notifications where envoi_termine_le is null), 'Nouvelles notifications en file d''envoi');
+update pointage.notifications set envoi_termine_le = now() where envoi_termine_le is null;   -- on repart d'une file vide
+select test.ok(not pointage.reveiller_envoi(), 'Service non configuré : aucun appel, aucune erreur');
+select test.connecte('Sofia'); set role authenticated;
+select public.enregistrer_push('https://push.exemple.test/abc', 'cle-p256dh', 'cle-auth');
+select public.enregistrer_push('https://push.exemple.test/ancien', 'cle-p256dh', 'cle-auth');
+select test.ok(public.mes_appareils() = 2, 'Deux appareils enregistrés');
+select test.ok((public.config_publique() ? 'vapid_public') and not (public.config_publique() ? 'envoi_secret'), 'Config publique : jamais le secret');
+select test.erreur('select public.notifications_a_envoyer()', 'Employé : pas d''accès à la file d''envoi', 'permission denied');
+select test.erreur($$select public.config_envoi('x')$$, 'Employé : pas d''accès à la configuration privée', 'permission denied');
+reset role;
+select pointage.configurer('envoi_secret', 'secret-test'); select pointage.configurer('vapid_prive', 'cle-privee');
+set role service_role;
+select test.erreur($$select public.config_envoi('mauvais')$$, 'Service : mauvais secret refusé', 'invalide');
+select test.ok((public.config_envoi('secret-test')->>'vapid_prive') = 'cle-privee' and not (public.config_envoi('secret-test') ? 'envoi_secret'),
+               'Service : configuration privée remise contre le bon secret (jamais le secret lui-même)');
+reset role;
+select pointage.notifier(test.pid('Sofia'), 'test_envoi', 'envoi:1', 'Test d''envoi', 'Corps');
+set role service_role;
+select public.notifications_a_envoyer() as lot \gset
+select test.ok((select (:'lot'::jsonb->>'push')::boolean and jsonb_array_length(:'lot'::jsonb->'notifications') = 1
+                  and jsonb_array_length(:'lot'::jsonb->'notifications'->0->'abonnements') = 2), 'Lot : 1 notification, 2 appareils');
+select test.ok(jsonb_array_length(public.notifications_a_envoyer()->'notifications') = 0, 'Réservée : pas d''envoi en double');
+reset role;
+select (select id from pointage.notifications where cle = 'envoi:1') as n1,
+       (select id from pointage.push_abonnements where endpoint like '%ancien') as ab_ancien,
+       (select id from pointage.push_abonnements where endpoint like '%abc') as ab_ok \gset
+set role service_role;
+select public.resultats_envoi(jsonb_build_array(jsonb_build_object('id', :n1, 'push_ok', true,
+  'expires', jsonb_build_array(:'ab_ancien'), 'reussis', jsonb_build_array(:'ab_ok'))));
+reset role;
+select test.ok((select push_envoye_le is not null and envoi_termine_le is not null from pointage.notifications where cle = 'envoi:1'), 'Push livré : terminé');
+select test.ok((select count(*) = 1 from pointage.push_abonnements where personne_id = test.pid('Sofia')), 'Appareil expiré (410) supprimé');
+-- Échec réseau : repris au passage suivant, abandon après 5 essais
+select pointage.notifier(test.pid('Sofia'), 'test_envoi', 'envoi:2', 'Deuxième', null);
+select id as n2 from pointage.notifications where cle = 'envoi:2' \gset
+set role service_role;
+select public.notifications_a_envoyer();
+select public.resultats_envoi(jsonb_build_array(jsonb_build_object('id', :n2, 'push_ok', false, 'erreur', 'réseau')));
+select test.ok(jsonb_array_length(public.notifications_a_envoyer()->'notifications') = 1, 'Échec : reprise au passage suivant');
+reset role;
+update pointage.notifications set envoi_tentatives = 5, envoi_reserve_jusqua = null where cle = 'envoi:2';
+set role service_role;
+select public.resultats_envoi(jsonb_build_array(jsonb_build_object('id', :n2, 'push_ok', false)));
+reset role;
+select test.ok((select envoi_termine_le is not null and push_envoye_le is null from pointage.notifications where cle = 'envoi:2'), 'Abandon après 5 essais');
+-- Trop ancienne : jamais envoyée
+select pointage.notifier(test.pid('Sofia'), 'test_envoi', 'envoi:3', 'Vieille', null);
+update pointage.notifications set cree_le = now() - interval '2 days' where cle = 'envoi:3';
+set role service_role; select public.notifications_a_envoyer(); reset role;
+select test.ok((select envoi_erreur = 'expirée sans envoi' from pointage.notifications where cle = 'envoi:3'), 'Notification de plus de 24 h : abandonnée');
+select test.connecte('Yanis'); set role authenticated;
+select public.retirer_push('https://push.exemple.test/abc');
+reset role;
+select test.ok((select count(*) = 1 from pointage.push_abonnements where personne_id = test.pid('Sofia')), 'On ne peut pas retirer l''appareil d''un autre');
+select test.connecte('Sofia'); set role authenticated; select public.retirer_push('https://push.exemple.test/abc'); reset role;
+select test.ok((select count(*) = 0 from pointage.push_abonnements where personne_id = test.pid('Sofia')), 'Désabonnement de son appareil');
 
 -- ===================== Bilan =====================
 \o

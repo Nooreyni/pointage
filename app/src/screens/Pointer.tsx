@@ -5,6 +5,7 @@ import { enAttente, estErreurReseau, mettreEnAttente, synchroniser, versPointage
 import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhmm, isoBxl, jourBxl, minutesDepuisMinuit } from '../lib/temps'
 import { IcEntree, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
+import NotifAppareil from '../components/NotifAppareil'
 
 // Valeurs de secours tant que les paramètres serveur ne sont pas chargés
 const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut: 510, heure_sortie_defaut: 1020 }
@@ -149,6 +150,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe }: {
   return (
     <main className="contenu">
       <div className="col-principale pile">
+        <NotifAppareil api={api} compact />
         <section className="carte pointeuse" aria-live="polite">
           <div className="date">Bonjour {profil.prenom} · {dateLongue(jour)}</div>
           <div className="horloge">{heure(maintenant)}</div>

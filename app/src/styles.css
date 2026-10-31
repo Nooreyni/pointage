@@ -515,3 +515,8 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
   .bascule { flex-basis: 100%; }
   .nom-service .pilule { font-size: 11.5px; }
 }
+
+/* ---------- Bandeau « activer les rappels » ---------- */
+.bandeau-push { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; box-shadow: inset 4px 0 0 var(--bleu), var(--ombre); }
+.pictogramme-push { font-size: 20px; flex: none; }
+.bandeau-push .texte-ligne { flex: 1 1 180px; }

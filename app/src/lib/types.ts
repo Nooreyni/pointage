@@ -304,6 +304,9 @@ export interface Api {
   presence(): Promise<Presence[]>
   notifications(): Promise<Notif[]>
   marquerLu(): Promise<void>
+  configPublique(): Promise<{ vapid_public?: string | null; appli_url?: string | null }>
+  enregistrerPush(endpoint: string, p256dh: string, auth: string): Promise<void>
+  retirerPush(endpoint: string): Promise<void>
   soldes(): Promise<Solde[]>
   codesAbsence(): Promise<CodeAbsence[]>
   simuler(s: SaisieDemande): Promise<Simulation>

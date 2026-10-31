@@ -303,6 +303,9 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async presence() { return presence },
     async notifications() { return notifs },
     async marquerLu() { notifs.forEach((n) => { n.lu_le ??= new Date().toISOString() }) },
+    async configPublique() { return { vapid_public: null, appli_url: null } },
+    async enregistrerPush() { /* démo : rien n'est enregistré */ },
+    async retirerPush() { /* démo */ },
     async soldes() {
       return [['CONGE_LEGAL', 'Congés annuels', 10, '2026-01-01'], ['EXTRA_LEGAL', 'Congés extra-légaux', 20, '2026-01-01'],
               ['RECUP', 'Récup HS', 40, '2026-10-01']].map(([code, libelle, ordre, periode]) => {

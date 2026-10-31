@@ -87,6 +87,15 @@ export function apiSupabase(): Api {
       return verifier(await sb.from('mes_notifications').select('*').order('cree_le', { ascending: false }).limit(30)) as Notif[]
     },
 
+    async configPublique() {
+      return (verifier(await sb.rpc('config_publique')) ?? {}) as { vapid_public?: string | null; appli_url?: string | null }
+    },
+    async enregistrerPush(endpoint, p256dh, auth) {
+      verifier(await sb.rpc('enregistrer_push', { p_endpoint: endpoint, p_p256dh: p256dh, p_auth: auth }))
+    },
+    async retirerPush(endpoint) {
+      verifier(await sb.rpc('retirer_push', { p_endpoint: endpoint }))
+    },
     async marquerLu() {
       verifier(await sb.rpc('marquer_lu', {}))
     },

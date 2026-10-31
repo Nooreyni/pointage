@@ -3,6 +3,7 @@ import type { Api, Notif, Profil } from '../lib/types'
 import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
+import { desactiverPush } from '../lib/push'
 import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
@@ -30,7 +31,10 @@ export default function Espace({ api, onQuitter, vueDemo }: {
 }) {
   const [profil, setProfil] = useState<Profil | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [onglet, setOnglet] = useState<Onglet>('pointer')
+  const [onglet, setOnglet] = useState<Onglet>(() => {
+    const demande = new URLSearchParams(location.search).get('onglet')
+    return (['pointer', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+  })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
   const [menu, setMenu] = useState(false)
@@ -55,6 +59,11 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     return () => clearInterval(t)
   }, [profil, chargerNotifs])
 
+  useEffect(() => {   // retire ?onglet=… de l'adresse une fois lu
+    const u = new URL(location.href)
+    if (u.searchParams.has('onglet')) { u.searchParams.delete('onglet'); history.replaceState(null, '', u) }
+  }, [])
+
   useEffect(() => {
     const maj = () => setEnLigne(navigator.onLine)
     addEventListener('online', maj); addEventListener('offline', maj)
@@ -72,7 +81,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   if (!profil) return <div className="squelette">Chargement…</div>
 
   const nonLues = notifs.filter((n) => !n.lu_le).length
-  const quitter = () => { definirProprietaire(null); api.deconnexion(); onQuitter() }
+  // Appareil partagé : on coupe les notifications de cette personne avant de partir
+  const quitter = async () => { definirProprietaire(null); await desactiverPush(api).catch(() => {}); api.deconnexion(); onQuitter() }
   async function seDeconnecter() {
     setMenu(false)
     if (enAttente().length && navigator.onLine) await synchroniser(api).catch(() => 0)
@@ -91,6 +101,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     ...(['admin', 'admin_rh'].includes(profil.role) ? [['admin', 'Admin', IcAdmin, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ['alertes', 'Alertes', IcCloche, 0],
   ]
+  // Onglet demandé (lien d'une notification) mais non autorisé pour ce rôle → Pointer
+  const actif: Onglet = onglets.some(([id]) => id === onglet) ? onglet : 'pointer'
 
   return (
     <div className="app">
@@ -129,7 +141,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
 
       <nav className="nav" aria-label="Navigation principale">
         {onglets.map(([id, libelle, Icone, compte]) => (
-          <button key={id} aria-current={onglet === id ? 'page' : undefined} onClick={() => aller(id)}>
+          <button key={id} aria-current={actif === id ? 'page' : undefined} onClick={() => aller(id)}>
             <span className="icone-nav"><Icone />{compte > 0 && <span className="pastille-nav">{compte}</span>}</span>{libelle}
           </button>
         ))}
@@ -148,13 +160,13 @@ export default function Espace({ api, onQuitter, vueDemo }: {
           </div>
         </div>
       )}
-      {onglet === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} />}
-      {onglet === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
-      {onglet === 'rh' && <Rh api={api} />}
-      {onglet === 'rapports' && <Rapports api={api} profil={profil} />}
-      {onglet === 'admin' && <Admin api={api} profil={profil} />}
-      {onglet === 'equipe' && <Equipe api={api} profil={profil} />}
-      {onglet === 'alertes' && <Alertes notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
+      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} />}
+      {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
+      {actif === 'rh' && <Rh api={api} />}
+      {actif === 'rapports' && <Rapports api={api} profil={profil} />}
+      {actif === 'admin' && <Admin api={api} profil={profil} />}
+      {actif === 'equipe' && <Equipe api={api} profil={profil} />}
+      {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
     </div>
   )
 }
