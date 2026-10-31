@@ -181,6 +181,43 @@ export interface EtatCloture {
 
 export interface HeureAValider { personne_id: string; prenom: string; nom: string; jour: string; minutes: number }
 
+export interface StatService {
+  service: string
+  effectif: number
+  prevues: number
+  preste: number
+  absence_conge: number
+  absence_maladie: number
+  absence_autre: number
+  jours_presence: number
+  jours_tt: number
+  anomalies: number
+}
+
+export interface StatsDirection {
+  debut: string
+  fin: string
+  services: StatService[]
+  tendance: { mois: string; taux_absence: number | null; taux_tt: number | null }[]
+  demandes: { en_attente: number; accordees: number; refusees: number; delai_moyen_heures: number | null }
+}
+
+export interface LigneCpas {
+  personne_id: string
+  prenom: string
+  nom: string
+  partenaire: string
+  service: string
+  regime: string | null
+  a_prester: number
+  preste: number
+  absence_justifiee: number
+  absence_maladie: number
+  jours_non_justifies: number
+  jours_incomplets: number
+  ecart: number
+}
+
 export interface Api {
   mode: 'supabase' | 'demo'
   profil(): Promise<Profil>
@@ -216,5 +253,8 @@ export interface Api {
   cloturer(mois: string): Promise<{ reports_boni: number; boni_hors_limites: number }>
   heuresAValider(): Promise<HeureAValider[]>
   deciderHeures(personneId: string, jour: string, accorder: boolean, commentaire?: string): Promise<void>
+  // Rapports
+  statsDirection(mois: string): Promise<StatsDirection>
+  rapportCpas(mois: string): Promise<LigneCpas[]>
   deconnexion(): Promise<void>
 }

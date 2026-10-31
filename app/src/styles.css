@@ -294,3 +294,42 @@ input[type='date'], input[type='time'] { min-height: 48px; }
 .tableau td { padding: 7px 8px; border-bottom: 1px solid var(--bord); white-space: nowrap; }
 .tableau .num { text-align: right; font-variant-numeric: tabular-nums; }
 .fenetre { max-height: 92dvh; overflow-y: auto; }
+
+/* ---------- Rapports ---------- */
+.barre-outils { flex-wrap: wrap; gap: 12px; }
+.segments.compact { flex: 0 1 auto; }
+.segments.compact button { padding: 8px 14px; white-space: nowrap; }
+.choix-mois { border: 1px solid var(--bord); border-radius: 12px; padding: 10px 12px; font: inherit; font-weight: 600; }
+.tuile small { font-size: 13px; }
+.tableau.services td { vertical-align: middle; }
+.barre-cellule { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.barre-trace { flex: 1; height: 8px; background: #E9EDF5; border-radius: 4px; overflow: hidden; }
+.barre-trace > span { display: block; height: 100%; background: var(--bleu); border-radius: 0 4px 4px 0; }
+.graphes { display: grid; gap: 16px; }
+@media (min-width: 900px) { .graphes { grid-template-columns: 1fr 1fr; } }
+.graphe-zone { position: relative; }
+.graphe svg { width: 100%; height: auto; display: block; overflow: visible; }
+.graphe .grille { stroke: #E9EDF5; stroke-width: 1; }
+.graphe .base { stroke: #B7BFD3; stroke-width: 1; }
+.graphe .axe { fill: var(--texte-doux); font-size: 10.5px; font-family: var(--corps); }
+.graphe .valeur { fill: var(--texte); font-size: 11.5px; font-weight: 700; font-family: var(--corps); font-variant-numeric: tabular-nums; }
+.graphe .barre-mark { fill: var(--bleu); transition: opacity .15s; }
+.graphe .barre-mark.estompee { opacity: .45; }
+.graphe g { cursor: pointer; }
+.infobulle {
+  position: absolute; top: 0; transform: translateX(-50%); pointer-events: none;
+  background: var(--texte); color: #fff; border-radius: 10px; padding: 6px 10px; display: grid; text-align: center; font-size: 13px;
+  white-space: nowrap; box-shadow: var(--ombre);
+}
+.infobulle strong { font-variant-numeric: tabular-nums; }
+.infobulle span { text-transform: capitalize; opacity: .8; }
+
+@media print {
+  .entete, .nav, .bandeau-demo, .bandeau-hors-ligne, .barre-outils, .toast, button { display: none !important; }
+  body { background: #fff; }
+  main.contenu { padding: 0; max-width: none; }
+  .carte { box-shadow: none; padding: 0; }
+}
+
+/* Les colonnes de grille ne doivent jamais s'élargir à cause d'un tableau : il défile dans son cadre */
+main.contenu > *, .pile > *, .graphes > * { min-width: 0; }

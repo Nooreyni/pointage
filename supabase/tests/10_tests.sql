@@ -320,6 +320,32 @@ select test.ok((select jsonb_array_length(e->'anomalies') > 0 and not (e->>'mois
                 from public.etat_cloture(current_date) e), 'État du mois en cours : anomalies listées, mois non terminé');
 reset role;
 
+-- ===================== Direction et CPAS =====================
+insert into pointage.pointages (personne_id, horodatage, sens, type_code, source, cree_par) values
+  (test.pid('Jordan'), '2026-10-28 08:30+01', 'entree', 'BUREAU', 'web', test.pid('Jordan')),
+  (test.pid('Jordan'), '2026-10-28 16:30+01', 'sortie', 'BUREAU', 'web', test.pid('Jordan')),
+  (test.pid('Yanis'),  '2026-10-29 08:00+01', 'entree', 'TT', 'web', test.pid('Yanis')),
+  (test.pid('Yanis'),  '2026-10-29 16:00+01', 'sortie', 'TT', 'web', test.pid('Yanis'));
+select test.connecte('Marc'); set role authenticated;
+select test.erreur($$select public.stats_direction('2026-10-01')$$, 'Statistiques : refusées à un chef de service', 'réservée');
+select test.erreur($$select * from public.rapport_cpas('2026-10-01')$$, 'Rapport CPAS : refusé à un chef de service', 'réservée');
+reset role;
+select test.connecte('Claire'); set role authenticated;
+select test.ok((select jsonb_array_length(s->'services') = 5 from public.stats_direction('2026-10-01') s), 'Direction : 5 services agrégés');
+select test.ok((select (x->>'absence_maladie')::int > 0 from public.stats_direction('2026-10-01') s, jsonb_array_elements(s->'services') x
+                where x->>'service' = 'Administration'), 'Maladie comptée dans l''agrégat du service');
+select test.ok((select (x->>'jours_tt')::int >= 1 from public.stats_direction('2026-10-01') s, jsonb_array_elements(s->'services') x
+                where x->>'service' = 'Administration'), 'Télétravail compté');
+select test.ok((select jsonb_array_length(s->'tendance') = 6 from public.stats_direction('2026-10-01') s), 'Tendance sur 6 mois');
+select test.ok((select not (s::text ilike '%Sofia%' or s::text ilike '%Janssens%') from public.stats_direction('2026-10-01') s),
+               'Aucun nom de personne dans les statistiques');
+reset role;
+select test.connecte('Inès'); set role authenticated;
+select test.ok((select count(*) = 1 and min(prenom) = 'Jordan' and min(partenaire) = 'CPAS (fictif)' from public.rapport_cpas('2026-10-01')),
+               'Rapport CPAS : uniquement les ISP');
+select test.ok((select preste >= 450 and jours_non_justifies > 0 from public.rapport_cpas('2026-10-01')), 'Rapport CPAS : heures et jours non justifiés');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

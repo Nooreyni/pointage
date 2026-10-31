@@ -1,7 +1,7 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
-  Profil, SaisieDemande, Sens, Simulation } from './types'
+  LigneCpas, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
 
 const REGIME = [456, 456, 456, 456, 456, 0, 0]
@@ -28,7 +28,7 @@ const PERSONNES: Personne[] = ([
 ] as const).map(([nom, prenom, service, role], i) =>
   ({ id: `p${i}`, nom, prenom, service, role, type: prenom === 'Jordan' ? 'isp' : 'interne' }) as Personne)
 
-export type Persona = 'employe' | 'chef' | 'rh'
+export type Persona = 'employe' | 'chef' | 'rh' | 'direction'
 
 function prevues(jour: string): number {
   if (FERIES.has(jour)) return 0
@@ -71,6 +71,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME }
   const profil: Profil = persona === 'chef'
     ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'Administration', est_chef_service: true }
+    : persona === 'direction'
+    ? { ...base, prenom: 'Claire', nom: 'Lambert', email: 'claire.lambert@cfb.test', role: 'direction', service: 'Direction', est_chef_service: true }
     : persona === 'rh'
     ? { ...base, prenom: 'Nadia', nom: 'Benali', email: 'nadia.benali@cfb.test', role: 'rh', service: 'Ressources humaines', est_chef_service: false }
     : { ...base, prenom: 'Sofia', nom: 'Janssens', email: 'sofia.janssens@cfb.test', role: 'employe', service: 'Administration', est_chef_service: false }
@@ -295,6 +297,39 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async heuresAValider() { return heures },
     async deciderHeures(personneId, jour) { heures = heures.filter((h) => !(h.personne_id === personneId && h.jour === jour)) },
+    async statsDirection(mois): Promise<StatsDirection> {
+      await attendre()
+      // Chiffres fictifs, stables d'un mois à l'autre (graine = mois)
+      const g = Number(mois.slice(5, 7))
+      const ligne = (service: string, effectif: number, abs: number, mal: number, tt: number, anom: number) => {
+        const prevues = effectif * 21 * 456
+        return { service, effectif, prevues, preste: Math.round(prevues * (1 - abs - mal) * 1.01),
+                 absence_conge: Math.round(prevues * abs), absence_maladie: Math.round(prevues * mal), absence_autre: Math.round(prevues * 0.004),
+                 jours_presence: Math.round(effectif * 21 * (1 - abs - mal)), jours_tt: Math.round(effectif * 21 * (1 - abs - mal) * tt), anomalies: anom }
+      }
+      return {
+        debut: mois, fin: mois.slice(0, 8) + '28',
+        services: [ligne('Administration', 16, 0.07 + (g % 3) / 100, 0.03, 0.22, 6), ligne('Direction', 2, 0.05, 0, 0.1, 0),
+                   ligne('IT', 3, 0.06, 0.01, 0.4, 1), ligne('Logistique', 2, 0.08, 0.05, 0, 2), ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0)],
+        tendance: Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(`${mois}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 5 + i)
+          const m = d.getUTCMonth() + 1
+          return { mois: d.toISOString().slice(0, 10), taux_absence: [6.1, 5.4, 7.8, 14.2, 11.6, 8.3, 6.9, 7.2, 6.4, 7.0, 6.6, 9.8][m - 1],
+                   taux_tt: [21, 23, 22, 24, 25, 23, 18, 15, 24, 26, 27, 22][m - 1] }
+        }),
+        demandes: { en_attente: demandes.filter((d) => d.statut === 'en_attente').length, accordees: 23, refusees: 1, delai_moyen_heures: 19.5 },
+      }
+    },
+    async rapportCpas(): Promise<LigneCpas[]> {
+      await attendre()
+      return [['Kabongo', 'Jordan', 'Administration', 9450, 8820, 450, 0, 1, 1], ['Mertens', 'Lina', 'Administration', 9450, 9480, 0, 450, 0, 0],
+              ['Haddad', 'Sami', 'IT', 9450, 8100, 900, 0, 2, 0]]
+        .map(([nom, prenom, service, a, p, j, mal, nj, inc], i) => ({
+          personne_id: `isp${i}`, prenom: prenom as string, nom: nom as string, partenaire: 'CPAS (fictif)', service: service as string,
+          regime: 'Temps plein 37h30', a_prester: a as number - (j as number) - (mal as number), preste: p as number,
+          absence_justifiee: j as number, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
+          ecart: (p as number) - ((a as number) - (j as number) - (mal as number)) }))
+    },
     async deconnexion() { /* rien */ },
   }
 }

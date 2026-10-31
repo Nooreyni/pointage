@@ -15,3 +15,4 @@ export const IcMicrosoft = () => (
   </svg>
 )
 export const IcRh = () => <svg {...base}><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18" /></svg>
+export const IcStats = () => <svg {...base}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>

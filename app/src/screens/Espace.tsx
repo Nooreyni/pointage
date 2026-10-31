@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Api, Notif, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh } from '../components/Icones'
+import { IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes from './Alertes'
 import Conges from './Conges'
 import Rh from './Rh'
+import Rapports from './Rapports'
 
-type Onglet = 'pointer' | 'equipe' | 'conges' | 'rh' | 'alertes'
+type Onglet = 'pointer' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'alertes'
 
 export default function Espace({ api, onQuitter, onChangerVue }: {
   api: Api; onQuitter: () => void; onChangerVue?: () => void
@@ -55,6 +56,8 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
   const onglets: [Onglet, string, () => React.JSX.Element, number][] = [
     ['pointer', 'Pointer', IcHorloge, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
     ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [['rh', 'RH', IcRh, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
+    ...(['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
+      ? [['rapports', 'Rapports', IcStats, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ['alertes', 'Alertes', IcCloche, 0],
   ]
 
@@ -80,7 +83,7 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
       {api.mode === 'demo' && (
         <div className="bandeau-demo">Mode démo — données fictives, rien n’est enregistré
           {onChangerVue && <button className="lien-bandeau" onClick={onChangerVue}>
-            {profil.role === 'rh' ? 'Voir comme employée' : profil.est_chef_service ? 'Voir comme RH' : 'Voir comme chef de service'}</button>}
+            {profil.role === 'direction' ? 'Voir comme employée' : profil.role === 'rh' ? 'Voir comme direction' : profil.est_chef_service ? 'Voir comme RH' : 'Voir comme chef de service'}</button>}
         </div>
       )}
       {!enLigne && <div className="bandeau-hors-ligne">Hors ligne — tes pointages sont gardés sur l’appareil et envoyés dès le retour du réseau</div>}
@@ -96,6 +99,7 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
       {onglet === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} />}
       {onglet === 'conges' && <Conges api={api} profil={profil} />}
       {onglet === 'rh' && <Rh api={api} />}
+      {onglet === 'rapports' && <Rapports api={api} profil={profil} />}
       {onglet === 'equipe' && <main className="contenu"><div className="col-principale pile"><Equipe api={api} /></div></main>}
       {onglet === 'alertes' && <main className="contenu"><div className="col-principale pile">
         <Alertes notifs={notifs} onVu={() => api.marquerLu().then(chargerNotifs)} />

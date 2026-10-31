@@ -1,0 +1,221 @@
+import { useEffect, useMemo, useState } from 'react'
+import type { Api, LigneCpas, Profil, StatService, StatsDirection } from '../lib/types'
+import { messageErreur } from '../lib/supabase'
+import { duree, jourBxl } from '../lib/temps'
+
+const MOIS_LONG = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+const MOIS_COURT = new Intl.DateTimeFormat('fr-BE', { month: 'short', timeZone: 'UTC' })
+const nomMois = (iso: string) => MOIS_LONG.format(new Date(`${iso}T12:00:00Z`))
+const pct = (v: number | null) => (v === null || Number.isNaN(v) ? '—' : `${String(Math.round(v * 10) / 10).replace('.', ',')} %`)
+const ratio = (a: number, b: number) => (b > 0 ? (100 * a) / b : null)
+
+function moisDisponibles(): string[] {
+  const r: string[] = []
+  const d = new Date(`${jourBxl().slice(0, 8)}01T12:00:00Z`)
+  for (let i = 0; i < 12; i++) { r.push(d.toISOString().slice(0, 10)); d.setUTCMonth(d.getUTCMonth() - 1) }
+  return r
+}
+
+export default function Rapports({ api, profil }: { api: Api; profil: Profil }) {
+  const voitStats = ['direction', 'admin', 'rh', 'admin_rh'].includes(profil.role)
+  const voitCpas = ['direction', 'admin', 'rh', 'admin_rh', 'responsable_isp'].includes(profil.role)
+  const [vue, setVue] = useState<'stats' | 'cpas'>(voitStats ? 'stats' : 'cpas')
+  const mois = useMemo(moisDisponibles, [])
+  const [choix, setChoix] = useState(mois[1])   // mois précédent (complet)
+
+  return (
+    <main className="contenu">
+      <div className="col-pleine pile">
+        <div className="ligne entre barre-outils">
+          {voitStats && voitCpas ? (
+            <div className="segments compact" role="radiogroup" aria-label="Rapport">
+              <button type="button" role="radio" aria-checked={vue === 'stats'} onClick={() => setVue('stats')}>Tableau de bord</button>
+              <button type="button" role="radio" aria-checked={vue === 'cpas'} onClick={() => setVue('cpas')}>Rapport CPAS</button>
+            </div>
+          ) : <h2>{voitStats ? 'Tableau de bord' : 'Rapport CPAS'}</h2>}
+          <select id="mois-rapport" className="choix-mois" value={choix} onChange={(e) => setChoix(e.target.value)} aria-label="Mois">
+            {mois.map((m, i) => <option key={m} value={m}>{nomMois(m)}{i === 0 ? ' (en cours)' : ''}</option>)}
+          </select>
+        </div>
+        {vue === 'stats' && voitStats && <TableauDeBord api={api} mois={choix} />}
+        {vue === 'cpas' && voitCpas && <RapportCpas api={api} mois={choix} />}
+      </div>
+    </main>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
+  const [s, setS] = useState<StatsDirection | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+  useEffect(() => { setS(null); setErreur(null); api.statsDirection(mois).then(setS).catch((e) => setErreur(messageErreur(e))) }, [api, mois])
+
+  if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
+  if (!s) return <section className="carte"><p className="vide">Calcul des indicateurs…</p></section>
+
+  const tot = s.services.reduce((t, x) => ({
+    prevues: t.prevues + x.prevues, preste: t.preste + x.preste, conge: t.conge + x.absence_conge, maladie: t.maladie + x.absence_maladie,
+    autre: t.autre + x.absence_autre, presence: t.presence + x.jours_presence, tt: t.tt + x.jours_tt, anomalies: t.anomalies + x.anomalies,
+    effectif: t.effectif + x.effectif,
+  }), { prevues: 0, preste: 0, conge: 0, maladie: 0, autre: 0, presence: 0, tt: 0, anomalies: 0, effectif: 0 })
+  const absTotal = tot.conge + tot.maladie + tot.autre
+  const tauxAbs = (x: StatService) => ratio(x.absence_conge + x.absence_maladie + x.absence_autre, x.prevues)
+  const maxAbs = Math.max(10, ...s.services.map((x) => tauxAbs(x) ?? 0))
+
+  return (
+    <>
+      <div className="tuiles">
+        <div className="tuile"><strong>{pct(ratio(absTotal, tot.prevues))}</strong><span>taux d’absence</span>
+          <small className="doux">dont maladie {pct(ratio(tot.maladie, tot.prevues))}</small></div>
+        <div className="tuile"><strong>{pct(ratio(tot.tt, tot.presence))}</strong><span>des jours prestés en télétravail</span></div>
+        <div className="tuile"><strong>{pct(ratio(tot.preste, tot.prevues - absTotal))}</strong><span>heures prestées / à prester</span>
+          <small className="doux">{duree(tot.preste)} sur {duree(tot.prevues - absTotal)}</small></div>
+        <div className={`tuile ${s.demandes.en_attente > 0 ? 'alerte' : ''}`}><strong>{s.demandes.en_attente}</strong><span>demandes en attente</span>
+          <small className="doux">délai moyen de décision : {s.demandes.delai_moyen_heures === null ? '—' : `${String(s.demandes.delai_moyen_heures).replace('.', ',')} h`}</small></div>
+      </div>
+
+      <section className="carte">
+        <div className="ligne entre"><h2>Par service</h2><span className="doux petit">{nomMois(s.debut)} · {tot.effectif} personnes</span></div>
+        <div className="tableau-defilant">
+          <table className="tableau services">
+            <thead><tr>
+              <th>Service</th><th className="num">Effectif</th><th>Taux d’absence</th><th className="num">dont maladie</th>
+              <th className="num">Télétravail</th><th className="num">Prestées / à prester</th><th className="num">Anomalies</th>
+            </tr></thead>
+            <tbody>{s.services.map((x) => {
+              const t = tauxAbs(x) ?? 0
+              return (
+                <tr key={x.service}>
+                  <td><strong>{x.service}</strong></td>
+                  <td className="num">{x.effectif}</td>
+                  <td><span className="barre-cellule"><span className="barre-trace"><span style={{ width: `${(t / maxAbs) * 100}%` }} /></span>
+                    <span className="num">{pct(t)}</span></span></td>
+                  <td className="num">{pct(ratio(x.absence_maladie, x.prevues))}</td>
+                  <td className="num">{pct(ratio(x.jours_tt, x.jours_presence))}</td>
+                  <td className="num">{pct(ratio(x.preste, x.prevues - x.absence_conge - x.absence_maladie - x.absence_autre))}</td>
+                  <td className="num">{x.anomalies > 0 ? <span className="pilule attente">{x.anomalies} j</span> : '0'}</td>
+                </tr>
+              )
+            })}</tbody>
+          </table>
+        </div>
+        <p className="doux petit" style={{ marginBottom: 0 }}>Chiffres agrégés par service : aucune donnée individuelle n’apparaît ici.</p>
+      </section>
+
+      <div className="graphes">
+        <Barres titre="Taux d’absence" sousTitre="6 derniers mois · congés, maladie et autres absences accordées" donnees={s.tendance.map((t) => [t.mois, t.taux_absence])} />
+        <Barres titre="Télétravail" sousTitre="6 derniers mois · part des jours prestés" donnees={s.tendance.map((t) => [t.mois, t.taux_tt])} />
+      </div>
+    </>
+  )
+}
+
+// Petit graphique en barres, une seule série (pas de légende : le titre la nomme)
+function Barres({ titre, sousTitre, donnees }: { titre: string; sousTitre: string; donnees: [string, number | null][] }) {
+  const [survol, setSurvol] = useState<number | null>(null)
+  const L = 320, H = 150, G = 40, B = 22, haut = 12
+  const max = Math.max(5, ...donnees.map(([, v]) => v ?? 0))
+  const pas = max > 20 ? 10 : 5
+  const plafond = Math.ceil(max / pas) * pas
+  const y = (v: number) => haut + (H - haut - B) * (1 - v / plafond)
+  const largeurBarre = Math.min(30, ((L - G) / donnees.length) * 0.55)
+  const x = (i: number) => G + ((L - G) / donnees.length) * (i + 0.5)
+  const graduations = [0, plafond / 2, plafond]
+  const dernier = donnees.length - 1
+
+  return (
+    <section className="carte graphe">
+      <h2>{titre}</h2>
+      <p className="doux petit" style={{ margin: '-6px 0 8px' }}>{sousTitre}</p>
+      <div className="graphe-zone">
+        <svg viewBox={`0 0 ${L} ${H}`} role="img" aria-label={`${titre} : ${donnees.map(([m, v]) => `${MOIS_COURT.format(new Date(`${m}T12:00:00Z`))} ${pct(v)}`).join(', ')}`}>
+          {graduations.map((g) => (
+            <g key={g}>
+              <line x1={G} x2={L} y1={y(g)} y2={y(g)} className="grille" />
+              <text x={G - 6} y={y(g) + 4} className="axe" textAnchor="end">{pct(g)}</text>
+            </g>
+          ))}
+          {donnees.map(([m, v], i) => {
+            const h = v === null ? 0 : Math.max(0, y(0) - y(v))
+            const x0 = x(i) - largeurBarre / 2, r = Math.min(4, h)
+            return (
+              <g key={m} onMouseEnter={() => setSurvol(i)} onMouseLeave={() => setSurvol(null)} onClick={() => setSurvol(i)}>
+                <rect x={x(i) - ((L - G) / donnees.length) / 2} y={haut} width={(L - G) / donnees.length} height={H - haut - B} fill="transparent" />
+                {h > 0 && <path className={`barre-mark ${survol !== null && survol !== i ? 'estompee' : ''}`}
+                  d={`M${x0},${y(0)} V${y(0) - h + r} Q${x0},${y(0) - h} ${x0 + r},${y(0) - h} H${x0 + largeurBarre - r} Q${x0 + largeurBarre},${y(0) - h} ${x0 + largeurBarre},${y(0) - h + r} V${y(0)} Z`} />}
+                <text x={x(i)} y={H - 6} className="axe" textAnchor="middle">{MOIS_COURT.format(new Date(`${m}T12:00:00Z`)).replace('.', '')}</text>
+                {(i === dernier && survol === null) && v !== null && <text x={x(i)} y={y(v) - 6} className="valeur" textAnchor="middle">{pct(v)}</text>}
+              </g>
+            )
+          })}
+          <line x1={G} x2={L} y1={y(0)} y2={y(0)} className="base" />
+        </svg>
+        {survol !== null && (
+          <div className="infobulle" style={{ left: `${(x(survol) / L) * 100}%` }}>
+            <strong>{pct(donnees[survol][1])}</strong><span>{nomMois(donnees[survol][0])}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+function RapportCpas({ api, mois }: { api: Api; mois: string }) {
+  const [lignes, setLignes] = useState<LigneCpas[] | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+  useEffect(() => { setLignes(null); setErreur(null); api.rapportCpas(mois).then(setLignes).catch((e) => setErreur(messageErreur(e))) }, [api, mois])
+
+  function exporterCsv() {
+    if (!lignes) return
+    const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
+    const entete = ['Nom', 'Prénom', 'Partenaire', 'Service', 'Régime', 'Heures à prester', 'Heures prestées', 'Écart (h)',
+                    'Absences justifiées (h)', 'Maladie (h)', 'Jours non justifiés', 'Jours incomplets']
+    const corps = lignes.map((l) => [l.nom, l.prenom, l.partenaire, l.service, l.regime ?? '', h(l.a_prester), h(l.preste), h(l.ecart),
+                                     h(l.absence_justifiee), h(l.absence_maladie), l.jours_non_justifies, l.jours_incomplets])
+    const csv = [entete, ...corps].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
+    const a = document.createElement('a'); a.href = url; a.download = `rapport-cpas-${mois.slice(0, 7)}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
+  return (
+    <section className="carte">
+      <div className="ligne entre">
+        <div><h2>Heures des ISP — {nomMois(mois)}</h2>
+          <p className="doux petit" style={{ margin: '4px 0 0' }}>Pour le suivi des contrats article 60 avec le CPAS.</p></div>
+        <span className="ligne">
+          <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
+          <button className="bouton petit" disabled={!lignes?.length} onClick={exporterCsv}>Export Excel (CSV)</button>
+        </span>
+      </div>
+      {!lignes && <p className="vide">Calcul…</p>}
+      {lignes?.length === 0 && <p className="vide">Aucune personne ISP sur ce mois.</p>}
+      {lignes && lignes.length > 0 && (
+        <div className="tableau-defilant">
+          <table className="tableau">
+            <thead><tr>
+              <th>ISP</th><th>Service</th><th className="num">À prester</th><th className="num">Prestées</th><th className="num">Écart</th>
+              <th className="num">Absences justifiées</th><th className="num">Maladie</th><th className="num">Jours non justifiés</th><th className="num">Jours incomplets</th>
+            </tr></thead>
+            <tbody>{lignes.map((l) => (
+              <tr key={l.personne_id}>
+                <td><strong>{l.nom} {l.prenom}</strong><div className="doux petit">{l.partenaire}</div></td>
+                <td>{l.service}</td>
+                <td className="num">{duree(l.a_prester)}</td>
+                <td className="num">{duree(l.preste)}</td>
+                <td className={`num ${l.ecart < 0 ? 'negatif' : 'positif'}`}>{duree(l.ecart, true)}</td>
+                <td className="num">{duree(l.absence_justifiee)}</td>
+                <td className="num">{duree(l.absence_maladie)}</td>
+                <td className="num">{l.jours_non_justifies > 0 ? <span className="pilule ko">{l.jours_non_justifies}</span> : '0'}</td>
+                <td className="num">{l.jours_incomplets > 0 ? <span className="pilule attente">{l.jours_incomplets}</span> : '0'}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <p className="doux petit" style={{ marginBottom: 0 }}>À prester = heures du régime moins les absences accordées. Jours non justifiés = aucun pointage et aucune absence encodée.</p>
+    </section>
+  )
+}

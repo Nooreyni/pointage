@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
-  Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, TypePointage } from './types'
+  LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
+  TypePointage } from './types'
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const CLE = import.meta.env.VITE_SUPABASE_KEY as string | undefined
@@ -172,6 +173,14 @@ export function apiSupabase(): Api {
     async deciderHeures(personneId, jour, accorder, commentaire) {
       verifier(await sb.rpc('decider_heures', { p_personne_id: personneId, p_jour: jour, p_accorder: accorder,
                                                 p_commentaire: commentaire ?? null }))
+    },
+
+    async statsDirection(mois) {
+      return verifier(await sb.rpc('stats_direction', { p_mois: mois })) as StatsDirection
+    },
+
+    async rapportCpas(mois) {
+      return verifier(await sb.rpc('rapport_cpas', { p_mois: mois })) as LigneCpas[]
     },
 
     async deconnexion() {
