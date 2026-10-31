@@ -27,6 +27,8 @@ export interface Pointage {
   annule_motif: string | null
   cree_le: string
   enAttente?: boolean // pointage hors ligne pas encore synchronisé
+  differe?: boolean          // envoyé plus tard que l'heure déclarée (synchro hors ligne)
+  differe_min?: number | null
 }
 
 export interface Journee {

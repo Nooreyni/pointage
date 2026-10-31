@@ -42,6 +42,12 @@
 | Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
 | Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
 
+## Conventions techniques
+- **Fuseau** : toute migration qui crée ou recrée une fonction se termine par `select pointage.fixer_fuseau();`
+  (calcul en Europe/Brussels quel que soit le serveur ; un test le vérifie). Dans les vues : `pointage.aujourdhui()`,
+  jamais `current_date`.
+- Parité local / Supabase : comparer l'empreinte des fonctions après chaque déploiement.
+
 ## Stack
 - **Simple à maintenir** : l'IT = 1 personne aujourd'hui, successeur inconnu, gestion à distance possible.
 - Intégrations Microsoft (Outlook, Teams) : optionnelles, pas au MVP.

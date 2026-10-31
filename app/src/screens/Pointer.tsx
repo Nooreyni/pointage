@@ -221,6 +221,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe }: {
                   {p.remarque && <div className="doux petit">{p.remarque}</div>}
                   {p.annule && p.annule_motif && <div className="negatif petit">Annulé : {p.annule_motif}</div>}</span>
                 {p.enAttente ? <span className="badge attente">En attente</span>
+                  : p.differe ? <span className="badge attente" title={`Envoyé ${p.differe_min} min après l’heure déclarée (hors ligne)`}>Différé</span>
                   : p.source === 'correction' ? <span className="badge correction">Corrigé</span>
                   : p.lieu === 'reseau_cfb' ? <span className="badge">Réseau CFB</span>
                   : p.lieu === 'externe' ? <span className="badge externe">Extérieur</span> : null}

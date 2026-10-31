@@ -9,7 +9,7 @@ const FAMILLES: Record<Famille, string> = { pointage: 'Pointages', conges: 'Cong
 
 function familleDe(type: string): Famille {
   if (['demande_a_traiter', 'demande_decidee', 'demande_annulee', 'relance_demande'].includes(type)) return 'conges'
-  if (['fin_mois_equipe', 'correction_pointage'].includes(type)) return 'equipe'
+  if (['fin_mois_equipe', 'correction_pointage', 'pointage_differe'].includes(type)) return 'equipe'
   return 'pointage'
 }
 
@@ -19,7 +19,7 @@ function action(n: Notif): [string, Destination] | null {
     case 'fin_mois': case 'rappel_manuel': case 'pointage_annule': return ['Voir mes pointages', 'pointer']
     case 'demande_a_traiter': case 'relance_demande': return ['Valider', 'conges-valider']
     case 'demande_decidee': case 'demande_annulee': return ['Mes congés', 'conges']
-    case 'fin_mois_equipe': case 'correction_pointage': return ['Voir l’équipe', 'equipe']
+    case 'fin_mois_equipe': case 'correction_pointage': case 'pointage_differe': return ['Voir l’équipe', 'equipe']
     default: return null
   }
 }

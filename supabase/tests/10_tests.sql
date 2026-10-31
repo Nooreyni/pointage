@@ -55,7 +55,7 @@ select test.ok((public.pointer()->>'type_code') = 'TT', 'Hors réseau → télé
 select test.ok((public.pointer(p_client_id => 'c0000000-0000-0000-0000-000000000001', p_horodatage => now() - interval '1 hour')->>'id')
              = (public.pointer(p_client_id => 'c0000000-0000-0000-0000-000000000001', p_horodatage => now() - interval '1 hour')->>'id'),
                'Hors ligne rejoué → pas de doublon');
-select test.erreur($$select public.pointer(p_horodatage => now() - interval '4 days')$$, 'Pointage > 72 h refusé', '72 h');
+select test.erreur($$select public.pointer(p_client_id => gen_random_uuid(), p_horodatage => now() - interval '4 days')$$, 'Pointage > 72 h refusé', '72 h');
 select test.erreur($$select public.pointer(p_source => 'rh')$$, 'Source RH refusée', 'réservée');
 reset role;
 
@@ -527,6 +527,51 @@ select test.connecte('Admin'); set role authenticated;
 select public.enregistrer_personne(:'id_tim', 'Tim', 'Avance', 'tim.nouveau@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint);
 reset role;
 select test.ok((select auth_user_id is null from pointage.personnes where id = :'id_tim'), 'Adresse corrigée : ancien compte délié');
+
+
+-- ===================== Pointages différés (R4) =====================
+select test.notifs('Marc', 'pointage_differe') as alertes_avant \gset
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur($$select public.pointer(p_horodatage => now() - interval '3 hours')$$, 'Heure passée sans synchro hors ligne : refusée', 'Corriger');
+select test.erreur($$select public.pointer(p_client_id => gen_random_uuid(), p_horodatage => now() + interval '1 hour')$$, 'Heure future : refusée', 'futur');
+select public.pointer(p_client_id => 'd0000000-0000-0000-0000-000000000001', p_horodatage => now() - interval '3 hours', p_sens => 'entree');
+select public.pointer(p_client_id => 'd0000000-0000-0000-0000-000000000002', p_horodatage => now() - interval '1 minute', p_sens => 'sortie');
+reset role;
+select test.ok((select p.differe and p.differe_min between 179 and 181 and p.ip is null and p.lieu = 'inconnu'
+                from public.pointages p join pointage.pointages x using (id) where x.client_id = 'd0000000-0000-0000-0000-000000000001'),
+               'Synchro 3 h après : marqué « différé » (180 min), sans IP');
+select test.ok((select not p.differe from public.pointages p join pointage.pointages x using (id) where x.client_id = 'd0000000-0000-0000-0000-000000000002'),
+               'Synchro 1 min après : pas différé');
+select test.ok(test.notifs('Marc', 'pointage_differe') = :alertes_avant + 1, 'N+1 prévenu d''un pointage différé (> 60 min), pas du petit retard');
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select differe from public.pointages where personne_id = test.pid('Sofia') and differe limit 1), 'Le N+1 voit le marqueur « différé »');
+reset role;
+select test.connecte('Admin'); set role authenticated;
+select public.modifier_parametre('differe_max_h', 2, 'test'); select public.modifier_parametre('differe_alerte_n1_min', 0, 'test');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur($$select public.pointer(p_client_id => gen_random_uuid(), p_horodatage => now() - interval '3 hours')$$, 'Délai max réglable (2 h)', '2 h');
+select public.pointer(p_client_id => 'd0000000-0000-0000-0000-000000000003', p_horodatage => now() - interval '90 minutes', p_sens => 'entree');
+reset role;
+select test.ok(test.notifs('Marc', 'pointage_differe') = :alertes_avant + 1, 'Alerte N+1 désactivable (0 = jamais)');
+
+-- ===================== Fuseau horaire (R7) =====================
+select test.ok((select count(*) = 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname in ('pointage', 'public') and p.prokind = 'f' and p.provolatile <> 'i'
+                  and p.proowner = current_user::regrole
+                  and not coalesce('TimeZone=Europe/Brussels' = any (p.proconfig), false)),
+               'Toutes les fonctions calculent en heure belge (pointage.fixer_fuseau)');
+select count(*) as nb_anom_bxl from public.anomalies \gset
+set timezone = 'Pacific/Kiritimati';   -- UTC+14
+select test.ok(pointage.aujourdhui() = (now() at time zone 'Europe/Brussels')::date, 'Serveur à UTC+14 : « aujourd''hui » reste belge');
+select test.ok((select count(*) from public.anomalies) = :nb_anom_bxl, 'Serveur à UTC+14 : mêmes anomalies');
+set timezone = 'Pacific/Pago_Pago';    -- UTC−11
+select test.ok(pointage.aujourdhui() = (now() at time zone 'Europe/Brussels')::date, 'Serveur à UTC−11 : « aujourd''hui » reste belge');
+select test.ok((select count(*) from public.anomalies) = :nb_anom_bxl, 'Serveur à UTC−11 : mêmes anomalies');
+select test.connecte('Sofia'); set role authenticated;
+select test.ok((select regime is not null from public.mon_profil), 'Serveur à UTC−11 : profil et régime du jour corrects');
+reset role;
+set timezone = 'Europe/Brussels';
 
 -- ===================== Bilan =====================
 \o
