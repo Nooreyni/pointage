@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { Acces, AdminPersonne, AdminService, Ferie, Parametre, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -181,6 +182,63 @@ export function apiSupabase(): Api {
 
     async rapportCpas(mois) {
       return verifier(await sb.rpc('rapport_cpas', { p_mois: mois })) as LigneCpas[]
+    },
+
+    async adminPersonnes() {
+      return verifier(await sb.from('admin_personnes').select('*').order('nom')) as AdminPersonne[]
+    },
+    async enregistrerPersonne(p) {
+      return verifier(await sb.rpc('enregistrer_personne', {
+        p_id: p.id, p_prenom: p.prenom, p_nom: p.nom, p_email: p.email, p_service_id: p.service_id, p_role: p.role, p_type: p.type,
+        p_partenaire_isp: p.partenaire_isp, p_matricule: p.matricule, p_date_entree: p.date_entree, p_date_sortie: p.date_sortie,
+        p_regime_id: p.regime_id,
+      })) as string
+    },
+    async changerRegime(personneId, regimeId, debut) {
+      verifier(await sb.rpc('changer_regime', { p_personne_id: personneId, p_regime_id: regimeId, p_debut: debut }))
+    },
+    async adminServices() {
+      return verifier(await sb.from('admin_services').select('*').order('nom')) as AdminService[]
+    },
+    async enregistrerService(s) {
+      return verifier(await sb.rpc('enregistrer_service', {
+        p_id: s.id, p_nom: s.nom, p_parent_id: s.parent_id, p_couleur: s.couleur, p_seuil_absence_pct: s.seuil_absence_pct,
+        p_actif: s.actif, p_chefs: s.chefs,
+      })) as string
+    },
+    async regimes() {
+      return verifier(await sb.from('regimes').select('*').order('libelle')) as Regime[]
+    },
+    async enregistrerRegime(r) {
+      return verifier(await sb.rpc('enregistrer_regime', { p_id: r.id, p_libelle: r.libelle, p_contrat: r.contrat,
+                                                          p_minutes_jour: r.minutes_jour, p_actif: r.actif })) as number
+    },
+    async acces() {
+      return verifier(await sb.from('admin_acces').select('*').order('nom')) as Acces[]
+    },
+    async donnerAcces(personneId, serviceId, peutValider) {
+      verifier(await sb.rpc('donner_acces_service', { p_personne_id: personneId, p_service_id: serviceId, p_peut_valider: peutValider }))
+    },
+    async retirerAcces(personneId, serviceId) {
+      verifier(await sb.rpc('retirer_acces_service', { p_personne_id: personneId, p_service_id: serviceId }))
+    },
+    async parametres() {
+      return verifier(await sb.from('parametres').select('*').order('cle')) as Parametre[]
+    },
+    async modifierParametre(cle, valeur, source) {
+      verifier(await sb.rpc('modifier_parametre', { p_cle: cle, p_valeur: valeur, p_source: source }))
+    },
+    async feries() {
+      return verifier(await sb.from('jours_feries').select('*').gte('jour', `${new Date().getFullYear() - 1}-01-01`).order('jour')) as Ferie[]
+    },
+    async enregistrerFerie(jour, libelle, supprimer) {
+      verifier(await sb.rpc('enregistrer_ferie', { p_jour: jour, p_libelle: libelle, p_supprimer: !!supprimer }))
+    },
+    async reseaux() {
+      return verifier(await sb.rpc('reseaux_cfb')) as Reseau[]
+    },
+    async enregistrerReseau(plage, libelle, supprimer) {
+      verifier(await sb.rpc('enregistrer_reseau', { p_plage: plage, p_libelle: libelle, p_supprimer: !!supprimer }))
     },
 
     async deconnexion() {

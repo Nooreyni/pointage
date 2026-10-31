@@ -333,3 +333,25 @@ input[type='date'], input[type='time'] { min-height: 48px; }
 
 /* Les colonnes de grille ne doivent jamais s'élargir à cause d'un tableau : il défile dans son cadre */
 main.contenu > *, .pile > *, .graphes > * { min-width: 0; }
+
+/* ---------- Administration ---------- */
+.segments.defilant { overflow-x: auto; scrollbar-width: none; }
+.segments.defilant::-webkit-scrollbar { display: none; }
+.segments.defilant button { flex: 0 0 auto; padding: 9px 14px; white-space: nowrap; }
+.segments button[aria-selected='true'] { background: var(--carte); color: var(--bleu-fonce); box-shadow: var(--ombre); }
+.tableau.cliquable tbody tr { cursor: pointer; }
+.tableau.cliquable tbody tr:hover, .tableau.cliquable tbody tr:focus-visible { background: var(--fond); outline: none; }
+.tableau tr.inactif td { opacity: .55; }
+.pastille-service { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.encart { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--bord); }
+h3 { font-family: var(--titre); font-weight: 600; font-size: 16px; margin: 0 0 6px; }
+.liste-cases { display: grid; gap: 6px; max-height: 220px; overflow-y: auto; border: 1px solid var(--bord); border-radius: 12px; padding: 10px 12px; font-weight: 400; }
+.liste-cases input { width: 18px; height: 18px; accent-color: var(--bleu-fonce); }
+.grille-jours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 10px; }
+@media (min-width: 600px) { .grille-jours { grid-template-columns: repeat(7, minmax(0, 1fr)); } .grille-jours input { padding: 10px 4px; font-size: 15px; } }
+.aligne-bas { align-items: end; }
+fieldset.sans-cadre { border: 0; padding: 0; margin: 0; min-width: 0; }
+code { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 14px; }
+/* 7 onglets : libellés plus compacts sur mobile */
+@media (max-width: 899px) { .nav:has(> button:nth-child(7)) button { font-size: 11px; padding: 6px 1px; } }
+@media (max-width: 599px) { .masque-mobile { display: none; } .tableau td, .tableau th { white-space: normal; } }

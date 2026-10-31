@@ -218,6 +218,68 @@ export interface LigneCpas {
   ecart: number
 }
 
+export type Role = Profil['role']
+
+export interface AdminPersonne {
+  id: string
+  prenom: string
+  nom: string
+  email: string
+  matricule: string | null
+  role: Role
+  type: 'interne' | 'isp'
+  partenaire_isp: string | null
+  service_id: string
+  service: string
+  date_entree: string
+  date_sortie: string | null
+  compte_lie: boolean
+  regime_id: number | null
+  regime: string | null
+  regime_depuis: string | null
+}
+
+export interface SaisiePersonne {
+  id: string | null
+  prenom: string
+  nom: string
+  email: string
+  service_id: string
+  role: Role
+  type: 'interne' | 'isp'
+  partenaire_isp: string | null
+  matricule: string | null
+  date_entree: string
+  date_sortie: string | null
+  regime_id: number | null
+}
+
+export interface AdminService {
+  id: string
+  nom: string
+  parent_id: string | null
+  couleur: string | null
+  seuil_absence_pct: number
+  actif: boolean
+  chefs: string[]
+  effectif: number
+}
+
+export interface Regime {
+  id: number
+  libelle: string
+  contrat: 'temps_plein' | 'temps_partiel' | 'isp'
+  minutes_jour: number[]
+  minutes_semaine: number
+  actif: boolean
+  utilisations: number
+}
+
+export interface Acces { personne_id: string; prenom: string; nom: string; service_id: string; service: string; peut_valider: boolean }
+export interface Parametre { cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null }
+export interface Ferie { jour: string; libelle: string; recuperable: boolean }
+export interface Reseau { plage: string; libelle: string }
+
 export interface Api {
   mode: 'supabase' | 'demo'
   profil(): Promise<Profil>
@@ -256,5 +318,22 @@ export interface Api {
   // Rapports
   statsDirection(mois: string): Promise<StatsDirection>
   rapportCpas(mois: string): Promise<LigneCpas[]>
+  // Administration
+  adminPersonnes(): Promise<AdminPersonne[]>
+  enregistrerPersonne(p: SaisiePersonne): Promise<string>
+  changerRegime(personneId: string, regimeId: number, debut: string): Promise<void>
+  adminServices(): Promise<AdminService[]>
+  enregistrerService(s: Omit<AdminService, 'effectif' | 'id'> & { id: string | null }): Promise<string>
+  regimes(): Promise<Regime[]>
+  enregistrerRegime(r: { id: number | null; libelle: string; contrat: Regime['contrat']; minutes_jour: number[]; actif: boolean }): Promise<number>
+  acces(): Promise<Acces[]>
+  donnerAcces(personneId: string, serviceId: string, peutValider: boolean): Promise<void>
+  retirerAcces(personneId: string, serviceId: string): Promise<void>
+  parametres(): Promise<Parametre[]>
+  modifierParametre(cle: string, valeur: number, source: string): Promise<void>
+  feries(): Promise<Ferie[]>
+  enregistrerFerie(jour: string, libelle: string, supprimer?: boolean): Promise<void>
+  reseaux(): Promise<Reseau[]>
+  enregistrerReseau(plage: string, libelle: string, supprimer?: boolean): Promise<void>
   deconnexion(): Promise<void>
 }

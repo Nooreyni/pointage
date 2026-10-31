@@ -358,6 +358,44 @@ select test.ok((select count(*) = 1 from public.rapport_cpas('2026-10-01')), 'Ad
 select test.ok((select (e->>'mois_termine')::boolean from public.etat_cloture('2026-09-01') e), 'Admin : état de clôture');
 reset role;
 
+-- ===================== Administration =====================
+select test.connecte('Sofia'); set role authenticated;
+select test.ok((select count(*) = 0 from public.admin_personnes), 'Employé : liste d''administration vide');
+select test.erreur($$select public.enregistrer_personne(null, 'X', 'Y', 'x.y@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint)$$,
+                   'Employé : création de personne refusée', 'réservée');
+reset role;
+select test.connecte('Inès'); set role authenticated;
+select test.ok((select count(*) = 14 from public.admin_personnes where regime is not null), 'Admin RH : toutes les personnes avec leur régime');
+select test.ok((select public.enregistrer_personne(null, 'Lina', 'Mertens', 'Lina.Mertens@cfb.test', 'a0000000-0000-0000-0000-000000000002',
+                p_type => 'isp', p_partenaire_isp => 'CPAS (fictif)', p_date_entree => '2026-11-02', p_regime_id => 2::smallint) is not null),
+               'Admin RH : crée une ISP (e-mail mis en minuscules)');
+select test.ok((select email = 'lina.mertens@cfb.test' and regime = 'Temps plein 37h30' from public.admin_personnes where nom = 'Mertens')
+               or (select count(*) = 1 from pointage.personnes where email = 'lina.mertens@cfb.test'), 'Nouvelle personne + régime à l''entrée');
+select test.erreur($$select public.enregistrer_personne(null, 'Bob', 'Admin', 'bob@cfb.test', 'a0000000-0000-0000-0000-000000000003', p_role => 'admin', p_regime_id => 1::smallint)$$,
+                   'Admin RH ne nomme pas d''admin général', 'Seul un admin');
+select test.erreur($$select public.enregistrer_reseau('10.0.0.0/8', 'x')$$, 'Admin RH : réseau réservé à l''admin', 'réservée');
+select test.erreur($$select public.enregistrer_regime(1::smallint, 'Temps plein 38h', 'temps_plein', '{480,480,480,480,480,0,0}')$$,
+                   'Régime utilisé : horaires non modifiables', 'déjà utilisé');
+select test.ok((select public.enregistrer_regime(null, 'Mi-temps 19h', 'temps_partiel', '{456,456,228,0,0,0,0}') > 0), 'Nouveau régime créé');
+select public.changer_regime(test.pid('Yanis'), (select id from pointage.regimes where libelle = 'Mi-temps 19h'), '2027-01-01');
+select test.erreur($$select public.changer_regime(test.pid('Yanis'), 1::smallint, '2026-09-15')$$, 'Régime sur un mois clôturé refusé', 'clôturé');
+select public.enregistrer_service(null, 'SIPP', 'a0000000-0000-0000-0000-000000000001', null, 50::smallint);
+select test.ok((select count(*) > 0 from pointage.journal_audit where table_nom = 'services'), 'Création de service tracée');
+reset role;
+select test.ok((select minutes_semaine = 1140 from pointage.regime_du(test.pid('Yanis'), '2027-01-04')), 'Changement de régime daté');
+select test.ok((select array_agg(v) = array[test.pid('Claire')] from pointage.valideurs_n1(
+                  (select id from pointage.personnes where nom = 'Renard'), current_date) v), 'Service sans chef → direction');
+select test.connecte('Admin'); set role authenticated;
+select test.erreur(format('select public.enregistrer_personne(%L, ''Admin'', ''IT'', ''admin.it@cfb.test'', ''a0000000-0000-0000-0000-000000000003'', p_role => ''employe'')',
+                          'b0000000-0000-0000-0000-000000000099'), 'Dernier admin non rétrogradable', 'dernier admin');
+select public.enregistrer_reseau('198.51.100.0/24', 'Antenne (fictif)');
+select test.ok((select count(*) = 2 from public.reseaux_cfb()), 'Admin : plages réseau');
+select test.erreur($$select public.enregistrer_reseau('pas-une-ip', 'x')$$, 'Plage IP invalide refusée', 'invalide');
+select public.enregistrer_service('a0000000-0000-0000-0000-000000000005', 'Logistique', 'a0000000-0000-0000-0000-000000000001', '#7A869A', 50::smallint,
+                                  true, array[test.pid('Paul')]);
+select test.ok((select chefs = array[test.pid('Paul')] from public.admin_services where nom = 'Logistique'), 'Chef de service nommé');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

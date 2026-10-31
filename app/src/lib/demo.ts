@@ -1,5 +1,6 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
+import type { Acces, AdminPersonne, AdminService, Ferie, Parametre, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
   LigneCpas, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
@@ -117,6 +118,42 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   ]
   let heures: HeureAValider[] = [{ personne_id: 'p7', prenom: 'Emma', nom: 'Claes', jour: j2, minutes: 60 }]
   const clotures = new Set<string>(['2026-08-01'])
+  // Administration (démo)
+  const sid = (nom: string) => `s-${nom}`
+  let services: AdminService[] = (['Direction', 'Administration', 'IT', 'Ressources humaines', 'Logistique'] as const).map((nom, i) => ({
+    id: sid(nom), nom, parent_id: i === 0 ? null : sid('Direction'), couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A'][i],
+    seuil_absence_pct: nom === 'Administration' ? 40 : 50, actif: true,
+    chefs: nom === 'Direction' ? ['p0'] : nom === 'Administration' ? ['p1'] : nom === 'IT' ? ['p6'] : [], effectif: 0 }))
+  let regimes: Regime[] = [
+    [1, 'Temps plein 38h', 'temps_plein', [456, 456, 456, 456, 456, 0, 0]], [2, 'Temps plein 37h30', 'temps_plein', [450, 450, 450, 450, 450, 0, 0]],
+    [3, 'Temps partiel 36h (8h × 4 + 4h mer.)', 'temps_partiel', [480, 480, 240, 480, 480, 0, 0]],
+    [4, 'Temps partiel 35h (8/5h30/8/8/5h30)', 'temps_partiel', [480, 330, 480, 480, 330, 0, 0]],
+  ].map(([id, libelle, contrat, minutes_jour]) => ({ id, libelle, contrat, minutes_jour, actif: true, utilisations: 0,
+    minutes_semaine: (minutes_jour as number[]).reduce((a, b) => a + b, 0) }) as Regime)
+  let adminP: AdminPersonne[] = [...PERSONNES, { id: 'p99', prenom: 'Admin', nom: 'IT', service: 'IT', type: 'interne', role: 'admin' } as Personne]
+    .map((p) => {
+      const rid = p.prenom === 'Yanis' ? 3 : ['Awa', 'Jordan'].includes(p.prenom) ? 2 : p.prenom === 'Léa' ? 4 : 1
+      return { ...p, email: `${p.prenom.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}.${p.nom.toLowerCase()}@cfb.test`,
+               matricule: p.type === 'isp' ? null : `P${p.id.slice(1).padStart(4, '0')}`, partenaire_isp: p.type === 'isp' ? 'CPAS (fictif)' : null,
+               service_id: sid(p.service), date_entree: p.prenom === 'Jordan' ? '2026-09-01' : '2019-01-01', date_sortie: null,
+               compte_lie: p.prenom !== 'Léa', regime_id: rid, regime: regimes.find((r) => r.id === rid)!.libelle, regime_depuis: '2025-01-01' }
+    })
+  let acces: Acces[] = []
+  let parametres: Parametre[] = ([
+    ['pause_midi_min', 30, 'min', 'Pause de midi déduite automatiquement'], ['pause_seuil_min', 360, 'min', 'Pause déduite si la journée pointée dépasse'],
+    ['max_jour_min', 540, 'min', 'Maximum journalier en horaire flottant'], ['max_semaine_min', 2700, 'min', 'Maximum hebdomadaire en horaire flottant'],
+    ['boni_periode_mois', 3, 'mois', 'Période de référence du boni'], ['boni_report_max_min', 720, 'min', 'Boni reportable max (crédit)'],
+    ['boni_report_min_min', -720, 'min', 'Boni reportable min (débit)'], ['conges_semaines', 4, 'semaines', 'Congés annuels (semaines du régime)'],
+    ['rappel_entree_delai_min', 30, 'min', 'Rappel d’entrée après l’heure habituelle'], ['relance_demande_jours', 3, 'jours', 'Relance d’une demande en attente après'],
+  ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: true, source: 'Valeur légale par défaut' }))
+  let feries: Ferie[] = ['2026-11-01 Toussaint', '2026-11-11 Armistice', '2026-12-25 Noël', '2027-01-01 Nouvel An', '2027-03-29 Lundi de Pâques',
+    '2027-05-01 Fête du Travail', '2027-05-06 Ascension', '2027-05-17 Lundi de Pentecôte', '2027-07-21 Fête nationale', '2027-08-15 Assomption']
+    .map((x) => ({ jour: x.slice(0, 10), libelle: x.slice(11), recuperable: [0, 6].includes(new Date(`${x.slice(0, 10)}T12:00:00Z`).getUTCDay()) }))
+  let reseaux: Reseau[] = [{ plage: '203.0.113.0/24', libelle: 'Siège (fictif)' }]
+  const exigerAdmin = (rh = true) => {
+    if (!(profil.role === 'admin' || (rh && profil.role === 'admin_rh'))) throw new Error('Action réservée à l’admin général')
+  }
+
   const compteurDe = (code: string) => CODES.find((c) => c.code === code)?.compteur_code ?? null
   const solde = (compteur: string, avecAttente: boolean) => (ouverture[compteur] ?? 0) - demandes
     .filter((d) => d.personne_id === 'demo' && compteurDe(d.code_absence) === compteur
@@ -331,6 +368,80 @@ export function apiDemo(persona: Persona = 'employe'): Api {
           regime: 'Temps plein 37h30', a_prester: a as number - (j as number) - (mal as number), preste: p as number,
           absence_justifiee: j as number, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
           ecart: (p as number) - ((a as number) - (j as number) - (mal as number)) }))
+    },
+    async adminPersonnes() {
+      exigerAdmin()
+      return [...adminP].sort((a, b) => a.nom.localeCompare(b.nom))
+    },
+    async enregistrerPersonne(s) {
+      exigerAdmin(); await attendre()
+      if (!s.prenom.trim() || !s.nom.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.email)) throw new Error('Prénom, nom et e-mail valide obligatoires')
+      if (s.role === 'admin' && profil.role !== 'admin') throw new Error('Seul un admin général peut nommer un admin général')
+      const ancien = adminP.find((p) => p.id === s.id)
+      if (ancien?.role === 'admin' && (s.role !== 'admin' || s.date_sortie) && adminP.filter((p) => p.role === 'admin' && !p.date_sortie).length <= 1)
+        throw new Error('Impossible : c’est le dernier admin général. Nomme d’abord un autre admin.')
+      const service = services.find((x) => x.id === s.service_id)!.nom
+      if (ancien) { Object.assign(ancien, { ...s, email: s.email.toLowerCase(), service, id: ancien.id }); return ancien.id }
+      if (!s.regime_id) throw new Error('Choisis un régime de travail')
+      const id = `n${adminP.length}`
+      adminP.push({ ...s, id, email: s.email.toLowerCase(), service, compte_lie: false, regime: regimes.find((r) => r.id === s.regime_id)!.libelle,
+                    regime_depuis: s.date_entree })
+      return id
+    },
+    async changerRegime(personneId, regimeId, debut) {
+      exigerAdmin(); await attendre()
+      const p = adminP.find((x) => x.id === personneId)!
+      if (debut <= aujourdhui) { p.regime_id = regimeId; p.regime = regimes.find((r) => r.id === regimeId)!.libelle; p.regime_depuis = debut }
+    },
+    async adminServices() {
+      return services.map((s) => ({ ...s, effectif: adminP.filter((p) => p.service_id === s.id && !p.date_sortie).length }))
+    },
+    async enregistrerService(s) {
+      exigerAdmin(); await attendre()
+      if (s.id && s.parent_id === s.id) throw new Error('Un service ne peut pas être son propre parent')
+      if (s.id) { services = services.map((x) => (x.id === s.id ? { ...x, ...s, id: x.id } : x)); return s.id }
+      const id = sid(s.nom); services.push({ ...s, id, effectif: 0 }); return id
+    },
+    async regimes() {
+      return regimes.map((r) => ({ ...r, utilisations: adminP.filter((p) => p.regime_id === r.id).length }))
+    },
+    async enregistrerRegime(r) {
+      exigerAdmin(); await attendre()
+      const semaine = r.minutes_jour.reduce((a, b) => a + b, 0)
+      if (r.id) {
+        const ancien = regimes.find((x) => x.id === r.id)!
+        if (adminP.some((p) => p.regime_id === r.id) && ancien.minutes_jour.join() !== r.minutes_jour.join())
+          throw new Error('Ce régime est déjà utilisé : crée un nouveau régime puis change celui des personnes concernées')
+        Object.assign(ancien, r, { id: ancien.id, minutes_semaine: semaine }); return ancien.id
+      }
+      const id = Math.max(...regimes.map((x) => x.id)) + 1
+      regimes.push({ ...r, id, minutes_semaine: semaine, utilisations: 0 }); return id
+    },
+    async acces() { return acces },
+    async donnerAcces(personneId, serviceId, peutValider) {
+      const p = adminP.find((x) => x.id === personneId)!, s = services.find((x) => x.id === serviceId)!
+      acces = [...acces.filter((a) => !(a.personne_id === personneId && a.service_id === serviceId)),
+               { personne_id: personneId, prenom: p.prenom, nom: p.nom, service_id: serviceId, service: s.nom, peut_valider: peutValider }]
+    },
+    async retirerAcces(personneId, serviceId) { acces = acces.filter((a) => !(a.personne_id === personneId && a.service_id === serviceId)) },
+    async parametres() { return parametres },
+    async modifierParametre(cle, valeur, source) {
+      exigerAdmin()
+      if (!source.trim()) throw new Error('Indique la source (ex. règlement de travail art. X)')
+      parametres = parametres.map((p) => (p.cle === cle ? { ...p, valeur, source, provisoire: false } : p))
+    },
+    async feries() { return feries },
+    async enregistrerFerie(jour, libelle, supprimer) {
+      exigerAdmin()
+      feries = supprimer ? feries.filter((f) => f.jour !== jour)
+        : [...feries.filter((f) => f.jour !== jour), { jour, libelle, recuperable: [0, 6].includes(new Date(`${jour}T12:00:00Z`).getUTCDay()) }]
+          .sort((a, b) => a.jour.localeCompare(b.jour))
+    },
+    async reseaux() { exigerAdmin(false); return reseaux },
+    async enregistrerReseau(plage, libelle, supprimer) {
+      exigerAdmin(false)
+      if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(plage)) throw new Error('Plage IP invalide (ex. 203.0.113.0/24)')
+      reseaux = supprimer ? reseaux.filter((r) => r.plage !== plage) : [...reseaux.filter((r) => r.plage !== plage), { plage, libelle }]
     },
     async deconnexion() { /* rien */ },
   }

@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Api, Notif, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
+import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes from './Alertes'
 import Conges from './Conges'
 import Rh from './Rh'
 import Rapports from './Rapports'
+import Admin from './Admin'
 
-type Onglet = 'pointer' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'alertes'
+type Onglet = 'pointer' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
 
 export default function Espace({ api, onQuitter, onChangerVue }: {
   api: Api; onQuitter: () => void; onChangerVue?: () => void
@@ -58,6 +59,7 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
     ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [['rh', 'RH', IcRh, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ...(['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
       ? [['rapports', 'Rapports', IcStats, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
+    ...(['admin', 'admin_rh'].includes(profil.role) ? [['admin', 'Admin', IcAdmin, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ['alertes', 'Alertes', IcCloche, 0],
   ]
 
@@ -100,6 +102,7 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
       {onglet === 'conges' && <Conges api={api} profil={profil} />}
       {onglet === 'rh' && <Rh api={api} />}
       {onglet === 'rapports' && <Rapports api={api} profil={profil} />}
+      {onglet === 'admin' && <Admin api={api} profil={profil} />}
       {onglet === 'equipe' && <main className="contenu"><div className="col-principale pile"><Equipe api={api} /></div></main>}
       {onglet === 'alertes' && <main className="contenu"><div className="col-principale pile">
         <Alertes notifs={notifs} onVu={() => api.marquerLu().then(chargerNotifs)} />
