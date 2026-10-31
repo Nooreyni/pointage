@@ -16,6 +16,7 @@ const Rh = lazy(() => import('./Rh'))
 const Rapports = lazy(() => import('./Rapports'))
 const Admin = lazy(() => import('./Admin'))
 import { useDialogue } from '../components/useDialogue'
+import { useInactivite } from '../components/useInactivite'
 
 type Onglet = 'pointer' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
 
@@ -47,9 +48,12 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [nbAnomalies, setNbAnomalies] = useState(0)
   const [vueConges, setVueConges] = useState<VueConges>('mes')
   const [ficheDe, setFicheDe] = useState<string | null>(null)   // fiche de temps ouverte depuis Équipe
+  const [inactiviteMin, setInactiviteMin] = useState(0)
+  const [deconnecteInactif, setDeconnecteInactif] = useState(false)
 
   useEffect(() => {
     api.profil().then((p) => { definirProprietaire(p.id); setProfil(p) }).catch((e) => setErreur(messageErreur(e)))
+    api.parametres().then((ps) => setInactiviteMin(ps.find((x) => x.cle === 'session_inactivite_min')?.valeur ?? 0)).catch(() => {})
     return () => definirProprietaire(null)
   }, [api])
 
@@ -82,6 +86,11 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     addEventListener('online', maj); addEventListener('offline', maj)
     return () => { removeEventListener('online', maj); removeEventListener('offline', maj) }
   }, [])
+
+  // PC partagé : déconnexion après inactivité (réglage Admin → Paramètres → Sécurité ; 0 = jamais)
+  const [restantInactif, resterConnecte] = useInactivite(api.mode === 'demo' ? 0 : inactiviteMin, () => {
+    setDeconnecteInactif(true); definirProprietaire(null); desactiverPush(api).catch(() => {}).finally(() => { api.deconnexion(); onQuitter() })
+  })
 
   if (erreur) {
     return (
@@ -160,6 +169,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
         ))}
       </nav>
 
+      {restantInactif !== null && !deconnecteInactif && <AvertirInactivite secondes={restantInactif} onRester={resterConnecte} />}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
       {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
@@ -187,6 +197,19 @@ function ConfirmerDeconnexion({ n, onRester, onQuitter }: { n: number; onRester:
           <button className="bouton secondaire" onClick={onRester}>Rester connecté</button>
           <button className="bouton" onClick={onQuitter}>Se déconnecter</button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function AvertirInactivite({ secondes, onRester }: { secondes: number; onRester: () => void }) {
+  const ref = useDialogue<HTMLDivElement>(onRester)
+  return (
+    <div className="voile" role="alertdialog" aria-modal="true" aria-labelledby="titre-inactif" aria-describedby="texte-inactif">
+      <div className="fenetre" ref={ref}>
+        <h2 id="titre-inactif">Toujours là ?</h2>
+        <p id="texte-inactif" className="petit">Sans activité, tu seras déconnecté dans <strong>{secondes} s</strong> (appareil partagé).</p>
+        <div className="actions"><button className="bouton" onClick={onRester}>Rester connecté</button></div>
       </div>
     </div>
   )
