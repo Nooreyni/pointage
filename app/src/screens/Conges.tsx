@@ -31,7 +31,7 @@ export default function Conges({ api, profil }: { api: Api; profil: Profil }) {
     } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
   }, [api])
 
-  useEffect(() => { charger(); api.codesAbsence().then(setCodes).catch(() => {}) }, [api, charger])
+  useEffect(() => { charger(); api.codesAbsence().then((c) => setCodes(c.filter((x) => x.demandable))).catch(() => {}) }, [api, charger])
   useEffect(() => {
     if (!message) return
     const t = setTimeout(() => setMessage(null), message.erreur ? 6000 : 3500)

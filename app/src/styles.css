@@ -260,3 +260,37 @@ main.contenu {
 .lien-bandeau { background: none; border: 0; text-decoration: underline; font-weight: 700; margin-left: 10px; padding: 0; }
 @media (max-width: 899px) { .pc-seulement { display: none; } }
 @media (min-width: 900px) { .mobile-seulement { display: none; } }
+
+/* Champs de saisie : couleurs explicites (sinon texte blanc sur fond blanc quand l'appareil est en thème sombre) */
+input, select, textarea {
+  color: var(--texte); background-color: #fff; color-scheme: light;
+}
+select option { color: var(--texte); background-color: #fff; }
+input::placeholder, textarea::placeholder { color: #8A93AB; opacity: 1; }
+input[type='date'], input[type='time'] { min-height: 48px; }
+
+/* ---------- Espace RH ---------- */
+.tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 900px) { .tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .col-pleine { grid-column: 1 / -1; } }
+@media (min-width: 900px) { .rh .col-laterale { grid-row: 2 / span 3; } }
+.tuile { background: var(--carte); border-radius: var(--rayon); box-shadow: var(--ombre); padding: 14px 16px; display: grid; gap: 2px; }
+.tuile strong { font-family: var(--titre); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tuile strong.texte { font-size: 20px; text-transform: capitalize; }
+.tuile span { color: var(--texte-doux); font-size: 14px; }
+.tuile.alerte { box-shadow: inset 4px 0 0 var(--jaune), var(--ombre); }
+.recherche { border: 1px solid var(--bord); border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 15px; width: 160px; max-width: 45%; }
+.groupe-anomalies { padding: 12px 0; border-top: 1px solid var(--bord); }
+.groupe-anomalies:first-of-type { border-top: 0; }
+.liste.compacte li { padding: 6px 0; gap: 10px; flex-wrap: wrap; }
+.controle { list-style: none; padding: 0; margin: 4px 0 14px; display: grid; gap: 8px; }
+.controle li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; }
+.controle li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
+.controle li.ok span { background: #EAF4D8; color: #4E7A12; }
+.controle li.ko span { background: #FFF4D9; color: #7A5A00; }
+.confirmation { background: #FBE9E8; border-radius: 12px; padding: 12px 14px; }
+.tableau-defilant { overflow-x: auto; margin: 8px 0 12px; }
+.tableau { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.tableau th { text-align: left; font-size: 12.5px; color: var(--texte-doux); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--bord); }
+.tableau td { padding: 7px 8px; border-bottom: 1px solid var(--bord); white-space: nowrap; }
+.tableau .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fenetre { max-height: 92dvh; overflow-y: auto; }

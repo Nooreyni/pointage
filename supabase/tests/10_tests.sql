@@ -186,7 +186,7 @@ reset role;
 
 -- ===================== Motif d'absence =====================
 select test.connecte('Nadia'); set role authenticated;
-select public.encoder_absence_rh(test.pid('Awa'), 'MAL', current_date - 1, current_date + 2);
+select public.encoder_absence_rh(test.pid('Awa'), 'MAL', '2026-10-28', current_date + 2);
 reset role;
 select test.connecte('Yanis'); set role authenticated;
 select test.ok((select statut = 'Absent' from public.presence_jour() where prenom = 'Awa'), 'Collègue : « Absent » seulement');
@@ -307,6 +307,18 @@ select test.erreur($$update pointage.pointages set horodatage = '2026-10-01 09:0
 select test.erreur($$delete from pointage.journal_audit$$, 'Journal d''audit immuable', 'lecture seule');
 select test.erreur($$delete from pointage.pointages$$, 'Pas de suppression de pointage', 'lecture seule');
 select test.erreur($$update pointage.mouvements_compteur set minutes = 0$$, 'Grand livre immuable', 'lecture seule');
+
+-- ===================== Espace RH =====================
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur($$select public.etat_cloture('2026-10-01')$$, 'État de clôture réservé à la RH', 'réservée');
+select test.ok((select count(*) filter (where not demandable) > 0 from public.codes_absence), 'Codes non demandables visibles (filtrés à l''écran)');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select (e->>'deja_cloture')::boolean and (e->>'mois_termine')::boolean from public.etat_cloture('2026-09-01') e),
+               'État : septembre déjà clôturé');
+select test.ok((select jsonb_array_length(e->'anomalies') > 0 and not (e->>'mois_termine')::boolean
+                from public.etat_cloture(current_date) e), 'État du mois en cours : anomalies listées, mois non terminé');
+reset role;
 
 -- ===================== Bilan =====================
 \o

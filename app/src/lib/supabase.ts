@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Api, Anomalie, CodeAbsence, Demande, DemandePointage, Journee, Notif, Pointage, Presence, Profil, SaisieDemande, Sens,
-  Simulation, Solde, TypePointage } from './types'
+import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
+  Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, TypePointage } from './types'
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const CLE = import.meta.env.VITE_SUPABASE_KEY as string | undefined
@@ -120,6 +120,58 @@ export function apiSupabase(): Api {
 
     async annulerDemande(id, motif) {
       verifier(await sb.rpc('annuler_demande', { p_id: id, p_motif: motif ?? null }))
+    },
+
+    async personnes() {
+      return verifier(await sb.from('personnes').select('id, prenom, nom, service, type, role')
+        .is('date_sortie', null).order('nom')) as Personne[]
+    },
+
+    async anomaliesTous() {
+      return verifier(await sb.from('anomalies').select('personne_id, jour, code, libelle').order('jour', { ascending: false })) as AnomalieRH[]
+    },
+
+    async corrigerPour(personneId, horodatage, sens, remarque) {
+      verifier(await sb.rpc('corriger_pointage_rh', { p_personne_id: personneId, p_horodatage: horodatage, p_sens: sens,
+                                                      p_remarque: remarque ?? null }))
+    },
+
+    async encoderAbsence(personneId, s) {
+      verifier(await sb.rpc('encoder_absence_rh', { p_personne_id: personneId, ...paramsDemande(s), p_commentaire: s.commentaire ?? null }))
+    },
+
+    async aConstater() {
+      return verifier(await sb.from('demandes').select('*').eq('statut', 'accordee').is('constate_le', null)
+        .order('date_debut')) as Demande[]
+    },
+
+    async constater(ids) {
+      return verifier(await sb.rpc('constater', { p_ids: ids })) as number
+    },
+
+    async propositionConges(annee) {
+      return verifier(await sb.rpc('proposition_conges', { p_annee: annee })) as PropositionConges[]
+    },
+
+    async attribuerConges(annee) {
+      return verifier(await sb.rpc('attribuer_conges', { p_annee: annee })) as number
+    },
+
+    async etatCloture(mois) {
+      return verifier(await sb.rpc('etat_cloture', { p_mois: mois })) as EtatCloture
+    },
+
+    async cloturer(mois) {
+      return verifier(await sb.rpc('cloturer_mois', { p_mois: mois })) as { reports_boni: number; boni_hors_limites: number }
+    },
+
+    async heuresAValider() {
+      return verifier(await sb.rpc('heures_a_valider')) as HeureAValider[]
+    },
+
+    async deciderHeures(personneId, jour, accorder, commentaire) {
+      verifier(await sb.rpc('decider_heures', { p_personne_id: personneId, p_jour: jour, p_accorder: accorder,
+                                                p_commentaire: commentaire ?? null }))
     },
 
     async deconnexion() {

@@ -100,6 +100,7 @@ export interface CodeAbsence {
   libelle: string
   code_court: string | null
   compteur_code: string | null
+  demandable: boolean
   justificatif_requis: boolean
   ordre: number
 }
@@ -121,6 +122,8 @@ export interface Demande {
   statut: StatutDemande
   decide_le: string | null
   commentaire_decision: string | null
+  constate_le: string | null
+  encode_par_rh: boolean
   cree_le: string
   je_peux_valider: boolean
 }
@@ -146,6 +149,38 @@ export interface Simulation {
   seuil_depasse: boolean
 }
 
+export interface Personne {
+  id: string
+  prenom: string
+  nom: string
+  service: string
+  type: 'interne' | 'isp'
+  role: Profil['role']
+}
+
+export interface AnomalieRH extends Anomalie { personne_id: string }
+
+export interface PropositionConges {
+  personne_id: string
+  prenom: string
+  nom: string
+  regime: string
+  mois_presence: number
+  minutes: number
+}
+
+export interface EtatCloture {
+  mois: string
+  deja_cloture: boolean
+  derniere_cloture: string | null
+  mois_termine: boolean
+  anomalies: { personne_id: string; prenom: string; nom: string; jours: number }[]
+  demandes_en_attente: number
+  conges_a_constater: number
+}
+
+export interface HeureAValider { personne_id: string; prenom: string; nom: string; jour: string; minutes: number }
+
 export interface Api {
   mode: 'supabase' | 'demo'
   profil(): Promise<Profil>
@@ -168,5 +203,18 @@ export interface Api {
   aValider(): Promise<Demande[]>
   decider(ids: string[], accorder: boolean, commentaire?: string): Promise<number>
   annulerDemande(id: string, motif?: string): Promise<void>
+  // Espace RH
+  personnes(): Promise<Personne[]>
+  anomaliesTous(): Promise<AnomalieRH[]>
+  corrigerPour(personneId: string, horodatage: string, sens: Sens, remarque?: string): Promise<void>
+  encoderAbsence(personneId: string, s: SaisieDemande): Promise<void>
+  aConstater(): Promise<Demande[]>
+  constater(ids: string[]): Promise<number>
+  propositionConges(annee: number): Promise<PropositionConges[]>
+  attribuerConges(annee: number): Promise<number>
+  etatCloture(mois: string): Promise<EtatCloture>
+  cloturer(mois: string): Promise<{ reports_boni: number; boni_hors_limites: number }>
+  heuresAValider(): Promise<HeureAValider[]>
+  deciderHeures(personneId: string, jour: string, accorder: boolean, commentaire?: string): Promise<void>
   deconnexion(): Promise<void>
 }

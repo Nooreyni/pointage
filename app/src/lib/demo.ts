@@ -1,19 +1,34 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
-import type { Anomalie, Api, CodeAbsence, Demande, Journee, Notif, Pointage, Presence, Profil, SaisieDemande, Sens, Simulation } from './types'
+import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
+  Profil, SaisieDemande, Sens, Simulation } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
 
 const REGIME = [456, 456, 456, 456, 456, 0, 0]
 const PAUSE = 30, SEUIL_PAUSE = 360, MAX_JOUR = 540
 const FERIES = new Set(['2026-11-01', '2026-11-11', '2026-12-25', '2027-01-01', '2027-03-29', '2027-05-01', '2027-05-06',
                         '2027-05-17', '2027-07-21', '2027-08-15', '2027-11-01', '2027-11-11', '2027-12-25'])
-const CODES: CodeAbsence[] = [
-  ['CP', 'Congés payés', 'VA', 'CONGE_LEGAL'], ['CP_N1', 'Congé année −1', 'V-1', 'CONGE_N1'],
-  ['CEL', 'Jour de congé extra-légal', 'EL', 'EXTRA_LEGAL'], ['ANC', 'Congé ancienneté', 'ANC', 'ANCIENNETE'],
-  ['RECUP', 'Récup', 'RECUP', 'RECUP'], ['RECUP_JC', 'Récupération jour communautaire', 'JC', null],
-].map(([code, libelle, code_court, compteur_code], i) => ({ code, libelle, code_court, compteur_code, justificatif_requis: false, ordre: i }) as CodeAbsence)
+const CODES: CodeAbsence[] = ([
+  ['CP', 'Congés payés', 'VA', 'CONGE_LEGAL', true], ['CP_N1', 'Congé année −1', 'V-1', 'CONGE_N1', true],
+  ['CEL', 'Jour de congé extra-légal', 'EL', 'EXTRA_LEGAL', true], ['ANC', 'Congé ancienneté', 'ANC', 'ANCIENNETE', true],
+  ['RECUP', 'Récup', 'RECUP', 'RECUP', true], ['RECUP_JC', 'Récupération jour communautaire', 'JC', null, true],
+  ['MAL', 'Maladie', 'Mal', null, false], ['MAL_3J', 'Maladie 3 j sans certificat', 'Mal3', null, false],
+  ['AT', 'Accident de travail', 'AT', null, false], ['PETIT_CHOMAGE', 'Petit chômage', 'PC', null, false],
+  ['RAISONS_IMP', 'Congé familial raisons impérieuses', 'FAM', null, false], ['SANS_SOLDE', 'Congé sans solde', 'SS', null, false],
+] as const).map(([code, libelle, code_court, compteur_code, demandable], i) =>
+  ({ code, libelle, code_court, compteur_code, demandable, justificatif_requis: false, ordre: i }) as CodeAbsence)
 
-export type Persona = 'employe' | 'chef'
+const PERSONNES: Personne[] = ([
+  ['Lambert', 'Claire', 'Direction', 'direction'], ['Dupont', 'Marc', 'Administration', 'employe'],
+  ['Janssens', 'Sofia', 'Administration', 'employe'], ['Peeters', 'Yanis', 'Administration', 'employe'],
+  ['Diallo', 'Awa', 'Administration', 'employe'], ['Kabongo', 'Jordan', 'Administration', 'employe'],
+  ['Martin', 'Lucas', 'IT', 'employe'], ['Claes', 'Emma', 'IT', 'employe'], ['Benali', 'Nadia', 'Ressources humaines', 'rh'],
+  ['Wouters', 'Tom', 'Ressources humaines', 'rh'], ['Leroy', 'Inès', 'Ressources humaines', 'admin_rh'],
+  ['Simon', 'Léa', 'Ressources humaines', 'rh'], ['Renard', 'Paul', 'Logistique', 'employe'],
+] as const).map(([nom, prenom, service, role], i) =>
+  ({ id: `p${i}`, nom, prenom, service, role, type: prenom === 'Jordan' ? 'isp' : 'interne' }) as Personne)
+
+export type Persona = 'employe' | 'chef' | 'rh'
 
 function prevues(jour: string): number {
   if (FERIES.has(jour)) return 0
@@ -53,11 +68,12 @@ export function calculerJournee(jour: string, pts: Pointage[]): Journee {
 
 export function apiDemo(persona: Persona = 'employe'): Api {
   const aujourdhui = jourBxl()
+  const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME }
   const profil: Profil = persona === 'chef'
-    ? { id: 'demo', prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', type: 'interne',
-        service: 'Administration', regime: 'Temps plein 38h', minutes_jour: REGIME, est_chef_service: true }
-    : { id: 'demo', prenom: 'Sofia', nom: 'Janssens', email: 'sofia.janssens@cfb.test', role: 'employe', type: 'interne',
-        service: 'Administration', regime: 'Temps plein 38h', minutes_jour: REGIME, est_chef_service: false }
+    ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'Administration', est_chef_service: true }
+    : persona === 'rh'
+    ? { ...base, prenom: 'Nadia', nom: 'Benali', email: 'nadia.benali@cfb.test', role: 'rh', service: 'Ressources humaines', est_chef_service: false }
+    : { ...base, prenom: 'Sofia', nom: 'Janssens', email: 'sofia.janssens@cfb.test', role: 'employe', service: 'Administration', est_chef_service: false }
 
   // Congés : soldes d'ouverture + demandes (les siennes et, pour le chef, celles de l'équipe)
   const ouverture: Record<string, number> = { CONGE_LEGAL: 9120, EXTRA_LEGAL: 912, RECUP: 220 }
@@ -67,6 +83,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     libelle_absence: CODES.find((c) => c.code === s.code_absence)?.libelle ?? s.code_absence,
     date_debut: s.debut, date_fin: s.fin, demi: s.demi, minutes_decomptees: minutesDemande(s), commentaire: s.commentaire ?? null,
     statut, decide_le: statut === 'en_attente' ? null : new Date().toISOString(), commentaire_decision: null,
+    constate_le: null, encode_par_rh: false,
     cree_le: `${cree}T09:00:00Z`, je_peux_valider: personne_id !== 'demo' && statut === 'en_attente',
   })
   const lundi = (n: number) => { let j = decalerJour(aujourdhui, 7 * n); while (new Date(`${j}T12:00:00Z`).getUTCDay() !== 1) j = decalerJour(j, 1); return j }
@@ -77,6 +94,25 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     demande('p2', 'Awa', 'Diallo', { type: 'conge_jours', code_absence: 'RECUP', debut: decalerJour(lundi(2), 1), fin: decalerJour(lundi(2), 1), demi: null, minutes: null }, 'en_attente', decalerJour(aujourdhui, -1)),
     demande('p3', 'Jordan', 'Kabongo', { type: 'conge_heures', code_absence: 'RECUP', debut: decalerJour(lundi(1), 3), fin: decalerJour(lundi(1), 3), demi: null, minutes: 120 }, 'en_attente'),
   ]
+  demandes.push(
+    demande('p6', 'Lucas', 'Martin', { type: 'conge_jours', code_absence: 'CP', debut: lundi(1), fin: decalerJour(lundi(1), 1), demi: null, minutes: null }, 'accordee'),
+    demande('p12', 'Paul', 'Renard', { type: 'conge_demi_jour', code_absence: 'CEL', debut: decalerJour(lundi(1), 4), fin: decalerJour(lundi(1), 4), demi: 'matin', minutes: null }, 'accordee'),
+  )
+  const joursOuvresPasses = (n: number) => {
+    const r: string[] = []
+    for (let j = decalerJour(aujourdhui, -1); r.length < n; j = decalerJour(j, -1)) if (prevues(j) > 0) r.push(j)
+    return r
+  }
+  const [j1, j2, j3, , j5] = joursOuvresPasses(5)
+  let anomaliesRh: AnomalieRH[] = [
+    { personne_id: 'p3', jour: j1, code: 'pointages_incomplets', libelle: 'Pointages incomplets (sortie manquante ?)' },
+    { personne_id: 'p5', jour: j1, code: 'absent', libelle: 'Absent sans justification' },
+    { personne_id: 'p5', jour: j2, code: 'absent', libelle: 'Absent sans justification' },
+    { personne_id: 'p7', jour: j3, code: 'pointages_incomplets', libelle: 'Pointages incomplets (sortie manquante ?)' },
+    { personne_id: 'p12', jour: j5, code: 'absent', libelle: 'Absent sans justification' },
+  ]
+  let heures: HeureAValider[] = [{ personne_id: 'p7', prenom: 'Emma', nom: 'Claes', jour: j2, minutes: 60 }]
+  const clotures = new Set<string>(['2026-08-01'])
   const compteurDe = (code: string) => CODES.find((c) => c.code === code)?.compteur_code ?? null
   const solde = (compteur: string, avecAttente: boolean) => (ouverture[compteur] ?? 0) - demandes
     .filter((d) => d.personne_id === 'demo' && compteurDe(d.code_absence) === compteur
@@ -210,6 +246,55 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       if (!d) throw new Error('Demande introuvable')
       d.statut = 'annulee'
     },
+    async personnes() { return PERSONNES },
+    async anomaliesTous() { return anomaliesRh },
+    async corrigerPour(personneId, horodatage) {
+      await attendre()
+      const jour = jourBxl(new Date(horodatage))
+      anomaliesRh = anomaliesRh.filter((a) => !(a.personne_id === personneId && a.jour === jour))
+    },
+    async encoderAbsence(personneId, s) {
+      await attendre()
+      anomaliesRh = anomaliesRh.filter((a) => !(a.personne_id === personneId && a.jour >= s.debut && a.jour <= s.fin))
+      const p = PERSONNES.find((x) => x.id === personneId)!
+      const d = demande(personneId, p.prenom, p.nom, s, 'accordee')
+      d.encode_par_rh = true; d.constate_le = new Date().toISOString()
+      demandes.push(d)
+    },
+    async aConstater() { return demandes.filter((d) => d.statut === 'accordee' && !d.constate_le && d.personne_id !== 'demo') },
+    async constater(ids) {
+      demandes.filter((d) => ids.includes(d.id)).forEach((d) => { d.constate_le = new Date().toISOString() })
+      return ids.length
+    },
+    async propositionConges(annee) {
+      return PERSONNES.map((p) => {
+        const mois = p.prenom === 'Jordan' ? 4 : 12
+        const semaine = p.prenom === 'Yanis' ? 2160 : p.prenom === 'Léa' ? 2100 : ['Awa', 'Jordan'].includes(p.prenom) ? 2250 : 2280
+        return { personne_id: p.id, prenom: p.prenom, nom: p.nom, mois_presence: mois, minutes: Math.round(4 * semaine * mois / 12),
+                 regime: semaine === 2280 ? 'Temps plein 38h' : semaine === 2250 ? 'Temps plein 37h30' : `Temps partiel ${semaine / 60}h` }
+      }).filter(() => annee > 0)
+    },
+    async attribuerConges() { await attendre(); return PERSONNES.length },
+    async etatCloture(mois): Promise<EtatCloture> {
+      const debut = mois.slice(0, 8) + '01'
+      const parPersonne = new Map<string, number>()
+      anomaliesRh.filter((a) => a.jour.startsWith(debut.slice(0, 7))).forEach((a) => parPersonne.set(a.personne_id, (parPersonne.get(a.personne_id) ?? 0) + 1))
+      return {
+        mois: debut, deja_cloture: clotures.has(debut), derniere_cloture: [...clotures].sort().at(-1) ?? null,
+        mois_termine: debut < aujourdhui.slice(0, 8) + '01',
+        anomalies: [...parPersonne].map(([id, jours]) => { const p = PERSONNES.find((x) => x.id === id)!; return { personne_id: id, prenom: p.prenom, nom: p.nom, jours } }),
+        demandes_en_attente: demandes.filter((d) => d.statut === 'en_attente' && d.date_debut.slice(0, 7) <= debut.slice(0, 7)).length,
+        conges_a_constater: demandes.filter((d) => d.statut === 'accordee' && !d.constate_le && d.personne_id !== 'demo').length,
+      }
+    },
+    async cloturer(mois) {
+      await attendre()
+      if (mois >= aujourdhui.slice(0, 8) + '01') throw new Error('On ne clôture qu’un mois terminé')
+      clotures.add(mois.slice(0, 8) + '01')
+      return { reports_boni: ['03', '06', '09', '12'].includes(mois.slice(5, 7)) ? 11 : 0, boni_hors_limites: 0 }
+    },
+    async heuresAValider() { return heures },
+    async deciderHeures(personneId, jour) { heures = heures.filter((h) => !(h.personne_id === personneId && h.jour === jour)) },
     async deconnexion() { /* rien */ },
   }
 }

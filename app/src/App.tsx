@@ -22,7 +22,7 @@ export default function App() {
 
   if (demo) {
     return <Espace key={persona} api={apiDemo(persona)} onQuitter={() => setDemo(false)}
-                   onChangerVue={() => setPersona((p) => (p === 'chef' ? 'employe' : 'chef'))} />
+                   onChangerVue={() => setPersona((p) => (p === 'employe' ? 'chef' : p === 'chef' ? 'rh' : 'employe'))} />
   }
   if (session === undefined) return <div className="squelette">Chargement…</div>
   if (!session) return <Connexion onDemo={() => setDemo(true)} />
