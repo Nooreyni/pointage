@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import type { Api, Notif, Profil } from '../lib/types'
 import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
@@ -8,11 +8,13 @@ import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcRh, I
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes, { type Destination } from './Alertes'
-import Conges, { type VueConges } from './Conges'
-import Rh from './Rh'
-import Rapports from './Rapports'
-import Admin from './Admin'
-import Heures from './Heures'
+import type { VueConges } from './Conges'
+// Écrans chargés à la demande (l'écran de pointage s'affiche sans les attendre)
+const Conges = lazy(() => import('./Conges'))
+const Heures = lazy(() => import('./Heures'))
+const Rh = lazy(() => import('./Rh'))
+const Rapports = lazy(() => import('./Rapports'))
+const Admin = lazy(() => import('./Admin'))
 import { useDialogue } from '../components/useDialogue'
 
 type Onglet = 'pointer' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
@@ -159,6 +161,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       </nav>
 
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
+      <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
       {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
       {actif === 'rh' && <Rh api={api} />}
@@ -167,6 +170,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'heures' && <Heures api={api} profil={profil} personneInitiale={ficheDe} />}
       {actif === 'equipe' && <Equipe api={api} profil={profil} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
+      </Suspense>
     </div>
   )
 }
