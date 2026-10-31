@@ -22,6 +22,7 @@ export default function Rh({ api }: { api: Api }) {
   const [etat, setEtat] = useState<EtatCloture | null>(null)
   const [action, setAction] = useState<Action>(null)
   const [filtre, setFiltre] = useState('')
+  const [service, setService] = useState<string | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
 
   const erreur = useCallback((e: unknown) => setMessage({ texte: messageErreur(e), erreur: true }), [])
@@ -44,54 +45,38 @@ export default function Rh({ api }: { api: Api }) {
   const toutRecharger = async (texte: string) => { setMessage({ texte }); await charger(); chargerEtat() }
   const parId = useMemo(() => new Map(personnes.map((p) => [p.id, p])), [personnes])
 
-  // Anomalies regroupées par personne
-  const groupes = useMemo(() => {
+  // Anomalies regroupées par service, puis par personne
+  const parService = useMemo(() => {
     const m = new Map<string, AnomalieRH[]>()
     for (const a of anomalies ?? []) m.set(a.personne_id, [...(m.get(a.personne_id) ?? []), a])
-    return [...m].map(([id, liste]) => ({ personne: parId.get(id), liste: liste.sort((a, b) => b.jour.localeCompare(a.jour)) }))
-      .filter((g) => g.personne && `${g.personne.prenom} ${g.personne.nom} ${g.personne.service}`.toLowerCase().includes(filtre.toLowerCase()))
-      .sort((a, b) => b.liste.length - a.liste.length)
+    const q = filtre.trim().toLowerCase()
+    const pers = [...m].map(([id, liste]) => ({ personne: parId.get(id)!, liste: liste.sort((a, b) => b.jour.localeCompare(a.jour)) }))
+      .filter((g) => g.personne && (!q || `${g.personne.prenom} ${g.personne.nom} ${g.personne.service}`.toLowerCase().includes(q)))
+    const s = new Map<string, typeof pers>()
+    for (const g of pers) s.set(g.personne.service, [...(s.get(g.personne.service) ?? []), g])
+    return [...s].map(([nom, gens]) => ({ nom, gens: gens.sort((a, b) => b.liste.length - a.liste.length || a.personne.nom.localeCompare(b.personne.nom)),
+      jours: gens.reduce((t, g) => t + g.liste.length, 0) })).sort((a, b) => b.jours - a.jours || a.nom.localeCompare(b.nom))
   }, [anomalies, parId, filtre])
+  const nbPersonnes = parService.reduce((t, s) => t + s.gens.length, 0)
+  const visibles = parService.filter((s) => !service || s.nom === service)
+
+  async function rappeler(ids: string[]) {
+    try {
+      const n = await api.envoyerRappel(ids, 'Il te reste des pointages à régulariser avant la clôture du mois.')
+      setMessage({ texte: n ? `Rappel envoyé à ${n} personne(s) ✅` : 'Déjà rappelé récemment (anti-spam)' })
+    } catch (e) { erreur(e) }
+  }
 
   return (
     <main className="contenu rh">
       <div className="tuiles col-pleine">
-        <Tuile valeur={groupes.length} libelle="personnes en anomalie" alerte={groupes.length > 0} />
+        <Tuile valeur={nbPersonnes} libelle="personnes en anomalie" alerte={nbPersonnes > 0} />
         <Tuile valeur={aConstater.length} libelle="congés à constater" />
         <Tuile valeur={heures.length} libelle="journées au-delà de 9 h" alerte={heures.length > 0} />
         <Tuile valeur={etat?.derniere_cloture ? nomMois(etat.derniere_cloture) : '—'} libelle="dernière clôture" texte />
       </div>
 
       <div className="col-principale pile">
-        <section className="carte">
-          <div className="ligne entre">
-            <h2>Anomalies à régulariser</h2>
-            <input id="filtre-anomalies" className="recherche" placeholder="Rechercher…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
-          </div>
-          {anomalies === null && <p className="vide">Chargement…</p>}
-          {anomalies !== null && groupes.length === 0 && <p className="vide">Aucune anomalie sur les 2 derniers mois 👍</p>}
-          {groupes.map(({ personne, liste }) => (
-            <div key={personne!.id} className="groupe-anomalies">
-              <div className="ligne entre">
-                <span><strong>{personne!.prenom} {personne!.nom}</strong> <span className="doux petit">· {personne!.service}{personne!.type === 'isp' ? ' · ISP' : ''}</span></span>
-                <span className="pilule attente">{liste.length} j</span>
-              </div>
-              <ul className="liste compacte">
-                {liste.map((a) => (
-                  <li key={a.jour}>
-                    <span style={{ flex: 1 }}>{dateCourte(a.jour)} · <span className="doux">{a.code === 'absent' ? 'aucun pointage' : 'sortie manquante'}</span></span>
-                    <button className="lien petit" onClick={() => setAction({ type: 'pointage', personne, jour: a.jour, incomplet: a.code !== 'absent' })}>
-                      {a.code === 'absent' ? 'Ajouter les heures' : 'Ajouter la sortie'}</button>
-                    {a.code === 'absent' && (
-                      <button className="lien petit" onClick={() => setAction({ type: 'absence', personne, jour: a.jour })}>Encoder une absence</button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </section>
-
         {aConstater.length > 0 && (
           <Constat demandes={aConstater} onConstater={async (ids) => {
             try { const n = await api.constater(ids); await toutRecharger(`${n} congé(s) constaté(s)`) } catch (e) { erreur(e) }
@@ -117,6 +102,61 @@ export default function Rh({ api }: { api: Api }) {
             </ul>
           </section>
         )}
+        <section className="carte">
+          <div className="ligne entre barre-outils">
+            <h2>Pointages à régulariser</h2>
+            <input id="filtre-anomalies" className="recherche" placeholder="Rechercher une personne…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+          </div>
+          {parService.length > 1 && (
+            <div className="filtres" role="group" aria-label="Filtrer par service">
+              <button className="puce" aria-pressed={service === null} onClick={() => setService(null)}>Tous <b>{nbPersonnes}</b></button>
+              {parService.map((s) => (
+                <button key={s.nom} className="puce" aria-pressed={service === s.nom} onClick={() => setService(service === s.nom ? null : s.nom)}>
+                  {s.nom} <b>{s.gens.length}</b></button>
+              ))}
+            </div>
+          )}
+          {anomalies === null && <p className="vide">Chargement…</p>}
+          {anomalies !== null && parService.length === 0 && <p className="vide">Aucune anomalie sur les 2 derniers mois 👍</p>}
+        </section>
+
+        {visibles.map(({ nom, gens, jours }) => (
+          <section key={nom} className="carte">
+            <div className="entete-service">
+              <span className="nom-service">{nom}</span>
+              <span className="doux petit">{gens.length} personne(s) · {jours} jour(s)</span>
+              <button className="bouton secondaire petit" onClick={() => rappeler(gens.map((g) => g.personne.id))}>Rappeler le service</button>
+            </div>
+            {gens.map(({ personne, liste }) => (
+              <div key={personne.id} className="groupe-anomalies">
+                <div className="ligne entre">
+                  <span className="nom-personne"><strong>{personne.prenom} {personne.nom}</strong>
+                    {personne.type === 'isp' && <span className="pilule neutre">ISP</span>}</span>
+                  <span className="ligne">
+                    <span className="pilule attente">{liste.length} j</span>
+                    <button className="lien petit" onClick={() => rappeler([personne.id])}>Rappeler</button>
+                  </span>
+                </div>
+                <ul className="liste compacte">
+                  {liste.map((a) => (
+                    <li key={a.jour + a.code}>
+                      <span className="texte-ligne">{dateCourte(a.jour)} · <span className="doux">{
+                        a.code === 'absent' ? 'aucun pointage' : a.code === 'semaine_max' ? 'maximum hebdomadaire dépassé (semaine)' : 'sortie manquante'}</span></span>
+                      {a.code !== 'semaine_max' && (
+                        <button className="lien petit" onClick={() => setAction({ type: 'pointage', personne, jour: a.jour, incomplet: a.code !== 'absent' })}>
+                          {a.code === 'absent' ? 'Ajouter les heures' : 'Ajouter la sortie'}</button>
+                      )}
+                      {a.code === 'absent' && (
+                        <button className="lien petit" onClick={() => setAction({ type: 'absence', personne, jour: a.jour })}>Encoder une absence</button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </section>
+        ))}
+
       </div>
 
       <div className="col-laterale pile">

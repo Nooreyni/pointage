@@ -6,12 +6,16 @@ import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhm
 import { IcEntree, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
 
-const PAUSE = 30, SEUIL_PAUSE = 360           // provisoires (paramètres serveur)
-const ENTREE_DEFAUT = 510, SORTIE_DEFAUT = 1020
+// Valeurs de secours tant que les paramètres serveur ne sont pas chargés
+const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut: 510, heure_sortie_defaut: 1020 }
 
 interface Message { texte: string; erreur?: boolean }
 
-export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Profil; enLigne: boolean }) {
+export default function Pointer({ api, profil, enLigne, onVoirEquipe }: {
+  api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void
+}) {
+  const [regles, setRegles] = useState(DEFAUTS)
+  const PAUSE = regles.pause_midi_min, SEUIL_PAUSE = regles.pause_seuil_min
   const [maintenant, setMaintenant] = useState(new Date())
   const [jour, setJour] = useState(jourBxl())
   const [pointages, setPointages] = useState<Pointage[]>([])
@@ -46,6 +50,13 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
   }, [api, jour])
 
   useEffect(() => { charger(); api.typesPointage().then(setTypes).catch(() => {}) }, [charger, api])
+  useEffect(() => {
+    api.parametres().then((ps) => setRegles((r) => {
+      const n = { ...r }
+      for (const k of Object.keys(DEFAUTS) as (keyof typeof DEFAUTS)[]) { const v = ps.find((x) => x.cle === k); if (v) n[k] = v.valeur }
+      return n
+    })).catch(() => {})
+  }, [api])
 
   // Retour du réseau → envoi des pointages gardés sur l'appareil
   useEffect(() => {
@@ -80,15 +91,17 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
 
   // Temps presté en direct (la journée en cours compte jusqu'à maintenant)
   const direct = useMemo(() => {
-    let brut = 0
+    let brut = 0, pausePointee = 0
     actifs.forEach((p, i) => {
-      if (p.sens !== 'entree') return
-      const fin = actifs[i + 1]?.sens === 'sortie' ? Date.parse(actifs[i + 1].horodatage) : (i === actifs.length - 1 ? maintenant.getTime() : null)
+      const suiv = actifs[i + 1]
+      if (p.sens === 'sortie') { if (suiv?.sens === 'entree') pausePointee += (Date.parse(suiv.horodatage) - Date.parse(p.horodatage)) / 60000; return }
+      const fin = suiv?.sens === 'sortie' ? Date.parse(suiv.horodatage) : (i === actifs.length - 1 ? maintenant.getTime() : null)
       if (fin) brut += (fin - Date.parse(p.horodatage)) / 60000
     })
-    const preste = Math.max(0, Math.round(brut - (brut > SEUIL_PAUSE ? PAUSE : 0)))
-    return { preste }
-  }, [actifs, maintenant])
+    // Même règle que le serveur : pause déduite au-delà du seuil, moins la pause déjà pointée
+    const pause = brut > SEUIL_PAUSE ? Math.max(0, PAUSE - pausePointee) : 0
+    return { preste: Math.max(0, Math.round(brut - pause)) }
+  }, [actifs, maintenant, PAUSE, SEUIL_PAUSE])
 
   const aPrester = journee?.a_prester ?? 0
   const premiereEntree = actifs.find((p) => p.sens === 'entree')
@@ -128,8 +141,10 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
 
   const ratio = aPrester > 0 ? Math.min(100, (direct.preste / aPrester) * 100) : 0
   const boniJour = actifs.length && aPrester > 0 ? direct.preste - aPrester : null
-  const hEntree = heureHabituelle(historique, 'entree', ENTREE_DEFAUT)
-  const hSortie = heureHabituelle(historique, 'sortie', SORTIE_DEFAUT)
+  const aRegler = anomalies.filter((a) => a.code !== 'semaine_max')
+  const semaines = anomalies.filter((a) => a.code === 'semaine_max')
+  const hEntree = heureHabituelle(historique, 'entree', regles.heure_entree_defaut)
+  const hSortie = heureHabituelle(historique, 'sortie', regles.heure_sortie_defaut)
 
   return (
     <main className="contenu">
@@ -176,7 +191,7 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
           <p className="doux petit" style={{ margin: '10px 0 0' }}>Pause de midi : {PAUSE} min retirées automatiquement</p>
         </section>
 
-        {anomalies.slice(0, 3).map((a) => (
+        {aRegler.slice(0, 3).map((a) => (
           <section key={a.jour} className="carte anomalie">
             <div className="ligne entre">
               <div>
@@ -187,7 +202,13 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
             </div>
           </section>
         ))}
-        {anomalies.length > 3 && <p className="doux petit">+ {anomalies.length - 3} autre(s) jour(s) à régulariser</p>}
+        {semaines.map((a) => (
+          <section key={`s-${a.jour}`} className="carte anomalie info">
+            <strong>Semaine du {dateCourte(a.jour)} : maximum hebdomadaire dépassé</strong>
+            <div className="doux petit">Signalé à ton responsable et à la RH. Rien à corriger de ton côté.</div>
+          </section>
+        ))}
+        {aRegler.length > 3 && <p className="doux petit">+ {aRegler.length - 3} autre(s) jour(s) à régulariser</p>}
 
         <section className="carte">
           <h2>Mes pointages du jour</h2>
@@ -212,7 +233,7 @@ export default function Pointer({ api, profil, enLigne }: { api: Api; profil: Pr
         </section>
       </div>
 
-      <div className="col-laterale pile"><Equipe api={api} compact /></div>
+      <div className="col-laterale pile"><Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} /></div>
 
       {aCorriger && (
         <Correction anomalie={aCorriger} hEntree={hEntree} hSortie={hSortie}

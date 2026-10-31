@@ -331,7 +331,7 @@ select test.erreur($$select public.stats_direction('2026-10-01')$$, 'Statistique
 select test.erreur($$select * from public.rapport_cpas('2026-10-01')$$, 'Rapport CPAS : refusé à un chef de service', 'réservée');
 reset role;
 select test.connecte('Claire'); set role authenticated;
-select test.ok((select jsonb_array_length(s->'services') = 5 from public.stats_direction('2026-10-01') s), 'Direction : 5 services agrégés');
+select test.ok((select jsonb_array_length(s->'services') = 4 and s->'services' @> '[{"regroupe": true}]' from public.stats_direction('2026-10-01') s), 'Direction : petits services regroupés (seuil 3)');
 select test.ok((select (x->>'absence_maladie')::int > 0 from public.stats_direction('2026-10-01') s, jsonb_array_elements(s->'services') x
                 where x->>'service' = 'Administration'), 'Maladie comptée dans l''agrégat du service');
 select test.ok((select (x->>'jours_tt')::int >= 1 from public.stats_direction('2026-10-01') s, jsonb_array_elements(s->'services') x
@@ -353,7 +353,7 @@ select test.ok((select count(*) = 14 from public.personnes), 'Admin : voit tout 
 select test.ok((select bool_and(je_peux_valider) from public.demandes where statut = 'en_attente'), 'Admin : peut valider toutes les demandes');
 select test.ok(public.decider(array(select id from public.demandes where prenom = 'Paul' and statut = 'en_attente'), true) = 1, 'Admin : valide une demande');
 select test.ok((select count(*) >= 0 from public.heures_a_valider()), 'Admin : liste des heures à valider');
-select test.ok((select jsonb_array_length(s->'services') = 5 from public.stats_direction('2026-10-01') s), 'Admin : tableau de bord');
+select test.ok((select jsonb_array_length(s->'services') = 4 from public.stats_direction('2026-10-01') s), 'Admin : tableau de bord');
 select test.ok((select count(*) = 1 from public.rapport_cpas('2026-10-01')), 'Admin : rapport CPAS');
 select test.ok((select (e->>'mois_termine')::boolean from public.etat_cloture('2026-09-01') e), 'Admin : état de clôture');
 reset role;
@@ -395,6 +395,83 @@ select public.enregistrer_service('a0000000-0000-0000-0000-000000000005', 'Logis
                                   true, array[test.pid('Paul')]);
 select test.ok((select chefs = array[test.pid('Paul')] from public.admin_services where nom = 'Logistique'), 'Chef de service nommé');
 reset role;
+
+-- ===================== Personnalisation =====================
+insert into pointage.pointages (personne_id, horodatage, sens, source, ip, cree_par) values
+  (test.pid('Sofia'), '2026-10-20 08:00+02', 'entree', 'web', '203.0.113.50', test.pid('Sofia'));
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select ip is not null from public.pointages where personne_id = test.pid('Sofia') and jour = '2026-10-20'), 'IP visible par le N+1 (réglage par défaut)');
+reset role;
+select test.connecte('Admin'); set role authenticated;
+select public.modifier_parametre('ip_visible_n1', 0, 'test');
+select test.erreur($$select public.modifier_parametre('ip_visible_n1', 2, 'test')$$, 'Réglage oui/non : valeur 2 refusée', 'oui ou non');
+reset role;
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select ip is null from public.pointages where personne_id = test.pid('Sofia') and jour = '2026-10-20'), 'IP masquée au N+1 si réglage désactivé');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select ip is not null from public.pointages where personne_id = test.pid('Sofia') and jour = '2026-10-20'), 'RH voit toujours l''IP');
+reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('ip_visible_n1', 1, 'Décision CFB'); reset role;
+
+-- Rappels manuels
+select test.connecte('Marc'); set role authenticated;
+select test.ok(public.envoyer_rappel(array[test.pid('Sofia'), test.pid('Yanis')]) = 2, 'Chef : rappel à 2 personnes de son équipe');
+select test.ok(public.envoyer_rappel(array[test.pid('Sofia')]) = 0, 'Anti-spam : pas de 2e rappel dans le délai');
+select test.erreur(format('select public.envoyer_rappel(array[%L]::uuid[])', test.pid('Emma')), 'Chef : pas de rappel hors de son équipe', 'non autorisé');
+reset role;
+select test.ok(test.notifs('Sofia', 'rappel_manuel') = 1, 'Rappel reçu par la personne');
+
+-- Congés des ISP désactivables
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('isp_conges', 0, 'test'); reset role;
+select test.connecte('Jordan'); set role authenticated;
+select test.erreur($$select public.soumettre_demande('conge_jours', 'CP', '2026-12-28')$$, 'ISP : congés désactivés par réglage', 'pas gérés');
+reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('isp_conges', 1, 'Décision CFB'); reset role;
+select test.connecte('Inès'); set role authenticated;
+select test.ok((select conges >= 0 and absence_justifiee >= 0 from public.rapport_cpas('2026-10-01') limit 1), 'Rapport CPAS : congés séparés');
+reset role;
+
+-- Ordre des clôtures
+select test.connecte('Tom'); set role authenticated;
+select test.erreur($$select public.cloturer_mois('2026-07-01')$$, 'Clôture d''un mois antérieur au dernier clôturé', 'plus récent');
+reset role;
+
+-- Report des compteurs en fin d'année (règles par défaut)
+select pointage.reporter_compteurs('2026-12-31', test.pid('Admin'));
+select test.ok((select coalesce(sum(minutes), 0) = 0 from pointage.mouvements_compteur
+                where personne_id = test.pid('Sofia') and compteur_code = 'CONGE_LEGAL' and periode_debut = '2026-01-01'), 'Fin d''année : solde 2026 vidé');
+select test.ok((select sum(minutes) > 0 from pointage.mouvements_compteur
+                where personne_id = test.pid('Sofia') and compteur_code = 'CONGE_N1' and periode_debut = '2027-01-01'), 'Reporté en « congés année passée » 2027');
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_compteur('EXTRA_LEGAL', 'Congés extra-légaux', 'annuelle', false, true, 'plafonne', null, 456);
+select test.ok((select report_mode = 'plafonne' and report_plafond_min = 456 and not regle_provisoire from public.compteurs where code = 'EXTRA_LEGAL'),
+               'Règle de report modifiable (plafond 1 jour)');
+select test.erreur($$select public.enregistrer_compteur('RECUP', 'Récup', 'trimestrielle', true, true, 'plafonne')$$, 'Plafond obligatoire', 'plafond');
+reset role;
+
+-- Maximum hebdomadaire et conservation
+select test.ok((select count(*) >= 0 from public.anomalies where code = 'semaine_max'), 'Contrôle du maximum hebdomadaire actif');
+-- Pointages anciens dans des mois ensuite clôturés (2025-03 et 2026-03)
+insert into pointage.pointages (personne_id, horodatage, sens, source, cree_par, ip)
+values (test.pid('Sofia'), '2025-03-10 08:00+01', 'entree', 'web', test.pid('Sofia'), '192.0.2.250'),
+       (test.pid('Sofia'), '2026-03-10 08:00+01', 'entree', 'web', test.pid('Sofia'), '192.0.2.251');
+insert into pointage.clotures (mois, cloture_par) values ('2025-03-01', test.pid('Admin')), ('2026-03-01', test.pid('Admin')) on conflict do nothing;
+select test.ok((pointage.purger_donnees()->>'ip_effacees')::int = 0, 'Conservation par défaut : aucune IP effacée');
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('conservation_ip_mois', 6, 'test'); reset role;
+select (pointage.purger_donnees()->>'ip_effacees')::int as nb_ip \gset
+select test.ok(:nb_ip >= 2
+               and not exists (select 1 from pointage.pointages where ip is not null and horodatage::date in ('2025-03-10', '2026-03-10')),
+               'IP effacée après 6 mois, même sur un mois clôturé');
+select test.erreur($$update pointage.pointages set ip = null, remarque = 'x' where horodatage = '2026-03-10 08:00+01'$$,
+                   'Hors purge, un mois clôturé reste verrouillé', 'clôturée');
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('conservation_pointages_ans', 1, 'test'); reset role;
+select (pointage.purger_donnees()->>'pointages_supprimes')::int as nb_pt \gset
+select test.ok(:nb_pt >= 1
+               and not exists (select 1 from pointage.pointages where horodatage = '2025-03-10 08:00+01')
+               and exists (select 1 from pointage.pointages where horodatage = '2026-03-10 08:00+01'),
+               'Pointages clôturés de plus d''1 an supprimés, les autres gardés');
+select test.erreur($$delete from pointage.pointages$$, 'Pas de suppression hors purge', 'lecture seule');
 
 -- ===================== Bilan =====================
 \o

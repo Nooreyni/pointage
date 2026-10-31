@@ -1,6 +1,6 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
-import type { Acces, AdminPersonne, AdminService, Ferie, Parametre, Regime, Reseau } from './types'
+import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
   LigneCpas, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
@@ -28,6 +28,21 @@ const PERSONNES: Personne[] = ([
   ['Simon', 'Léa', 'Ressources humaines', 'rh'], ['Renard', 'Paul', 'Logistique', 'employe'],
 ] as const).map(([nom, prenom, service, role], i) =>
   ({ id: `p${i}`, nom, prenom, service, role, type: prenom === 'Jordan' ? 'isp' : 'interne' }) as Personne)
+
+// Figurants : ~70 personnes au total, réparties comme dans une vraie structure (noms fictifs, générés)
+const PRENOMS = ['Amine', 'Julie', 'Kevin', 'Sarah', 'Mehdi', 'Laura', 'Thomas', 'Fatima', 'Nicolas', 'Chloé', 'Youssef', 'Manon', 'Antoine',
+  'Aïcha', 'Maxime', 'Camille', 'Ibrahim', 'Elise', 'Hugo', 'Mariam', 'Simon', 'Noor', 'Arthur', 'Zoé', 'Bilal', 'Margaux', 'Jonas', 'Salma']
+const NOMS = ['Mertens', 'Willems', 'El Amrani', 'Goossens', 'Lemaire', 'Nkosi', 'Dubois', 'Maes', 'Bakkali', 'Hermans', 'Lefèvre', 'Jacobs',
+  'Mbaye', 'Vermeulen', 'Collin', 'Aydin', 'Michel', 'Desmet', 'Ouali', 'Pirlot', 'Lambrecht', 'Moreau', 'Ndiaye', 'Smets', 'Gilson', 'Rahmani']
+const REPARTITION: [string, number][] = [['Accueil', 6], ['Service social', 13], ['Médiation familiale', 9], ['Petite enfance', 15],
+  ['Administration', 9], ['IT', 1], ['Logistique', 1], ['SIPP', 1]]
+let rang = 0
+for (const [service, n] of REPARTITION) for (let k = 0; k < n; k++, rang++) {
+  PERSONNES.push({ id: `p${13 + rang}`, prenom: PRENOMS[(rang * 5 + 1) % PRENOMS.length], nom: NOMS[(rang * 11 + 3) % NOMS.length], service,
+                   role: 'employe', type: rang % 17 === 5 ? 'isp' : 'interne' } as Personne)
+}
+const STATUTS_DEMO = ['Présent', 'Présent', 'Télétravail', 'Présent', 'Pas encore pointé', 'Présent', 'En formation', 'Absent', 'Présent',
+  'Télétravail', 'Parti', 'Présent', 'Pas prévu (temps partiel)', 'Présent', 'En mission']
 
 export type Persona = 'admin' | 'employe' | 'chef' | 'rh' | 'direction'
 
@@ -115,13 +130,18 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     { personne_id: 'p5', jour: j2, code: 'absent', libelle: 'Absent sans justification' },
     { personne_id: 'p7', jour: j3, code: 'pointages_incomplets', libelle: 'Pointages incomplets (sortie manquante ?)' },
     { personne_id: 'p12', jour: j5, code: 'absent', libelle: 'Absent sans justification' },
+    ...PERSONNES.slice(13).filter((_, k) => k % 6 === 2).flatMap((p, k) => [j1, j2, j3, j5].slice(0, 1 + (k % 3)).map((jour, n) =>
+      ({ personne_id: p.id, jour, code: (k + n) % 2 ? 'absent' : 'pointages_incomplets',
+         libelle: (k + n) % 2 ? 'Absent sans justification' : 'Pointages incomplets (sortie manquante ?)' }) as AnomalieRH)),
   ]
   let heures: HeureAValider[] = [{ personne_id: 'p7', prenom: 'Emma', nom: 'Claes', jour: j2, minutes: 60 }]
   const clotures = new Set<string>(['2026-08-01'])
   // Administration (démo)
   const sid = (nom: string) => `s-${nom}`
-  let services: AdminService[] = (['Direction', 'Administration', 'IT', 'Ressources humaines', 'Logistique'] as const).map((nom, i) => ({
-    id: sid(nom), nom, parent_id: i === 0 ? null : sid('Direction'), couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A'][i],
+  let services: AdminService[] = (['Direction', 'Administration', 'IT', 'Ressources humaines', 'Logistique', 'Accueil', 'Service social',
+    'Médiation familiale', 'Petite enfance', 'SIPP'] as const).map((nom, i) => ({
+    id: sid(nom), nom, parent_id: i === 0 ? null : sid('Direction'),
+    couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A', '#2479BE', '#223A87', '#A3C854', '#F7BC39', '#7A869A'][i],
     seuil_absence_pct: nom === 'Administration' ? 40 : 50, actif: true,
     chefs: nom === 'Direction' ? ['p0'] : nom === 'Administration' ? ['p1'] : nom === 'IT' ? ['p6'] : [], effectif: 0 }))
   let regimes: Regime[] = [
@@ -145,7 +165,23 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     ['boni_periode_mois', 3, 'mois', 'Période de référence du boni'], ['boni_report_max_min', 720, 'min', 'Boni reportable max (crédit)'],
     ['boni_report_min_min', -720, 'min', 'Boni reportable min (débit)'], ['conges_semaines', 4, 'semaines', 'Congés annuels (semaines du régime)'],
     ['rappel_entree_delai_min', 30, 'min', 'Rappel d’entrée après l’heure habituelle'], ['relance_demande_jours', 3, 'jours', 'Relance d’une demande en attente après'],
-  ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: true, source: 'Valeur légale par défaut' }))
+    ['ip_visible_n1', 1, 'booleen', 'Le N+1 voit l’adresse IP des pointages de son équipe'],
+    ['stats_seuil_anonymat', 3, 'personnes', 'Regrouper les statistiques des services de moins de (0 = jamais)'],
+    ['conservation_ip_mois', 0, 'mois', 'Effacer l’adresse IP après (0 = aussi longtemps que les pointages)'],
+    ['conservation_pointages_ans', 0, 'ans', 'Supprimer les pointages des mois clôturés après (0 = jamais)'],
+    ['isp_conges', 1, 'booleen', 'Les ISP demandent leurs congés dans l’application'],
+  ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: !['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle),
+      source: ['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle) ? 'Décision CFB du 31/10/2026' : 'Valeur par défaut',
+      categorie: cle.startsWith('rappel') || cle.startsWith('relance') ? 'Rappels' : cle.startsWith('conges') || cle === 'isp_conges' ? 'Congés'
+        : cle.startsWith('conservation') ? 'Conservation' : ['ip_visible_n1', 'stats_seuil_anonymat'].includes(cle) ? 'Confidentialité' : 'Temps de travail' }))
+  let compteurs: Compteur[] = ([
+    ['CONGE_LEGAL', 'Congés annuels', 'annuelle', 'total', 'CONGE_N1'], ['CONGE_N1', 'Congés année passée', 'annuelle', 'total', 'CONGE_N2'],
+    ['CONGE_N2', 'Congés année −2', 'annuelle', 'perdu', null], ['EXTRA_LEGAL', 'Congés extra-légaux', 'annuelle', 'total', null],
+    ['ANCIENNETE', 'Congés ancienneté', 'annuelle', 'total', null], ['RECUP', 'Récup HS', 'trimestrielle', 'total', null],
+    ['REPOS_COMP', 'Repos compensatoire', 'trimestrielle', 'total', null], ['BONI', 'Boni (horaire flottant)', 'aucune', 'total', null],
+  ] as const).map(([code, libelle, periodicite, report_mode, report_vers], i) => ({ code, libelle, periodicite, report_mode, report_vers,
+      report_plafond_min: null, visible_employe: true, autorise_negatif: true, ordre: i * 10, actif: true, regle_provisoire: true }))
+  const rappels = new Set<string>()
   let feries: Ferie[] = ['2026-11-01 Toussaint', '2026-11-11 Armistice', '2026-12-25 Noël', '2027-01-01 Nouvel An', '2027-03-29 Lundi de Pâques',
     '2027-05-01 Fête du Travail', '2027-05-06 Ascension', '2027-05-17 Lundi de Pentecôte', '2027-07-21 Fête nationale', '2027-08-15 Assomption']
     .map((x) => ({ jour: x.slice(0, 10), libelle: x.slice(11), recuperable: [0, 6].includes(new Date(`${x.slice(0, 10)}T12:00:00Z`).getUTCDay()) }))
@@ -174,19 +210,39 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     if (i !== 3) ajouter(j, 968 + (i % 3) * 6, 'sortie', tt ? 'TT' : 'BUREAU')
   }
 
-  const presence: Presence[] = [
-    ['Marc', 'Dupont', 'Administration', true, 'Présent'], ['Yanis', 'Peeters', 'Administration', true, 'Télétravail'],
-    ['Awa', 'Diallo', 'Administration', true, 'Absent'], ['Jordan', 'Kabongo', 'Administration', true, 'Pas encore pointé'],
-    ['Lucas', 'Martin', 'IT', false, 'Présent'], ['Emma', 'Claes', 'IT', false, 'En formation'],
-    ['Nadia', 'Benali', 'Ressources humaines', false, 'Présent'], ['Paul', 'Renard', 'Logistique', false, 'En mission'],
-  ].map(([prenom, nom, service, mon_service, statut], i) => ({
-    personne_id: `p${i}`, prenom, nom, service, mon_service, statut, depuis: null,
-  }) as Presence)
+  // Présence du jour : les vraies personas gardent un statut connu, les figurants suivent une répartition réaliste
+  const connus: Record<string, string> = { Marc: 'Présent', Yanis: 'Télétravail', Awa: 'Absent', Jordan: 'Pas encore pointé', Lucas: 'Présent',
+    Emma: 'En formation', Nadia: 'Présent', Paul: 'En mission', Claire: 'Présent', Sofia: 'Pas encore pointé', Tom: 'Présent', Inès: 'Télétravail', Léa: 'Pas prévu (temps partiel)' }
+  const voitMotif = persona !== 'employe'
+  const presence: Presence[] = PERSONNES.map((p, i) => {
+    let statut = (i < 13 ? connus[p.prenom] : undefined) ?? STATUTS_DEMO[(i * 7) % STATUTS_DEMO.length]
+    if (statut === 'Absent' && voitMotif && i % 2) statut = 'Maladie'
+    return { personne_id: p.id, prenom: p.prenom, nom: p.nom, service: p.service, mon_service: p.service === profil.service, statut,
+             depuis: ['Présent', 'Télétravail'].includes(statut) ? isoBxl(aujourdhui, 470 + (i % 6) * 9) : null } as Presence
+  })
 
-  const notifs: Notif[] = [{
-    id: 1, type: 'fin_mois', titre: '1 jour à régulariser avant la fin du mois',
-    corps: 'Corrige-le en 1 clic pour que la RH puisse clôturer.', lien: '/', cree_le: new Date().toISOString(), lu_le: null,
-  }]
+  // Congés accordés / en attente des figurants (calendrier d'équipe)
+  const congesEquipe: Demande[] = PERSONNES.slice(1).filter((p, k) => k % 3 === 1 && !['Sofia', 'Marc'].includes(p.prenom)).map((p, k) => {
+    const debut = decalerJour(aujourdhui, (k * 3) % 24 - 2), fin = decalerJour(debut, k % 3 === 0 ? 4 : k % 3)
+    return { id: `ce${k}`, numero: 900 + k, personne_id: p.id, prenom: p.prenom, nom: p.nom, type: 'conge_jours', code_absence: 'CP',
+             libelle_absence: 'Congé annuel', date_debut: debut, date_fin: fin, demi: null, minutes_decomptees: 456 * 3, commentaire: null,
+             statut: k % 5 === 2 ? 'en_attente' : 'accordee', decide_le: null, commentaire_decision: null, constate_le: null,
+             encode_par_rh: false, cree_le: new Date().toISOString(), je_peux_valider: false } as Demande
+  })
+
+  const ilYa = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString()
+  const n = (id: number, type: string, titre: string, corps: string, h: number, lu = false): Notif =>
+    ({ id, type, titre, corps, lien: '/', cree_le: ilYa(h), lu_le: lu ? ilYa(h - 0.5) : null })
+  const notifs: Notif[] = [
+    n(1, 'fin_mois', '1 jour à régulariser avant la fin du mois', 'Corrige-le en 1 clic pour que la RH puisse clôturer.', 0.3),
+    ...(persona === 'chef' || persona === 'direction' || persona === 'admin'
+      ? [n(2, 'demande_a_traiter', 'Nouvelle demande de congé à valider', 'Yanis Peeters · Congé annuel · 3 jours', 2),
+         n(3, 'correction_pointage', 'Correction de pointage dans ton équipe', 'Awa Diallo a ajouté une sortie oubliée (mardi).', 26, true),
+         n(4, 'fin_mois_equipe', '3 personnes de ton équipe ont des jours à régulariser', 'Rappel envoyé automatiquement.', 50, true)] : []),
+    n(5, 'demande_decidee', 'Ta demande de congé est accordée', 'Congé annuel du lundi au mercredi.', 27, true),
+    n(6, 'oubli_sortie', 'Tu as oublié de pointer ta sortie ?', 'D’habitude tu pars vers 16h50.', 75, true),
+    n(7, 'rappel_manuel', 'Rappel de la RH', 'Il te reste des pointages à régulariser avant la clôture du mois.', 24 * 9, true),
+  ]
 
   const attendre = () => new Promise((r) => setTimeout(r, 150))
 
@@ -348,8 +404,22 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       }
       return {
         debut: mois, fin: mois.slice(0, 8) + '28',
-        services: [ligne('Administration', 16, 0.07 + (g % 3) / 100, 0.03, 0.22, 6), ligne('Direction', 2, 0.05, 0, 0.1, 0),
-                   ligne('IT', 3, 0.06, 0.01, 0.4, 1), ligne('Logistique', 2, 0.08, 0.05, 0, 2), ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0)],
+        services: (() => {
+          const tous = [ligne('Accueil', 6, 0.05, 0.02, 0, 1), ligne('Administration', 16, 0.07 + (g % 3) / 100, 0.03, 0.22, 6),
+            ligne('Direction', 2, 0.05, 0, 0.1, 0), ligne('IT', 3, 0.06, 0.01, 0.4, 1), ligne('Logistique', 2, 0.08, 0.05, 0, 2),
+            ligne('Médiation familiale', 8, 0.06, 0.04, 0.3, 2), ligne('Petite enfance', 14, 0.08, 0.05, 0, 4),
+            ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0), ligne('Service social', 12, 0.07, 0.03, 0.2, 3), ligne('SIPP', 1, 0.04, 0, 0.2, 0)]
+          const seuil = 3, petits = tous.filter((x) => x.effectif < seuil)
+          const somme = (k: 'effectif' | 'prevues' | 'preste' | 'absence_conge' | 'absence_maladie' | 'absence_autre' | 'jours_presence' | 'jours_tt' | 'anomalies') =>
+            petits.reduce((t, x) => t + x[k], 0)
+          const eff = somme('effectif')
+          return [...tous.filter((x) => x.effectif >= seuil), ...(petits.length ? [{
+            service: `Petits services (moins de ${seuil} pers.)`, regroupe: true, effectif: eff, prevues: somme('prevues'), preste: somme('preste'),
+            absence_conge: somme('absence_conge'), absence_maladie: eff < seuil ? null : somme('absence_maladie'),
+            absence_autre: somme('absence_autre') + (eff < seuil ? somme('absence_maladie') : 0),
+            jours_presence: somme('jours_presence'), jours_tt: somme('jours_tt'), anomalies: somme('anomalies') }] : [])]
+        })(),
+        seuil_anonymat: 3,
         tendance: Array.from({ length: 6 }, (_, i) => {
           const d = new Date(`${mois}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 5 + i)
           const m = d.getUTCMonth() + 1
@@ -366,7 +436,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
         .map(([nom, prenom, service, a, p, j, mal, nj, inc], i) => ({
           personne_id: `isp${i}`, prenom: prenom as string, nom: nom as string, partenaire: 'CPAS (fictif)', service: service as string,
           regime: 'Temps plein 37h30', a_prester: a as number - (j as number) - (mal as number), preste: p as number,
-          absence_justifiee: j as number, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
+          conges: j as number, absence_justifiee: 0, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
           ecart: (p as number) - ((a as number) - (j as number) - (mal as number)) }))
     },
     async adminPersonnes() {
@@ -442,6 +512,24 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       exigerAdmin(false)
       if (!/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(plage)) throw new Error('Plage IP invalide (ex. 203.0.113.0/24)')
       reseaux = supprimer ? reseaux.filter((r) => r.plage !== plage) : [...reseaux.filter((r) => r.plage !== plage), { plage, libelle }]
+    },
+    async envoyerRappel(ids) {
+      await attendre()
+      const nouveaux = ids.filter((id) => !rappels.has(id)); nouveaux.forEach((id) => rappels.add(id)); return nouveaux.length
+    },
+    async personnesVisibles(): Promise<PersonneVisible[]> {
+      if (persona === 'employe') return [{ id: 'demo', prenom: profil.prenom, nom: profil.nom, service: profil.service }]
+      return PERSONNES.filter((p) => persona !== 'chef' || p.service === profil.service).map(({ id, prenom, nom, service }) => ({ id, prenom, nom, service }))
+    },
+    async demandesEquipe(debut, fin) {
+      return [...demandes, ...congesEquipe].filter((d) => ['en_attente', 'accordee'].includes(d.statut) && d.date_debut <= fin && d.date_fin >= debut)
+        .map((d) => ({ ...d, personne_id: PERSONNES.find((p) => p.prenom === d.prenom)?.id ?? d.personne_id }))
+    },
+    async compteurs() { return compteurs },
+    async enregistrerCompteur(c) {
+      exigerAdmin()
+      if (c.report_mode === 'plafonne' && c.report_plafond_min == null) throw new Error('Indique le plafond de report')
+      compteurs = compteurs.map((x) => (x.code === c.code ? { ...c, regle_provisoire: false } : x))
     },
     async deconnexion() { /* rien */ },
   }

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Acces, AdminPersonne, AdminService, Ferie, Parametre, Regime, Reseau } from './types'
+import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -239,6 +239,25 @@ export function apiSupabase(): Api {
     },
     async enregistrerReseau(plage, libelle, supprimer) {
       verifier(await sb.rpc('enregistrer_reseau', { p_plage: plage, p_libelle: libelle, p_supprimer: !!supprimer }))
+    },
+
+    async envoyerRappel(ids, message) {
+      return verifier(await sb.rpc('envoyer_rappel', { p_ids: ids, p_message: message ?? null })) as number
+    },
+    async personnesVisibles() {
+      return verifier(await sb.from('personnes').select('id, prenom, nom, service').is('date_sortie', null).order('nom')) as PersonneVisible[]
+    },
+    async demandesEquipe(debut, fin) {
+      return verifier(await sb.from('demandes').select('*').in('statut', ['en_attente', 'accordee'])
+        .lte('date_debut', fin).gte('date_fin', debut).order('date_debut')) as Demande[]
+    },
+    async compteurs() {
+      return verifier(await sb.from('compteurs').select('*').order('ordre')) as Compteur[]
+    },
+    async enregistrerCompteur(c) {
+      verifier(await sb.rpc('enregistrer_compteur', { p_code: c.code, p_libelle: c.libelle, p_periodicite: c.periodicite,
+        p_autorise_negatif: c.autorise_negatif, p_visible_employe: c.visible_employe, p_report_mode: c.report_mode,
+        p_report_vers: c.report_vers, p_report_plafond_min: c.report_plafond_min, p_actif: c.actif }))
     },
 
     async deconnexion() {

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Api, CodeAbsence, Demande, Profil, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, decalerJour, duree, jourBxl } from '../lib/temps'
 
@@ -7,12 +7,18 @@ const STATUTS: Record<Demande['statut'], [string, string]> = {
   en_attente: ['En attente', 'attente'], accordee: ['Accordée', 'ok'], refusee: ['Refusée', 'ko'], annulee: ['Annulée', 'neutre'],
 }
 
-export default function Conges({ api, profil }: { api: Api; profil: Profil }) {
+export type VueConges = 'mes' | 'valider' | 'calendrier'
+
+export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValider }: {
+  api: Api; profil: Profil; vueInitiale?: VueConges; onCompteValider?: (n: number) => void
+}) {
   const [soldes, setSoldes] = useState<Solde[] | null>(null)
   const [codes, setCodes] = useState<CodeAbsence[]>([])
   const [mes, setMes] = useState<Demande[] | null>(null)
   const [aValider, setAValider] = useState<Demande[]>([])
+  const [vue, setVue] = useState<VueConges>(vueInitiale)
   const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
+  const estValideur = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
 
   // Minutes d'une journée « moyenne » du régime, pour afficher les soldes aussi en jours
   const jourMoyen = useMemo(() => {
@@ -27,11 +33,12 @@ export default function Conges({ api, profil }: { api: Api; profil: Profil }) {
   const charger = useCallback(async () => {
     try {
       const [s, m, v] = await Promise.all([api.soldes(), api.mesDemandes(), api.aValider()])
-      setSoldes(s); setMes(m); setAValider(v)
+      setSoldes(s); setMes(m); setAValider(v); onCompteValider?.(v.length)
     } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
-  }, [api])
+  }, [api, onCompteValider])
 
   useEffect(() => { charger(); api.codesAbsence().then((c) => setCodes(c.filter((x) => x.demandable))).catch(() => {}) }, [api, charger])
+  useEffect(() => { setVue(vueInitiale) }, [vueInitiale])
   useEffect(() => {
     if (!message) return
     const t = setTimeout(() => setMessage(null), message.erreur ? 6000 : 3500)
@@ -48,67 +55,165 @@ export default function Conges({ api, profil }: { api: Api; profil: Profil }) {
   }, [soldes])
 
   const blocSoldes = (classe: string) => (
-        <section className={`carte ${classe}`}>
-        <h2>Mes soldes</h2>
-        {soldes === null && <p className="vide">Chargement…</p>}
-        {soldes !== null && soldesCourants.length === 0 && <p className="vide">Aucun solde encodé. La RH les ajoute au démarrage.</p>}
-        {soldesCourants.map((s) => {
-          const ratio = s.attribue_min > 0 ? Math.min(100, Math.max(0, (s.pris_min / s.attribue_min) * 100)) : 0
-          return (
-            <div key={s.compteur_code} className="solde">
-              <div className="ligne entre">
-                <span className="solde-nom">{s.libelle}</span>
-                <span className={`solde-reste ${s.reste_min < 0 ? 'negatif' : ''}`}>{enJours(s.reste_min)}</span>
-              </div>
-              <div className="barre fine"><span style={{ width: `${ratio}%` }} /></div>
-              <div className="doux petit">{duree(s.reste_min)} restantes · {duree(s.pris_min)} prises sur {duree(s.attribue_min)}</div>
+    <section className={`carte ${classe}`}>
+      <h2>Mes soldes</h2>
+      {soldes === null && <p className="vide">Chargement…</p>}
+      {soldes !== null && soldesCourants.length === 0 && <p className="vide">Aucun solde encodé. La RH les ajoute au démarrage.</p>}
+      {soldesCourants.map((s) => {
+        const ratio = s.attribue_min > 0 ? Math.min(100, Math.max(0, (s.pris_min / s.attribue_min) * 100)) : 0
+        return (
+          <div key={s.compteur_code} className="solde">
+            <div className="ligne entre">
+              <span className="solde-nom">{s.libelle}</span>
+              <span className={`solde-reste ${s.reste_min < 0 ? 'negatif' : ''}`}>{enJours(s.reste_min)}</span>
             </div>
-          )
-        })}
-      </section>
+            <div className="barre fine"><span style={{ width: `${ratio}%` }} /></div>
+            <div className="doux petit">{duree(s.reste_min)} restantes · {duree(s.pris_min)} prises sur {duree(s.attribue_min)}</div>
+          </div>
+        )
+      })}
+    </section>
   )
 
+  const sousOnglets: [VueConges, string, number][] = [
+    ['mes', 'Mes congés', 0],
+    ...(estValideur || aValider.length ? [['valider', 'À valider', aValider.length] as [VueConges, string, number]] : []),
+    ...(estValideur ? [['calendrier', 'Calendrier d’équipe', 0] as [VueConges, string, number]] : []),
+  ]
+
   return (
-    <main className="contenu">
-      <div className="col-principale pile">
-        {aValider.length > 0 && (
-          <AValider demandes={aValider} enJours={enJours}
-                    onDecider={async (ids, accorder, commentaire) => {
-                      try {
-                        const n = await api.decider(ids, accorder, commentaire)
-                        setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger()
-                      } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
-                    }} />
-        )}
-
-        {blocSoldes('mobile-seulement')}
-
-        <NouvelleDemande api={api} codes={codes} enJours={enJours}
-                         onEnvoyee={async () => { setMessage({ texte: 'Demande envoyée à ton responsable ✅' }); await charger() }}
-                         onErreur={(t) => setMessage({ texte: t, erreur: true })} />
-
-        <section className="carte">
-          <h2>Mes demandes</h2>
-          {mes === null && <p className="vide">Chargement…</p>}
-          {mes?.length === 0 && <p className="vide">Aucune demande pour l’instant.</p>}
-          <ul className="liste">
-            {mes?.map((d) => (
-              <LigneDemande key={d.id} d={d} enJours={enJours}
-                            onAnnuler={async () => {
-                              try { await api.annulerDemande(d.id); setMessage({ texte: 'Demande annulée' }); await charger() }
-                              catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
-                            }} />
+    <main className={`contenu ${sousOnglets.length > 1 ? 'decale' : ''}`}>
+      {sousOnglets.length > 1 && (
+        <div className="col-pleine">
+          <div className="sous-onglets" role="tablist" aria-label="Sections des congés">
+            {sousOnglets.map(([id, libelle, n]) => (
+              <button key={id} role="tab" aria-selected={vue === id} onClick={() => setVue(id)}>
+                {libelle}{n > 0 && <span className="compte">{n}</span>}</button>
             ))}
-          </ul>
-        </section>
-      </div>
+          </div>
+        </div>
+      )}
 
-      <div className="col-laterale pile">
-        {blocSoldes('pc-seulement')}
-      </div>
+      {vue === 'mes' && <>
+        <div className="col-principale pile">
+          {blocSoldes('mobile-seulement')}
+          <NouvelleDemande api={api} codes={codes} enJours={enJours}
+                           onEnvoyee={async () => { setMessage({ texte: 'Demande envoyée à ton responsable ✅' }); await charger() }}
+                           onErreur={(t) => setMessage({ texte: t, erreur: true })} />
+          <section className="carte">
+            <h2>Mes demandes</h2>
+            {mes === null && <p className="vide">Chargement…</p>}
+            {mes?.length === 0 && <p className="vide">Aucune demande pour l’instant.</p>}
+            <ul className="liste">
+              {mes?.map((d) => (
+                <LigneDemande key={d.id} d={d} enJours={enJours}
+                              onAnnuler={async () => {
+                                try { await api.annulerDemande(d.id); setMessage({ texte: 'Demande annulée' }); await charger() }
+                                catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
+                              }} />
+              ))}
+            </ul>
+          </section>
+        </div>
+        <div className="col-laterale pile">{blocSoldes('pc-seulement')}</div>
+      </>}
+
+      {vue === 'valider' && (
+        <div className="col-pleine pile">
+          {aValider.length === 0
+            ? <section className="carte vide-grand"><div className="pictogramme" aria-hidden="true">✓</div>
+                <h3>Aucune demande en attente</h3><p className="doux">Les demandes de ton équipe apparaîtront ici.</p></section>
+            : <AValider demandes={aValider} enJours={enJours}
+                        onDecider={async (ids, accorder, commentaire) => {
+                          try {
+                            const n = await api.decider(ids, accorder, commentaire)
+                            setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger()
+                          } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
+                        }} />}
+        </div>
+      )}
+
+      {vue === 'calendrier' && <div className="col-pleine pile"><Calendrier api={api} /></div>}
 
       {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
     </main>
+  )
+}
+
+// ---------------------------------------------------------------------------
+const JOURS_COURTS = ['di', 'lu', 'ma', 'me', 'je', 've', 'sa']
+function lundiDe(j: string): string {
+  const d = new Date(`${j}T12:00:00Z`).getUTCDay()
+  return decalerJour(j, d === 0 ? -6 : 1 - d)
+}
+
+function Calendrier({ api }: { api: Api }) {
+  const [depart, setDepart] = useState(() => lundiDe(jourBxl()))
+  const [personnes, setPersonnes] = useState<PersonneVisible[] | null>(null)
+  const [demandes, setDemandes] = useState<Demande[]>([])
+  const [service, setService] = useState<string | null>(null)
+  const jours = useMemo(() => Array.from({ length: 28 }, (_, i) => decalerJour(depart, i))
+    .filter((j) => ![0, 6].includes(new Date(`${j}T12:00:00Z`).getUTCDay())), [depart])
+  const fin = jours[jours.length - 1]
+
+  useEffect(() => { api.personnesVisibles().then(setPersonnes).catch(() => setPersonnes([])) }, [api])
+  useEffect(() => { api.demandesEquipe(depart, fin).then(setDemandes).catch(() => setDemandes([])) }, [api, depart, fin])
+
+  const services = useMemo(() => [...new Set((personnes ?? []).map((p) => p.service))].sort((a, b) => a.localeCompare(b)), [personnes])
+  const lignes = (personnes ?? []).filter((p) => !service || p.service === service)
+    .sort((a, b) => a.service.localeCompare(b.service) || a.nom.localeCompare(b.nom))
+  const cellule = (pid: string, j: string) => demandes.find((d) => d.personne_id === pid && d.date_debut <= j && d.date_fin >= j)
+  const absentsLe = (j: string) => lignes.filter((p) => cellule(p.id, j)?.statut === 'accordee').length
+  const auj = jourBxl()
+
+  return (
+    <section className="carte">
+      <div className="ligne entre barre-outils">
+        <h2>Calendrier d’équipe</h2>
+        <div className="ligne">
+          <button className="bouton secondaire petit" onClick={() => setDepart(decalerJour(depart, -7))} aria-label="Semaine précédente">←</button>
+          <span className="petit">{dateCourte(depart)} → {dateCourte(fin)}</span>
+          <button className="bouton secondaire petit" onClick={() => setDepart(decalerJour(depart, 7))} aria-label="Semaine suivante">→</button>
+          <button className="lien petit" onClick={() => setDepart(lundiDe(jourBxl()))}>Aujourd’hui</button>
+        </div>
+      </div>
+      {services.length > 1 && (
+        <div className="filtres" role="group" aria-label="Filtrer par service">
+          <button className="puce" aria-pressed={service === null} onClick={() => setService(null)}>Tous les services</button>
+          {services.map((s) => <button key={s} className="puce" aria-pressed={service === s} onClick={() => setService(service === s ? null : s)}>{s}</button>)}
+        </div>
+      )}
+      <div className="legende petit"><span><i className="case accordee" />Congé accordé</span><span><i className="case attente" />En attente</span></div>
+      {personnes === null ? <p className="vide">Chargement…</p> : (
+        <div className="tableau-defilant">
+          <table className="calendrier">
+            <thead>
+              <tr><th className="fige">Personne</th>
+                {jours.map((j) => <th key={j} className={`${j === auj ? 'auj' : ''} ${JOURS_COURTS[new Date(`${j}T12:00:00Z`).getUTCDay()] === 'lu' ? 'lundi' : ''}`}>
+                  <span>{JOURS_COURTS[new Date(`${j}T12:00:00Z`).getUTCDay()]}</span><b>{Number(j.slice(8))}</b></th>)}</tr>
+            </thead>
+            <tbody>
+              {lignes.map((p, i) => <Fragment key={p.id}>
+                {!service && (i === 0 || lignes[i - 1].service !== p.service) && (
+                  <tr key={`s-${p.service}`} className="groupe"><th className="fige" colSpan={1}>{p.service}</th><td colSpan={jours.length} /></tr>
+                )}
+                <tr>
+                  <th className="fige">{p.prenom} {p.nom}</th>
+                  {jours.map((j) => {
+                    const d = cellule(p.id, j)
+                    return <td key={j} className={`${d ? (d.statut === 'accordee' ? 'accordee' : 'attente') : ''} ${j === auj ? 'auj' : ''}`}
+                               title={d ? `${d.libelle_absence} · ${STATUTS[d.statut][0]}` : undefined}>{d?.type === 'conge_demi_jour' ? '½' : ''}</td>
+                  })}
+                </tr>
+              </Fragment>)}
+            </tbody>
+            <tfoot>
+              <tr><th className="fige">Absents</th>{jours.map((j) => { const n = absentsLe(j); return <td key={j} className={n ? 'total' : ''}>{n || ''}</td> })}</tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

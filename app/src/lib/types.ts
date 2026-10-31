@@ -45,7 +45,7 @@ export interface Journee {
 
 export interface Anomalie {
   jour: string
-  code: 'absent' | 'pointages_incomplets'
+  code: 'absent' | 'pointages_incomplets' | 'semaine_max'
   libelle: string
 }
 
@@ -187,8 +187,9 @@ export interface StatService {
   prevues: number
   preste: number
   absence_conge: number
-  absence_maladie: number
+  absence_maladie: number | null
   absence_autre: number
+  regroupe?: boolean
   jours_presence: number
   jours_tt: number
   anomalies: number
@@ -198,6 +199,7 @@ export interface StatsDirection {
   debut: string
   fin: string
   services: StatService[]
+  seuil_anonymat?: number
   tendance: { mois: string; taux_absence: number | null; taux_tt: number | null }[]
   demandes: { en_attente: number; accordees: number; refusees: number; delai_moyen_heures: number | null }
 }
@@ -211,6 +213,7 @@ export interface LigneCpas {
   regime: string | null
   a_prester: number
   preste: number
+  conges: number
   absence_justifiee: number
   absence_maladie: number
   jours_non_justifies: number
@@ -276,7 +279,12 @@ export interface Regime {
 }
 
 export interface Acces { personne_id: string; prenom: string; nom: string; service_id: string; service: string; peut_valider: boolean }
-export interface Parametre { cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null }
+export interface Parametre { cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null; categorie: string }
+export interface Compteur {
+  code: string; libelle: string; periodicite: 'annuelle' | 'trimestrielle' | 'aucune'; visible_employe: boolean; autorise_negatif: boolean
+  ordre: number; actif: boolean; report_mode: 'perdu' | 'total' | 'plafonne'; report_vers: string | null; report_plafond_min: number | null; regle_provisoire: boolean
+}
+export interface PersonneVisible { id: string; prenom: string; nom: string; service: string }
 export interface Ferie { jour: string; libelle: string; recuperable: boolean }
 export interface Reseau { plage: string; libelle: string }
 
@@ -335,5 +343,10 @@ export interface Api {
   enregistrerFerie(jour: string, libelle: string, supprimer?: boolean): Promise<void>
   reseaux(): Promise<Reseau[]>
   enregistrerReseau(plage: string, libelle: string, supprimer?: boolean): Promise<void>
+  envoyerRappel(ids: string[], message?: string): Promise<number>
+  personnesVisibles(): Promise<PersonneVisible[]>
+  demandesEquipe(debut: string, fin: string): Promise<Demande[]>
+  compteurs(): Promise<Compteur[]>
+  enregistrerCompteur(c: Compteur): Promise<void>
   deconnexion(): Promise<void>
 }

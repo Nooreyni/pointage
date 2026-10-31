@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Acces, AdminPersonne, AdminService, Api, Ferie, Parametre, Profil, Regime, Reseau, Role, SaisiePersonne } from '../lib/types'
+import type { Acces, AdminPersonne, AdminService, Api, Compteur, Ferie, Parametre, Profil, Regime, Reseau, Role, SaisiePersonne } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
 
-type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'parametres' | 'reseau'
+type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -36,7 +36,7 @@ export default function Admin({ api, profil }: { api: Api; profil: Profil }) {
 
   const ok = async (texte: string) => { setMessage({ texte }); await charger() }
   const sections: [Section, string][] = [
-    ['personnes', 'Personnes'], ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['parametres', 'Paramètres'],
+    ['personnes', 'Personnes'], ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
     ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'],
   ]
 
@@ -50,6 +50,7 @@ export default function Admin({ api, profil }: { api: Api; profil: Profil }) {
         {section === 'services' && <Services services={services} personnes={personnes ?? []} api={api} ok={ok} erreur={erreur} />}
         {section === 'regimes' && <Regimes regimes={regimes} api={api} ok={ok} erreur={erreur} />}
         {section === 'acces' && <AccesServices api={api} personnes={personnes ?? []} services={services} erreur={erreur} setMessage={setMessage} />}
+        {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
       </div>
@@ -373,47 +374,169 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
 
 // ---------------------------------------------------------------------------
 function valeurLisible(p: Parametre): string {
+  if (p.unite === 'booleen') return p.valeur ? 'Oui' : 'Non'
+  if (p.valeur === 0 && p.cle.startsWith('conservation')) return 'Sans limite'
+  if (p.valeur === 0 && p.cle === 'stats_seuil_anonymat') return 'Jamais'
   if (p.unite === 'min') return duree(p.valeur)
   if (p.unite === 'min_depuis_minuit') return hhmm(p.valeur)
   return `${p.valeur} ${p.unite}`
 }
+const ORDRE_CATEGORIES = ['Temps de travail', 'Congés', 'Rappels', 'Confidentialité', 'Conservation']
 
 function Parametres({ api, erreur, setMessage }: { api: Api; erreur: (e: unknown) => void; setMessage: (m: Message) => void }) {
   const [liste, setListe] = useState<Parametre[]>([])
   const [edition, setEdition] = useState<{ p: Parametre; valeur: string; source: string } | null>(null)
+  const [categorie, setCategorie] = useState<string | null>(null)
   const charger = useCallback(() => { api.parametres().then(setListe).catch(erreur) }, [api, erreur])
   useEffect(() => { charger() }, [charger])
   const provisoires = liste.filter((p) => p.provisoire).length
+  const categories = useMemo(() => [...new Set(liste.map((p) => p.categorie || 'Autres'))]
+    .sort((a, b) => (ORDRE_CATEGORIES.indexOf(a) + 99) % 99 - (ORDRE_CATEGORIES.indexOf(b) + 99) % 99 || a.localeCompare(b)), [liste])
+  const ouvrir = (p: Parametre, valeur?: number) => setEdition({ p, source: '',
+    valeur: valeur !== undefined ? String(valeur) : p.unite === 'min_depuis_minuit' ? hhmm(p.valeur) : String(p.valeur) })
 
   return (
-    <section className="carte">
-      <div className="ligne entre"><h2>Règles de calcul</h2>{provisoires > 0 && <span className="pilule attente">{provisoires} à confirmer</span>}</div>
-      <p className="doux petit">Valeurs provisoires à remplacer par celles du règlement de travail. Chaque modification exige sa source et est tracée.</p>
-      <ul className="liste">{liste.map((p) => (
-        <li key={p.cle}>
-          <span style={{ flex: 1, minWidth: 0 }}>{p.libelle}<div className="doux petit">{p.source ?? '—'}</div></span>
-          <strong className="num">{valeurLisible(p)}</strong>
-          <span className={`pilule ${p.provisoire ? 'attente' : 'ok'}`}>{p.provisoire ? 'Provisoire' : 'Confirmé'}</span>
-          <button className="lien petit" onClick={() => setEdition({ p, valeur: p.unite === 'min_depuis_minuit' ? hhmm(p.valeur) : String(p.valeur), source: '' })}>Modifier</button>
-        </li>
-      ))}</ul>
+    <>
+      <section className="carte">
+        <div className="ligne entre"><h2>Paramètres</h2>{provisoires > 0 && <span className="pilule attente">{provisoires} à confirmer</span>}</div>
+        <p className="doux petit" style={{ marginBottom: 0 }}>Toutes les règles sont réglables ici, sans toucher au code. Chaque modification exige sa source et est tracée dans le journal.</p>
+        <div className="filtres" role="group" aria-label="Catégories">
+          <button className="puce" aria-pressed={categorie === null} onClick={() => setCategorie(null)}>Toutes</button>
+          {categories.map((c) => <button key={c} className="puce" aria-pressed={categorie === c} onClick={() => setCategorie(categorie === c ? null : c)}>
+            {c} <b>{liste.filter((p) => (p.categorie || 'Autres') === c).length}</b></button>)}
+        </div>
+      </section>
+      <div className="grille-cartes">
+        {categories.filter((c) => !categorie || c === categorie).map((c) => (
+          <section key={c} className="carte">
+            <h2>{c}</h2>
+            <ul className="liste">{liste.filter((p) => (p.categorie || 'Autres') === c).map((p) => (
+              <li key={p.cle} className="ligne-param">
+                <span className="texte-ligne">{p.libelle}<div className="doux petit">{p.provisoire ? 'Valeur provisoire' : p.source ?? '—'}</div></span>
+                {p.unite === 'booleen' ? (
+                  <button className="interrupteur" role="switch" aria-checked={p.valeur === 1} aria-label={p.libelle}
+                          onClick={() => ouvrir(p, p.valeur ? 0 : 1)}><span /></button>
+                ) : <>
+                  <strong className="num valeur-param">{valeurLisible(p)}</strong>
+                  <button className="lien petit" onClick={() => ouvrir(p)}>Modifier</button>
+                </>}
+                {p.provisoire && <span className="pilule attente">À confirmer</span>}
+              </li>
+            ))}</ul>
+          </section>
+        ))}
+      </div>
       {edition && (
         <Fenetre titre={edition.p.libelle} onFermer={() => setEdition(null)}>
           <form onSubmit={async (e) => {
             e.preventDefault()
             const v = edition.p.unite === 'min_depuis_minuit' ? enMin(edition.valeur) : Number(edition.valeur)
-            try { await api.modifierParametre(edition.p.cle, v, edition.source); setEdition(null); setMessage({ texte: 'Règle confirmée ✅' }); charger() }
+            try { await api.modifierParametre(edition.p.cle, v, edition.source); setEdition(null); setMessage({ texte: 'Paramètre enregistré ✅' }); charger() }
             catch (err) { erreur(err) }
           }}>
-            <label className="champ">Valeur ({edition.p.unite === 'min_depuis_minuit' ? 'heure' : edition.p.unite})
-              <input id="param-valeur" type={edition.p.unite === 'min_depuis_minuit' ? 'time' : 'number'} value={edition.valeur} required
-                     onChange={(e) => setEdition({ ...edition, valeur: e.target.value })} /></label>
+            {edition.p.unite === 'booleen' ? (
+              <div className="segments" role="radiogroup" aria-label="Valeur">
+                {[['1', 'Oui'], ['0', 'Non']].map(([v, l]) => (
+                  <button key={v} type="button" role="radio" aria-checked={edition.valeur === v} onClick={() => setEdition({ ...edition, valeur: v })}>{l}</button>
+                ))}
+              </div>
+            ) : (
+              <label className="champ">Valeur ({edition.p.unite === 'min_depuis_minuit' ? 'heure' : edition.p.unite})
+                <input id="param-valeur" type={edition.p.unite === 'min_depuis_minuit' ? 'time' : 'number'} min={0} value={edition.valeur} required
+                       onChange={(e) => setEdition({ ...edition, valeur: e.target.value })} />
+                {(edition.p.cle.startsWith('conservation') || edition.p.cle === 'stats_seuil_anonymat') && <span className="doux petit">0 = {edition.p.cle === 'stats_seuil_anonymat' ? 'ne jamais regrouper' : 'sans limite'}</span>}
+              </label>
+            )}
             <label className="champ">Source (obligatoire)
               <input id="param-source" value={edition.source} required placeholder="Ex. règlement de travail, art. 12"
                      onChange={(e) => setEdition({ ...edition, source: e.target.value })} /></label>
             <div className="actions">
               <button type="button" className="bouton secondaire" onClick={() => setEdition(null)}>Fermer</button>
-              <button className="bouton">Confirmer</button>
+              <button className="bouton">Enregistrer</button>
+            </div>
+          </form>
+        </Fenetre>
+      )}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+const PERIODICITES: Record<Compteur['periodicite'], string> = { annuelle: 'Annuelle', trimestrielle: 'Trimestrielle', aucune: 'Sans période' }
+const REPORTS: Record<Compteur['report_mode'], string> = { perdu: 'Perdu en fin de période', total: 'Reporté en totalité', plafonne: 'Reporté avec un plafond' }
+
+function Compteurs({ api, estAdmin, erreur, setMessage }: { api: Api; estAdmin: boolean; erreur: (e: unknown) => void; setMessage: (m: Message) => void }) {
+  const [liste, setListe] = useState<Compteur[] | null>(null)
+  const [edition, setEdition] = useState<Compteur | null>(null)
+  const charger = useCallback(() => { api.compteurs().then(setListe).catch(erreur) }, [api, erreur])
+  useEffect(() => { charger() }, [charger])
+  const libelleDe = (code: string | null) => liste?.find((c) => c.code === code)?.libelle ?? code ?? '—'
+  const reportLisible = (c: Compteur) => c.periodicite === 'aucune' ? 'Pas de fin de période'
+    : c.report_mode === 'plafonne' ? `Max ${duree(c.report_plafond_min ?? 0)} vers ${libelleDe(c.report_vers ?? c.code)}`
+    : c.report_mode === 'total' ? `Tout vers ${libelleDe(c.report_vers ?? c.code)}` : 'Perdu'
+
+  return (
+    <section className="carte">
+      <div className="ligne entre"><h2>Compteurs</h2>
+        {liste?.some((c) => c.regle_provisoire) && <span className="pilule attente">{liste.filter((c) => c.regle_provisoire).length} règle(s) à confirmer</span>}</div>
+      <p className="doux petit">Congés, récup, boni… Pour chaque compteur : sa période, si le solde peut être négatif et ce qui arrive au reste en fin de période (report appliqué à la clôture du dernier mois de la période).</p>
+      {!liste && <p className="vide">Chargement…</p>}
+      <div className="tableau-defilant">
+        <table className="tableau">
+          <thead><tr><th>Compteur</th><th>Période</th><th>Négatif</th><th>Visible employé</th><th>Fin de période</th><th /></tr></thead>
+          <tbody>{liste?.map((c) => (
+            <tr key={c.code} className={c.actif ? '' : 'inactif'}>
+              <td><strong>{c.libelle}</strong><div className="doux petit">{c.code}{!c.actif && ' · désactivé'}</div></td>
+              <td>{PERIODICITES[c.periodicite]}</td>
+              <td>{c.autorise_negatif ? 'Autorisé' : 'Bloqué'}</td>
+              <td>{c.visible_employe ? 'Oui' : 'Non'}</td>
+              <td>{reportLisible(c)}{c.regle_provisoire && <div><span className="pilule attente">Provisoire</span></div>}</td>
+              <td>{estAdmin && <button className="lien petit" onClick={() => setEdition({ ...c })}>Modifier</button>}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {edition && (
+        <Fenetre titre={`Compteur : ${edition.libelle}`} onFermer={() => setEdition(null)}>
+          <form onSubmit={async (e) => {
+            e.preventDefault()
+            try { await api.enregistrerCompteur(edition); setEdition(null); setMessage({ texte: 'Compteur enregistré ✅' }); charger() }
+            catch (err) { erreur(err) }
+          }}>
+            <label className="champ">Libellé<input id="compteur-libelle" value={edition.libelle} required onChange={(e) => setEdition({ ...edition, libelle: e.target.value })} /></label>
+            <label className="champ">Période
+              <select id="compteur-periode" value={edition.periodicite} onChange={(e) => setEdition({ ...edition, periodicite: e.target.value as Compteur['periodicite'] })}>
+                {Object.entries(PERIODICITES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select></label>
+            {edition.periodicite !== 'aucune' && <>
+              <label className="champ">En fin de période, le solde restant est…
+                <select id="compteur-report" value={edition.report_mode} onChange={(e) => setEdition({ ...edition, report_mode: e.target.value as Compteur['report_mode'] })}>
+                  {Object.entries(REPORTS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select></label>
+              {edition.report_mode !== 'perdu' && (
+                <div className="champs-ligne">
+                  <label className="champ">Reporté vers
+                    <select id="compteur-vers" value={edition.report_vers ?? edition.code} onChange={(e) => setEdition({ ...edition, report_vers: e.target.value === edition.code ? null : e.target.value })}>
+                      {liste!.map((c) => <option key={c.code} value={c.code}>{c.code === edition.code ? 'Le même compteur' : c.libelle}</option>)}
+                    </select></label>
+                  {edition.report_mode === 'plafonne' && (
+                    <label className="champ">Plafond (heures)
+                      <input id="compteur-plafond" type="number" min={0} step={0.5} required value={edition.report_plafond_min === null ? '' : edition.report_plafond_min / 60}
+                             onChange={(e) => setEdition({ ...edition, report_plafond_min: e.target.value === '' ? null : Math.round(Number(e.target.value) * 60) })} /></label>
+                  )}
+                </div>
+              )}
+              <p className="doux petit" style={{ marginTop: 0 }}>Un solde négatif suit toujours la personne (il n’est jamais effacé).</p>
+            </>}
+            <label className="case-a-cocher"><input type="checkbox" checked={edition.autorise_negatif} onChange={(e) => setEdition({ ...edition, autorise_negatif: e.target.checked })} />
+              Autoriser un solde négatif (avec alerte au N+1)</label>
+            <label className="case-a-cocher"><input type="checkbox" checked={edition.visible_employe} onChange={(e) => setEdition({ ...edition, visible_employe: e.target.checked })} />
+              Visible par l’employé dans « Mes soldes »</label>
+            <label className="case-a-cocher"><input type="checkbox" checked={edition.actif} onChange={(e) => setEdition({ ...edition, actif: e.target.checked })} />
+              Compteur actif</label>
+            <div className="actions">
+              <button type="button" className="bouton secondaire" onClick={() => setEdition(null)}>Fermer</button>
+              <button className="bouton">Enregistrer</button>
             </div>
           </form>
         </Fenetre>

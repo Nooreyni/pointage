@@ -53,61 +53,126 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
   if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
   if (!s) return <section className="carte"><p className="vide">Calcul des indicateurs…</p></section>
 
+  const mal = (x: StatService) => x.absence_maladie ?? 0
   const tot = s.services.reduce((t, x) => ({
-    prevues: t.prevues + x.prevues, preste: t.preste + x.preste, conge: t.conge + x.absence_conge, maladie: t.maladie + x.absence_maladie,
+    prevues: t.prevues + x.prevues, preste: t.preste + x.preste, conge: t.conge + x.absence_conge, maladie: t.maladie + mal(x),
     autre: t.autre + x.absence_autre, presence: t.presence + x.jours_presence, tt: t.tt + x.jours_tt, anomalies: t.anomalies + x.anomalies,
     effectif: t.effectif + x.effectif,
   }), { prevues: 0, preste: 0, conge: 0, maladie: 0, autre: 0, presence: 0, tt: 0, anomalies: 0, effectif: 0 })
   const absTotal = tot.conge + tot.maladie + tot.autre
-  const tauxAbs = (x: StatService) => ratio(x.absence_conge + x.absence_maladie + x.absence_autre, x.prevues)
+  const absDe = (x: StatService) => x.absence_conge + mal(x) + x.absence_autre
+  const tauxAbs = (x: StatService) => ratio(absDe(x), x.prevues)
   const maxAbs = Math.max(10, ...s.services.map((x) => tauxAbs(x) ?? 0))
+  const masques = s.services.some((x) => x.absence_maladie === null)
+  const parAnomalies = [...s.services].filter((x) => x.anomalies > 0).sort((a, b) => b.anomalies - a.anomalies)
+  const d = s.demandes, decidees = d.accordees + d.refusees
+
+  function exporterCsv() {
+    const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
+    const p1 = (v: number | null) => (v === null ? '' : (Math.round(v * 10) / 10).toString().replace('.', ','))
+    const entete = ['Service', 'Effectif', 'Heures prévues', 'Heures prestées', 'Congés (h)', 'Maladie (h)', 'Autres absences (h)',
+                    'Taux d’absence (%)', 'Jours prestés', 'Jours télétravail', 'Anomalies (jours)']
+    const corps = s!.services.map((x) => [x.service, x.effectif, h(x.prevues), h(x.preste), h(x.absence_conge),
+      x.absence_maladie === null ? 'masqué' : h(x.absence_maladie), h(x.absence_autre), p1(tauxAbs(x)), x.jours_presence, x.jours_tt, x.anomalies])
+    const csv = [entete, ...corps].map((r) => r.map(celluleCsv).join(';')).join('\r\n')
+    telecharger(csv, `indicateurs-${mois.slice(0, 7)}.csv`)
+  }
 
   return (
     <>
       <div className="tuiles">
         <div className="tuile"><strong>{pct(ratio(absTotal, tot.prevues))}</strong><span>taux d’absence</span>
-          <small className="doux">dont maladie {pct(ratio(tot.maladie, tot.prevues))}</small></div>
-        <div className="tuile"><strong>{pct(ratio(tot.tt, tot.presence))}</strong><span>des jours prestés en télétravail</span></div>
+          <small className="doux">dont maladie {pct(ratio(tot.maladie, tot.prevues))}{masques ? ' (hors petits services)' : ''}</small></div>
+        <div className="tuile"><strong>{pct(ratio(tot.tt, tot.presence))}</strong><span>des jours prestés en télétravail</span>
+          <small className="doux">{tot.tt} jour(s) sur {tot.presence}</small></div>
         <div className="tuile"><strong>{pct(ratio(tot.preste, tot.prevues - absTotal))}</strong><span>heures prestées / à prester</span>
           <small className="doux">{duree(tot.preste)} sur {duree(tot.prevues - absTotal)}</small></div>
-        <div className={`tuile ${s.demandes.en_attente > 0 ? 'alerte' : ''}`}><strong>{s.demandes.en_attente}</strong><span>demandes en attente</span>
-          <small className="doux">délai moyen de décision : {s.demandes.delai_moyen_heures === null ? '—' : `${String(s.demandes.delai_moyen_heures).replace('.', ',')} h`}</small></div>
+        <div className={`tuile ${tot.anomalies > 0 ? 'alerte' : ''}`}><strong>{tot.anomalies}</strong><span>jour(s) de pointage à régulariser</span>
+          <small className="doux">{parAnomalies.length} service(s) concerné(s)</small></div>
+        <div className={`tuile ${d.en_attente > 0 ? 'alerte' : ''}`}><strong>{d.en_attente}</strong><span>demandes en attente</span>
+          <small className="doux">délai moyen de décision : {d.delai_moyen_heures === null ? '—' : `${String(d.delai_moyen_heures).replace('.', ',')} h`}</small></div>
+        <div className="tuile"><strong>{pct(ratio(d.accordees, decidees))}</strong><span>des demandes accordées</span>
+          <small className="doux">{d.accordees} accordée(s) · {d.refusees} refusée(s)</small></div>
       </div>
 
       <section className="carte">
-        <div className="ligne entre"><h2>Par service</h2><span className="doux petit">{nomMois(s.debut)} · {tot.effectif} personnes</span></div>
+        <div className="ligne entre barre-outils">
+          <h2>Par service <span className="doux petit">· {nomMois(s.debut)} · {tot.effectif} personnes</span></h2>
+          <button className="bouton secondaire petit" onClick={exporterCsv}>Export Excel (CSV)</button>
+        </div>
         <div className="tableau-defilant">
           <table className="tableau services">
             <thead><tr>
-              <th>Service</th><th className="num">Effectif</th><th>Taux d’absence</th><th className="num">dont maladie</th>
-              <th className="num">Télétravail</th><th className="num">Prestées / à prester</th><th className="num">Anomalies</th>
+              <th>Service</th><th className="num">Effectif</th><th>Taux d’absence</th><th className="num">Congés</th><th className="num">Maladie</th>
+              <th className="num">Autres</th><th className="num">Télétravail</th><th className="num">Prestées / à prester</th><th className="num">Anomalies</th>
             </tr></thead>
             <tbody>{s.services.map((x) => {
               const t = tauxAbs(x) ?? 0
               return (
-                <tr key={x.service}>
+                <tr key={x.service} className={x.regroupe ? 'regroupe' : ''}>
                   <td><strong>{x.service}</strong></td>
                   <td className="num">{x.effectif}</td>
                   <td><span className="barre-cellule"><span className="barre-trace"><span style={{ width: `${(t / maxAbs) * 100}%` }} /></span>
                     <span className="num">{pct(t)}</span></span></td>
-                  <td className="num">{pct(ratio(x.absence_maladie, x.prevues))}</td>
+                  <td className="num">{pct(ratio(x.absence_conge, x.prevues))}</td>
+                  <td className="num">{x.absence_maladie === null ? <span className="doux" title="Groupe trop petit : la maladie est comptée dans « Autres »">masqué</span> : pct(ratio(x.absence_maladie, x.prevues))}</td>
+                  <td className="num">{pct(ratio(x.absence_autre, x.prevues))}</td>
                   <td className="num">{pct(ratio(x.jours_tt, x.jours_presence))}</td>
-                  <td className="num">{pct(ratio(x.preste, x.prevues - x.absence_conge - x.absence_maladie - x.absence_autre))}</td>
+                  <td className="num">{pct(ratio(x.preste, x.prevues - absDe(x)))}</td>
                   <td className="num">{x.anomalies > 0 ? <span className="pilule attente">{x.anomalies} j</span> : '0'}</td>
                 </tr>
               )
             })}</tbody>
           </table>
         </div>
-        <p className="doux petit" style={{ marginBottom: 0 }}>Chiffres agrégés par service : aucune donnée individuelle n’apparaît ici.</p>
+        <p className="doux petit" style={{ marginBottom: 0 }}>
+          Chiffres agrégés par service : aucune donnée individuelle.
+          {s.seuil_anonymat && s.seuil_anonymat > 1 ? ` Les services de moins de ${s.seuil_anonymat} personnes sont regroupés (réglable dans Admin → Paramètres).` : ''}
+        </p>
       </section>
 
       <div className="graphes">
         <Barres titre="Taux d’absence" sousTitre="6 derniers mois · congés, maladie et autres absences accordées" donnees={s.tendance.map((t) => [t.mois, t.taux_absence])} />
         <Barres titre="Télétravail" sousTitre="6 derniers mois · part des jours prestés" donnees={s.tendance.map((t) => [t.mois, t.taux_tt])} />
       </div>
+
+      <div className="graphes">
+        <section className="carte">
+          <h2>Répartition des absences</h2>
+          <p className="doux petit" style={{ margin: '-6px 0 10px' }}>Part des heures d’absence du mois, tous services</p>
+          {([['Congés', tot.conge], ['Maladie', tot.maladie], ['Autres absences', tot.autre]] as [string, number][]).map(([l, v]) => (
+            <div key={l} className="repartition">
+              <div className="ligne entre petit"><span>{l}</span><span className="num">{pct(ratio(v, absTotal))} · {duree(v)}</span></div>
+              <div className="barre fine"><span style={{ width: `${ratio(v, absTotal) ?? 0}%` }} /></div>
+            </div>
+          ))}
+        </section>
+        <section className="carte">
+          <h2>Pointages à régulariser</h2>
+          <p className="doux petit" style={{ margin: '-6px 0 10px' }}>Jours sans pointage complet, par service. Les rappels se font depuis l’onglet RH.</p>
+          {parAnomalies.length === 0 && <p className="vide">Aucun jour à régulariser 👍</p>}
+          {parAnomalies.map((x) => (
+            <div key={x.service} className="repartition">
+              <div className="ligne entre petit"><span>{x.service}</span><span className="num">{x.anomalies} j</span></div>
+              <div className="barre fine"><span style={{ width: `${(x.anomalies / parAnomalies[0].anomalies) * 100}%` }} /></div>
+            </div>
+          ))}
+        </section>
+      </div>
     </>
   )
+}
+
+// Export CSV : séparateur « ; » (Excel belge), BOM UTF-8, cellules à risque neutralisées (=, +, -, @)
+function celluleCsv(c: string | number): string {
+  let v = String(c)
+  if (typeof c === 'string' && /^[=+\-@\t\r]/.test(v) && !/^-?\d+([.,]\d+)?$/.test(v)) v = `'${v}`
+  return `"${v.replace(/"/g, '""')}"`
+}
+function telecharger(csv: string, nom: string) {
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a'); a.href = url; a.download = nom; a.click()
+  URL.revokeObjectURL(url)
 }
 
 // Petit graphique en barres, une seule série (pas de légende : le titre la nomme)
@@ -170,13 +235,11 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
     if (!lignes) return
     const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
     const entete = ['Nom', 'Prénom', 'Partenaire', 'Service', 'Régime', 'Heures à prester', 'Heures prestées', 'Écart (h)',
-                    'Absences justifiées (h)', 'Maladie (h)', 'Jours non justifiés', 'Jours incomplets']
+                    'Congés (h)', 'Autres absences justifiées (h)', 'Maladie (h)', 'Jours non justifiés', 'Jours incomplets']
     const corps = lignes.map((l) => [l.nom, l.prenom, l.partenaire, l.service, l.regime ?? '', h(l.a_prester), h(l.preste), h(l.ecart),
-                                     h(l.absence_justifiee), h(l.absence_maladie), l.jours_non_justifies, l.jours_incomplets])
-    const csv = [entete, ...corps].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
-    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a'); a.href = url; a.download = `rapport-cpas-${mois.slice(0, 7)}.csv`; a.click()
-    URL.revokeObjectURL(url)
+                                     h(l.conges), h(l.absence_justifiee), h(l.absence_maladie), l.jours_non_justifies, l.jours_incomplets])
+    const csv = [entete, ...corps].map((r) => r.map(celluleCsv).join(';')).join('\r\n')
+    telecharger(csv, `rapport-cpas-${mois.slice(0, 7)}.csv`)
   }
 
   if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
@@ -184,7 +247,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
     <section className="carte">
       <div className="ligne entre">
         <div><h2>Heures des ISP — {nomMois(mois)}</h2>
-          <p className="doux petit" style={{ margin: '4px 0 0' }}>Pour le suivi des contrats article 60 avec le CPAS.</p></div>
+          <p className="doux petit" style={{ margin: '4px 0 0' }}>Pour le suivi des contrats article 60 : heures et congés à communiquer au CPAS.</p></div>
         <span className="ligne">
           <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
           <button className="bouton petit" disabled={!lignes?.length} onClick={exporterCsv}>Export Excel (CSV)</button>
@@ -197,7 +260,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
           <table className="tableau">
             <thead><tr>
               <th>ISP</th><th>Service</th><th className="num">À prester</th><th className="num">Prestées</th><th className="num">Écart</th>
-              <th className="num">Absences justifiées</th><th className="num">Maladie</th><th className="num">Jours non justifiés</th><th className="num">Jours incomplets</th>
+              <th className="num">Congés</th><th className="num">Autres justifiées</th><th className="num">Maladie</th><th className="num">Jours non justifiés</th><th className="num">Jours incomplets</th>
             </tr></thead>
             <tbody>{lignes.map((l) => (
               <tr key={l.personne_id}>
@@ -206,6 +269,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
                 <td className="num">{duree(l.a_prester)}</td>
                 <td className="num">{duree(l.preste)}</td>
                 <td className={`num ${l.ecart < 0 ? 'negatif' : 'positif'}`}>{duree(l.ecart, true)}</td>
+                <td className="num">{duree(l.conges)}</td>
                 <td className="num">{duree(l.absence_justifiee)}</td>
                 <td className="num">{duree(l.absence_maladie)}</td>
                 <td className="num">{l.jours_non_justifies > 0 ? <span className="pilule ko">{l.jours_non_justifies}</span> : '0'}</td>
