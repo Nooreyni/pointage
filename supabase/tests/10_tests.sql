@@ -25,8 +25,10 @@ grant all on all tables in schema test to authenticated, anon;
 grant all on all sequences in schema test to authenticated, anon;
 grant execute on all functions in schema test to authenticated, anon;
 
-insert into auth.users (email) select email from pointage.personnes;
-insert into auth.users (email) values ('inconnu@exterieur.test');
+-- Comptes Microsoft Entra : e-mail vérifié par le fournisseur
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data)
+select email, now(), '{"provider":"azure","providers":["azure"]}' from pointage.personnes;
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ('inconnu@exterieur.test', now(), '{"provider":"azure","providers":["azure"]}');
 select test.ok((select count(*) = 14 from pointage.personnes where auth_user_id is not null), 'SSO : 14 comptes liés par e-mail');
 
 -- ===================== Accès =====================
@@ -472,6 +474,59 @@ select test.ok(:nb_pt >= 1
                and exists (select 1 from pointage.pointages where horodatage = '2026-03-10 08:00+01'),
                'Pointages clôturés de plus d''1 an supprimés, les autres gardés');
 select test.erreur($$delete from pointage.pointages$$, 'Pas de suppression hors purge', 'lecture seule');
+
+
+-- ===================== Liaison des comptes (R2) =====================
+-- Une personne ajoutée par l'admin, dont l'adresse est « squattée » par un compte e-mail non confirmé
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_personne(null, 'Zoé', 'Victime', 'zoe.victime@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint) as id_zoe \gset
+reset role;
+insert into auth.users (email, raw_app_meta_data) values ('zoe.victime@cfb.test', '{"provider":"email","providers":["email"]}');
+select test.ok((select auth_user_id is null from pointage.personnes where id = :'id_zoe'), 'Compte e-mail non confirmé : jamais lié');
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'zoe.victime@cfb.test'))::text, false);
+set role authenticated;
+select test.ok(not public.lier_mon_compte(), 'Non confirmé : lier_mon_compte refuse');
+select test.erreur('select public.pointer()', 'Non confirmé : aucun accès', 'non reconnu');
+reset role;
+update auth.users set email_confirmed_at = now() where email = 'zoe.victime@cfb.test';
+select test.ok((select auth_user_id is null from pointage.personnes where id = :'id_zoe'), 'E-mail + mot de passe confirmé : pas lié (SSO exigé par défaut)');
+update auth.users set raw_app_meta_data = '{"provider":"email","providers":["email","azure"]}' where email = 'zoe.victime@cfb.test';
+select test.ok((select auth_user_id is not null from pointage.personnes where id = :'id_zoe'), 'Connexion Microsoft ajoutée : liaison automatique');
+-- Réglage : autoriser e-mail + mot de passe (structure sans SSO, environnement de dev)
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_personne(null, 'Hugo', 'Tardif', 'hugo.tardif@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint) as id_hugo \gset
+reset role;
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ('hugo.tardif@cfb.test', now(), '{"provider":"email"}');
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'hugo.tardif@cfb.test'))::text, false);
+set role authenticated; select test.ok(not public.lier_mon_compte(), 'SSO exigé : compte e-mail refusé'); reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('liaison_sso_seulement', 0, 'test'); reset role;
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'hugo.tardif@cfb.test'))::text, false);
+set role authenticated; select test.ok(public.lier_mon_compte(), 'Réglage désactivé : compte e-mail confirmé lié au 1er accès'); reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('liaison_sso_seulement', 1, 'test'); reset role;
+-- Personne créée APRÈS le 1er login vérifié : liaison immédiate à l'enregistrement
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ('tim.avance@cfb.test', now(), '{"provider":"azure"}');
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_personne(null, 'Tim', 'Avance', 'tim.avance@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint) as id_tim \gset
+reset role;
+select test.ok((select auth_user_id is not null from pointage.personnes where id = :'id_tim'), 'Compte vérifié existant : lié dès l''enregistrement');
+-- Délier / relier
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur(format('select public.delier_compte(%L)', :'id_tim'), 'Employé : ne peut pas délier', 'réservée');
+reset role;
+select test.connecte('Admin'); set role authenticated;
+select public.delier_compte(:'id_tim');
+select test.erreur(format('select public.delier_compte(%L)', test.pid('Admin')), 'Admin : ne peut pas délier son propre compte', 'propre compte');
+select test.erreur(format('select public.enregistrer_personne(%L, ''Admin'', ''IT'', ''autre.adresse@cfb.test'', ''a0000000-0000-0000-0000-000000000003'', p_role => ''admin'', p_regime_id => 1::smallint)', test.pid('Admin')),
+                   'Admin : ne peut pas changer sa propre adresse', 'propre adresse');
+reset role;
+select test.ok((select auth_user_id is null from pointage.personnes where id = :'id_tim'), 'Compte délié par l''admin');
+select set_config('request.jwt.claims', json_build_object('sub', (select id from auth.users where email = 'tim.avance@cfb.test'))::text, false);
+set role authenticated; select test.ok(public.lier_mon_compte(), 'Reconnexion vérifiée : compte relié'); reset role;
+-- Adresse corrigée par l'admin : l'ancien compte est délié
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_personne(:'id_tim', 'Tim', 'Avance', 'tim.nouveau@cfb.test', 'a0000000-0000-0000-0000-000000000002', p_regime_id => 1::smallint);
+reset role;
+select test.ok((select auth_user_id is null from pointage.personnes where id = :'id_tim'), 'Adresse corrigée : ancien compte délié');
 
 -- ===================== Bilan =====================
 \o

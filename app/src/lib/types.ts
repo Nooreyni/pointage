@@ -329,6 +329,7 @@ export interface Api {
   // Administration
   adminPersonnes(): Promise<AdminPersonne[]>
   enregistrerPersonne(p: SaisiePersonne): Promise<string>
+  delierCompte(personneId: string): Promise<void>
   changerRegime(personneId: string, regimeId: number, debut: string): Promise<void>
   adminServices(): Promise<AdminService[]>
   enregistrerService(s: Omit<AdminService, 'effectif' | 'id'> & { id: string | null }): Promise<string>

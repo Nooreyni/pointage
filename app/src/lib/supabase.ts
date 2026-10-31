@@ -30,7 +30,9 @@ export function apiSupabase(): Api {
     mode: 'supabase',
 
     async profil() {
-      const p = verifier(await sb.from('mon_profil').select('*').maybeSingle()) as Profil | null
+      let p = verifier(await sb.from('mon_profil').select('*').maybeSingle()) as Profil | null
+      // Pas encore lié (personne ajoutée après le 1er login, adresse corrigée…) : tentative de liaison vérifiée
+      if (!p && verifier(await sb.rpc('lier_mon_compte'))) p = verifier(await sb.from('mon_profil').select('*').maybeSingle()) as Profil | null
       if (!p) throw new Error('Ton compte Microsoft n’est pas encore enregistré dans CFB Pointage. Contacte la RH.')
       monId = p.id
       return p
@@ -193,6 +195,9 @@ export function apiSupabase(): Api {
         p_partenaire_isp: p.partenaire_isp, p_matricule: p.matricule, p_date_entree: p.date_entree, p_date_sortie: p.date_sortie,
         p_regime_id: p.regime_id,
       })) as string
+    },
+    async delierCompte(personneId) {
+      verifier(await sb.rpc('delier_compte', { p_personne_id: personneId }))
     },
     async changerRegime(personneId, regimeId, debut) {
       verifier(await sb.rpc('changer_regime', { p_personne_id: personneId, p_regime_id: regimeId, p_debut: debut }))

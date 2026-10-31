@@ -127,6 +127,7 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
   const [nouveauRegime, setNouveauRegime] = useState<number>(personne?.regime_id ?? regimes[0]?.id ?? 0)
   const [dateRegime, setDateRegime] = useState(`${Number(jourBxl().slice(0, 4)) + 1}-01-01`)
   const [enCours, setEnCours] = useState(false)
+  const [confirmerDelier, setConfirmerDelier] = useState(false)
   const maj = <K extends keyof SaisiePersonne>(k: K, v: SaisiePersonne[K]) => setF((x) => ({ ...x, [k]: v }))
   const verrouille = personne?.role === 'admin' && !estAdmin
 
@@ -179,6 +180,24 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
           </div>
         </fieldset>
       </form>
+
+      {personne && !verrouille && (
+        <div className="encart">
+          <h3>Compte de connexion</h3>
+          {personne.compte_lie ? <>
+            <p className="petit" style={{ marginTop: 0 }}>Lié au compte <strong>{personne.email}</strong>. Délier si un mauvais compte a été associé :
+              la personne sera reliée à sa prochaine connexion vérifiée (Microsoft).</p>
+            {confirmerDelier
+              ? <div className="actions" style={{ justifyContent: 'flex-start' }}>
+                  <button className="bouton danger" onClick={async () => {
+                    try { await api.delierCompte(personne.id); await ok('Compte délié') } catch (e) { erreur(e) } finally { setConfirmerDelier(false) }
+                  }}>Confirmer</button>
+                  <button className="bouton secondaire" onClick={() => setConfirmerDelier(false)}>Annuler</button></div>
+              : <button className="bouton secondaire" onClick={() => setConfirmerDelier(true)}>Délier le compte</button>}
+          </> : <p className="petit" style={{ margin: 0 }}>Pas encore connecté. Le compte sera lié automatiquement à sa première connexion
+            avec l’adresse ci-dessus, une fois l’identité vérifiée.</p>}
+        </div>
+      )}
 
       {personne && !verrouille && (
         <div className="encart">
@@ -381,7 +400,7 @@ function valeurLisible(p: Parametre): string {
   if (p.unite === 'min_depuis_minuit') return hhmm(p.valeur)
   return `${p.valeur} ${p.unite}`
 }
-const ORDRE_CATEGORIES = ['Temps de travail', 'Congés', 'Rappels', 'Confidentialité', 'Conservation']
+const ORDRE_CATEGORIES = ['Temps de travail', 'Congés', 'Rappels', 'Confidentialité', 'Conservation', 'Sécurité']
 
 function Parametres({ api, erreur, setMessage }: { api: Api; erreur: (e: unknown) => void; setMessage: (m: Message) => void }) {
   const [liste, setListe] = useState<Parametre[]>([])

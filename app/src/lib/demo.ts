@@ -167,13 +167,15 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     ['rappel_entree_delai_min', 30, 'min', 'Rappel d’entrée après l’heure habituelle'], ['relance_demande_jours', 3, 'jours', 'Relance d’une demande en attente après'],
     ['ip_visible_n1', 1, 'booleen', 'Le N+1 voit l’adresse IP des pointages de son équipe'],
     ['stats_seuil_anonymat', 3, 'personnes', 'Regrouper les statistiques des services de moins de (0 = jamais)'],
+    ['liaison_sso_seulement', 1, 'booleen', 'Lier un compte uniquement s’il se connecte via le fournisseur d’identité (Microsoft…), pas par e-mail + mot de passe'],
     ['conservation_ip_mois', 0, 'mois', 'Effacer l’adresse IP après (0 = aussi longtemps que les pointages)'],
     ['conservation_pointages_ans', 0, 'ans', 'Supprimer les pointages des mois clôturés après (0 = jamais)'],
     ['isp_conges', 1, 'booleen', 'Les ISP demandent leurs congés dans l’application'],
-  ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: !['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle),
-      source: ['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle) ? 'Décision CFB du 31/10/2026' : 'Valeur par défaut',
+  ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: !['ip_visible_n1', 'isp_conges', 'conservation_ip_mois', 'liaison_sso_seulement'].includes(cle),
+      source: ['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle) ? 'Décision CFB du 31/10/2026'
+        : cle === 'liaison_sso_seulement' ? 'Audit du 31/10/2026 (R2)' : 'Valeur par défaut',
       categorie: cle.startsWith('rappel') || cle.startsWith('relance') ? 'Rappels' : cle.startsWith('conges') || cle === 'isp_conges' ? 'Congés'
-        : cle.startsWith('conservation') ? 'Conservation' : ['ip_visible_n1', 'stats_seuil_anonymat'].includes(cle) ? 'Confidentialité' : 'Temps de travail' }))
+        : cle.startsWith('conservation') ? 'Conservation' : cle === 'liaison_sso_seulement' ? 'Sécurité' : ['ip_visible_n1', 'stats_seuil_anonymat'].includes(cle) ? 'Confidentialité' : 'Temps de travail' }))
   let compteurs: Compteur[] = ([
     ['CONGE_LEGAL', 'Congés annuels', 'annuelle', 'total', 'CONGE_N1'], ['CONGE_N1', 'Congés année passée', 'annuelle', 'total', 'CONGE_N2'],
     ['CONGE_N2', 'Congés année −2', 'annuelle', 'perdu', null], ['EXTRA_LEGAL', 'Congés extra-légaux', 'annuelle', 'total', null],
@@ -442,6 +444,11 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async adminPersonnes() {
       exigerAdmin()
       return [...adminP].sort((a, b) => a.nom.localeCompare(b.nom))
+    },
+    async delierCompte(id) {
+      exigerAdmin()
+      if (id === 'p99' && persona === 'admin') throw new Error('Tu ne peux pas délier ton propre compte')
+      adminP = adminP.map((x) => (x.id === id ? { ...x, compte_lie: false } : x))
     },
     async enregistrerPersonne(s) {
       exigerAdmin(); await attendre()

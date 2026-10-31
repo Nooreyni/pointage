@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Api, Notif, Profil } from '../lib/types'
 import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
+import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
@@ -33,12 +34,14 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
   const [menu, setMenu] = useState(false)
+  const [attenteDeco, setAttenteDeco] = useState(0)   // pointages pas encore envoyés au moment de se déconnecter
   const [aValider, setAValider] = useState(0)
   const [nbAnomalies, setNbAnomalies] = useState(0)
   const [vueConges, setVueConges] = useState<VueConges>('mes')
 
   useEffect(() => {
-    api.profil().then(setProfil).catch((e) => setErreur(messageErreur(e)))
+    api.profil().then((p) => { definirProprietaire(p.id); setProfil(p) }).catch((e) => setErreur(messageErreur(e)))
+    return () => definirProprietaire(null)
   }, [api])
 
   const chargerNotifs = useCallback(() => { api.notifications().then(setNotifs).catch(() => {}) }, [api])
@@ -69,6 +72,13 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   if (!profil) return <div className="squelette">Chargement…</div>
 
   const nonLues = notifs.filter((n) => !n.lu_le).length
+  const quitter = () => { definirProprietaire(null); api.deconnexion(); onQuitter() }
+  async function seDeconnecter() {
+    setMenu(false)
+    if (enAttente().length && navigator.onLine) await synchroniser(api).catch(() => 0)
+    const reste = enAttente().length
+    if (reste) setAttenteDeco(reste); else quitter()
+  }
   const aller = (o: Onglet, vc: VueConges = 'mes') => { setVueConges(vc); setOnglet(o); window.scrollTo({ top: 0 }) }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider') : aller(d))
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
@@ -97,7 +107,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
           {menu && (
             <div className="menu" role="menu">
               <div className="menu-nom"><strong>{profil.prenom} {profil.nom}</strong><span className="doux petit">{libelleRole} · {profil.service}</span></div>
-              <button role="menuitem" onClick={() => { setMenu(false); api.deconnexion(); onQuitter() }}>Se déconnecter</button>
+              <button role="menuitem" onClick={seDeconnecter}>Se déconnecter</button>
             </div>
           )}
         </div>
@@ -125,6 +135,19 @@ export default function Espace({ api, onQuitter, vueDemo }: {
         ))}
       </nav>
 
+      {attenteDeco > 0 && (
+        <div className="voile" role="dialog" aria-modal="true" aria-labelledby="titre-deco" onClick={() => setAttenteDeco(0)}>
+          <div className="fenetre" onClick={(e) => e.stopPropagation()}>
+            <h2 id="titre-deco">{attenteDeco} pointage(s) pas encore envoyé(s)</h2>
+            <p className="petit">Tu es hors ligne. Ils restent gardés sur cet appareil <strong>à ton nom uniquement</strong> et seront envoyés
+              à ta prochaine connexion ici. Une autre personne qui se connecte sur cet appareil ne les enverra pas.</p>
+            <div className="actions">
+              <button className="bouton secondaire" onClick={() => setAttenteDeco(0)}>Rester connecté</button>
+              <button className="bouton" onClick={() => { setAttenteDeco(0); quitter() }}>Se déconnecter</button>
+            </div>
+          </div>
+        </div>
+      )}
       {onglet === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} />}
       {onglet === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
       {onglet === 'rh' && <Rh api={api} />}
