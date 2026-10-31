@@ -1,0 +1,41 @@
+# Contrôles automatiques à chaque envoi : base de données, appli, service d'envoi
+name: Tests
+on:
+  push:
+  pull_request:
+
+jobs:
+  base:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 16 + horloge figée
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-16 faketime
+      - name: Migrations + scénarios SQL
+        run: |
+          sudo bash supabase/tests/run.sh | tee resultat.txt
+          grep -q "| *0$" <(grep -A2 "reussis" resultat.txt | tail -1) || { echo "Des tests SQL échouent"; exit 1; }
+
+  appli:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  envoi:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.5.6 }
+      - run: node supabase/functions/envoyer-notifications/integration.test.mjs supabase/functions/envoyer-notifications/index.ts
+      - run: node supabase/functions/envoyer-notifications/integration.test.mjs supabase/functions/envoyer-notifications/index.ts email
