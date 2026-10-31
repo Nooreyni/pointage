@@ -82,6 +82,70 @@ export interface DemandePointage {
   remarque?: string | null
 }
 
+export type TypeDemande = 'conge_jours' | 'conge_demi_jour' | 'conge_heures'
+export type StatutDemande = 'en_attente' | 'accordee' | 'refusee' | 'annulee'
+
+export interface Solde {
+  compteur_code: string
+  libelle: string
+  ordre: number
+  periode_debut: string
+  attribue_min: number
+  pris_min: number
+  reste_min: number
+}
+
+export interface CodeAbsence {
+  code: string
+  libelle: string
+  code_court: string | null
+  compteur_code: string | null
+  justificatif_requis: boolean
+  ordre: number
+}
+
+export interface Demande {
+  id: string
+  numero: number
+  personne_id: string
+  prenom: string
+  nom: string
+  type: TypeDemande
+  code_absence: string
+  libelle_absence: string
+  date_debut: string
+  date_fin: string
+  demi: 'matin' | 'apres_midi' | null
+  minutes_decomptees: number
+  commentaire: string | null
+  statut: StatutDemande
+  decide_le: string | null
+  commentaire_decision: string | null
+  cree_le: string
+  je_peux_valider: boolean
+}
+
+export interface SaisieDemande {
+  type: TypeDemande
+  code_absence: string
+  debut: string
+  fin: string
+  demi: 'matin' | 'apres_midi' | null
+  minutes: number | null
+  commentaire?: string | null
+}
+
+export interface Simulation {
+  minutes: number
+  compteur: string | null
+  solde_avant: number | null
+  solde_apres: number | null
+  solde_negatif: boolean
+  collegues_absents: number
+  effectif_service: number
+  seuil_depasse: boolean
+}
+
 export interface Api {
   mode: 'supabase' | 'demo'
   profil(): Promise<Profil>
@@ -96,5 +160,13 @@ export interface Api {
   presence(): Promise<Presence[]>
   notifications(): Promise<Notif[]>
   marquerLu(): Promise<void>
+  soldes(): Promise<Solde[]>
+  codesAbsence(): Promise<CodeAbsence[]>
+  simuler(s: SaisieDemande): Promise<Simulation>
+  soumettre(s: SaisieDemande): Promise<void>
+  mesDemandes(): Promise<Demande[]>
+  aValider(): Promise<Demande[]>
+  decider(ids: string[], accorder: boolean, commentaire?: string): Promise<number>
+  annulerDemande(id: string, motif?: string): Promise<void>
   deconnexion(): Promise<void>
 }

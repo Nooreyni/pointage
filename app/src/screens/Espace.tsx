@@ -5,15 +5,20 @@ import { IcCalendrier, IcCloche, IcEquipe, IcHorloge } from '../components/Icone
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes from './Alertes'
+import Conges from './Conges'
 
-type Onglet = 'pointer' | 'equipe' | 'alertes'
+type Onglet = 'pointer' | 'equipe' | 'conges' | 'alertes'
 
-export default function Espace({ api, onQuitter }: { api: Api; onQuitter: () => void }) {
+export default function Espace({ api, onQuitter, onChangerVue }: {
+  api: Api; onQuitter: () => void; onChangerVue?: () => void
+}) {
   const [profil, setProfil] = useState<Profil | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>('pointer')
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
+  const [menu, setMenu] = useState(false)
+  const [aValider, setAValider] = useState(0)
 
   useEffect(() => {
     api.profil().then(setProfil).catch((e) => setErreur(messageErreur(e)))
@@ -23,6 +28,7 @@ export default function Espace({ api, onQuitter }: { api: Api; onQuitter: () => 
   useEffect(() => {
     if (!profil) return
     chargerNotifs()
+    api.aValider().then((d) => setAValider(d.length)).catch(() => {})
     const t = setInterval(chargerNotifs, 60_000)
     return () => clearInterval(t)
   }, [profil, chargerNotifs])
@@ -45,8 +51,9 @@ export default function Espace({ api, onQuitter }: { api: Api; onQuitter: () => 
 
   const nonLues = notifs.filter((n) => !n.lu_le).length
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
-  const onglets: [Onglet | 'demandes', string, () => React.JSX.Element][] = [
-    ['pointer', 'Pointer', IcHorloge], ['equipe', 'Équipe', IcEquipe], ['demandes', 'Congés', IcCalendrier], ['alertes', 'Alertes', IcCloche],
+  const onglets: [Onglet, string, () => React.JSX.Element, number][] = [
+    ['pointer', 'Pointer', IcHorloge, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
+    ['alertes', 'Alertes', IcCloche, 0],
   ]
 
   return (
@@ -57,32 +64,39 @@ export default function Espace({ api, onQuitter }: { api: Api; onQuitter: () => 
         <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} onClick={() => setOnglet('alertes')}>
           <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues}</span>}
         </button>
-        <button className="avatar" title={`${profil.prenom} ${profil.nom} — se déconnecter`}
-                onClick={() => { if (confirmerDeconnexion()) { api.deconnexion(); onQuitter() } }}>{initiales}</button>
+        <div className="menu-compte">
+          <button className="avatar" aria-expanded={menu} aria-label={`Compte de ${profil.prenom} ${profil.nom}`}
+                  onClick={() => setMenu((m) => !m)}>{initiales}</button>
+          {menu && (
+            <div className="menu" role="menu">
+              <div className="menu-nom"><strong>{profil.prenom} {profil.nom}</strong><span className="doux petit">{profil.service}</span></div>
+              <button role="menuitem" onClick={() => { setMenu(false); api.deconnexion(); onQuitter() }}>Se déconnecter</button>
+            </div>
+          )}
+        </div>
       </header>
-      {api.mode === 'demo' && <div className="bandeau-demo">Mode démo — données fictives, rien n’est enregistré</div>}
+      {api.mode === 'demo' && (
+        <div className="bandeau-demo">Mode démo — données fictives, rien n’est enregistré
+          {onChangerVue && <button className="lien-bandeau" onClick={onChangerVue}>
+            {profil.est_chef_service ? 'Voir comme employée' : 'Voir comme chef de service'}</button>}
+        </div>
+      )}
       {!enLigne && <div className="bandeau-hors-ligne">Hors ligne — tes pointages sont gardés sur l’appareil et envoyés dès le retour du réseau</div>}
 
       <nav className="nav" aria-label="Navigation principale">
-        {onglets.map(([id, libelle, Icone]) => (
-          <button key={id} aria-current={onglet === id ? 'page' : undefined} disabled={id === 'demandes'}
-                  title={id === 'demandes' ? 'Bientôt disponible' : undefined}
-                  onClick={() => id !== 'demandes' && setOnglet(id)}>
-            <Icone />{libelle}
+        {onglets.map(([id, libelle, Icone, compte]) => (
+          <button key={id} aria-current={onglet === id ? 'page' : undefined} onClick={() => setOnglet(id)}>
+            <span className="icone-nav"><Icone />{compte > 0 && <span className="pastille-nav">{compte}</span>}</span>{libelle}
           </button>
         ))}
       </nav>
 
       {onglet === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} />}
+      {onglet === 'conges' && <Conges api={api} profil={profil} />}
       {onglet === 'equipe' && <main className="contenu"><div className="col-principale pile"><Equipe api={api} /></div></main>}
       {onglet === 'alertes' && <main className="contenu"><div className="col-principale pile">
         <Alertes notifs={notifs} onVu={() => api.marquerLu().then(chargerNotifs)} />
       </div></main>}
     </div>
   )
-}
-
-function confirmerDeconnexion(): boolean {
-  // Pas de boîte de dialogue bloquante : simple confirmation native, acceptable ici (action rare)
-  return window.confirm('Se déconnecter de CFB Pointage ?')
 }

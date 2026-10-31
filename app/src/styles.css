@@ -215,3 +215,48 @@ main.contenu {
 
 .squelette { color: var(--texte-doux); text-align: center; padding: 48px 16px; }
 .vide { color: var(--texte-doux); font-size: 15px; padding: 6px 0; }
+
+/* ---------- Congés ---------- */
+.segments { display: flex; background: var(--fond); border-radius: 12px; padding: 4px; gap: 4px; }
+.segments button { flex: 1; border: 0; background: none; border-radius: 9px; padding: 9px 6px; font-weight: 600; color: var(--texte-doux); }
+.segments button[aria-checked='true'] { background: var(--carte); color: var(--bleu-fonce); box-shadow: var(--ombre); }
+.champs-ligne { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0 12px; }
+.champs-ligne .champ select { width: 100%; }
+.champ .ligne select { flex: 1; }
+.simulation { background: #F1F7E6; border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; font-size: 15px; }
+.simulation.alerte { background: #FFF4D9; }
+.attention { color: #8A5A00; font-weight: 600; }
+.bouton.large { width: 100%; padding: 14px; font-size: 17px; margin-top: 4px; }
+.bouton.petit { padding: 6px 10px; font-size: 14px; }
+.pilule { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.pilule.attente { background: #FFF4D9; color: #7A5A00; }
+.pilule.ok { background: #EAF4D8; color: #4E7A12; }
+.pilule.ko { background: #FBE9E8; color: var(--rouge); }
+.pilule.neutre { background: #EEF0F5; color: var(--texte-doux); }
+.solde { padding: 10px 0; border-top: 1px solid var(--bord); }
+.solde:first-of-type { border-top: 0; padding-top: 0; }
+.solde-nom { font-weight: 600; }
+.solde-reste { font-family: var(--titre); font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+.barre.fine { height: 6px; margin: 6px 0 4px; }
+.barre.fine > span { background: var(--bleu); }
+.a-valider { border-left: 5px solid var(--jaune); }
+.a-valider input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--bleu-fonce); flex: none; }
+.a-valider label { cursor: pointer; }
+
+/* Menu du compte + pastilles de navigation */
+.menu-compte { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px;
+  background: var(--carte); color: var(--texte); border-radius: 14px; box-shadow: 0 8px 28px rgba(22, 33, 62, .18); padding: 6px;
+}
+.menu-nom { display: grid; padding: 10px 12px; border-bottom: 1px solid var(--bord); }
+.menu button { width: 100%; text-align: left; background: none; border: 0; padding: 10px 12px; border-radius: 10px; font-weight: 600; }
+.menu button:hover { background: var(--fond); }
+.icone-nav { position: relative; display: inline-flex; }
+.pastille-nav {
+  position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--jaune); color: var(--texte); font-size: 11.5px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.lien-bandeau { background: none; border: 0; text-decoration: underline; font-weight: 700; margin-left: 10px; padding: 0; }
+@media (max-width: 899px) { .pc-seulement { display: none; } }
+@media (min-width: 900px) { .mobile-seulement { display: none; } }

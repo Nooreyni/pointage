@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Api, Anomalie, DemandePointage, Journee, Notif, Pointage, Presence, Profil, Sens, TypePointage } from './types'
+import type { Api, Anomalie, CodeAbsence, Demande, DemandePointage, Journee, Notif, Pointage, Presence, Profil, SaisieDemande, Sens,
+  Simulation, Solde, TypePointage } from './types'
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const CLE = import.meta.env.VITE_SUPABASE_KEY as string | undefined
@@ -86,8 +87,52 @@ export function apiSupabase(): Api {
       verifier(await sb.rpc('marquer_lu', {}))
     },
 
+    async soldes() {
+      return verifier(await sb.from('soldes').select('*').eq('personne_id', monId!)
+        .order('ordre').order('periode_debut', { ascending: false })) as Solde[]
+    },
+
+    async codesAbsence() {
+      return verifier(await sb.from('codes_absence').select('*').order('ordre')) as CodeAbsence[]
+    },
+
+    async simuler(s: SaisieDemande) {
+      return verifier(await sb.rpc('simuler_demande', paramsDemande(s))) as Simulation
+    },
+
+    async soumettre(s: SaisieDemande) {
+      verifier(await sb.rpc('soumettre_demande', { ...paramsDemande(s), p_commentaire: s.commentaire ?? null }))
+    },
+
+    async mesDemandes() {
+      return verifier(await sb.from('demandes').select('*').eq('personne_id', monId!)
+        .order('date_debut', { ascending: false }).limit(50)) as Demande[]
+    },
+
+    async aValider() {
+      return verifier(await sb.from('demandes').select('*').eq('statut', 'en_attente').eq('je_peux_valider', true)
+        .order('date_debut')) as Demande[]
+    },
+
+    async decider(ids, accorder, commentaire) {
+      return verifier(await sb.rpc('decider', { p_ids: ids, p_accorder: accorder, p_commentaire: commentaire ?? null })) as number
+    },
+
+    async annulerDemande(id, motif) {
+      verifier(await sb.rpc('annuler_demande', { p_id: id, p_motif: motif ?? null }))
+    },
+
     async deconnexion() {
       await sb.auth.signOut()
     },
+  }
+}
+
+function paramsDemande(s: SaisieDemande) {
+  return {
+    p_type: s.type, p_code_absence: s.code_absence, p_debut: s.debut,
+    p_fin: s.type === 'conge_jours' ? s.fin : s.debut,
+    p_demi: s.type === 'conge_demi_jour' ? s.demi : null,
+    p_minutes: s.type === 'conge_heures' ? s.minutes : null,
   }
 }
