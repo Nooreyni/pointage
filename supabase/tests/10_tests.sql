@@ -25,6 +25,8 @@ grant all on all tables in schema test to authenticated, anon, service_role;
 grant all on all sequences in schema test to authenticated, anon, service_role;
 grant execute on all functions in schema test to authenticated, anon, service_role;
 
+-- Les scénarios enchaînent des pointages à la seconde : l'anti double appui est activé seulement pour son test
+update pointage.parametres set valeur = 0 where cle = 'anti_rebond_s';
 -- Comptes Microsoft Entra : e-mail vérifié par le fournisseur
 insert into auth.users (email, email_confirmed_at, raw_app_meta_data)
 select email, now(), '{"provider":"azure","providers":["azure"]}' from pointage.personnes;
@@ -670,6 +672,41 @@ select test.connecte('Marc'); set role authenticated;
 select test.ok((select justificatif_chemin is not null from public.demandes where id = :'dem_awa'), 'Réglage activé : le N+1 l''ouvre aussi');
 reset role;
 select test.ok(pointage.dossier_personne('pas-un-uuid/x.pdf') is null, 'Nom de fichier malformé : aucun droit');
+
+
+-- ===================== Moindre privilège =====================
+select test.ok((select count(*) = 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'pointage' and has_function_privilege('anon', p.oid, 'execute')), 'Anonyme : aucune fonction interne exécutable');
+select test.ok((select count(*) = 11 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                where n.nspname = 'pointage' and has_function_privilege('authenticated', p.oid, 'execute')),
+               'Connecté : seulement les 11 fonctions utiles aux vues / règles d''accès');
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur('select pointage.purger_donnees()', 'Connecté : purge interdite', 'permission denied');
+select test.erreur($$select pointage.notifier(pointage.moi(), 'x', 'x', 'x')$$, 'Connecté : création de notification directe interdite', 'permission denied');
+reset role;
+
+
+-- ===================== Règles complétées (audit approfondi) =====================
+insert into pointage.pointages (personne_id, horodatage, sens, source, cree_par)
+select test.pid('Lucas'), x, s::pointage.sens_pointage, 'web', test.pid('Lucas')
+from (values ('2026-10-24 09:00 Europe/Brussels'::timestamptz, 'entree'), ('2026-10-24 12:00 Europe/Brussels'::timestamptz, 'sortie')) v(x, s);
+select test.ok((select boni = 0 and depassement = 180 from pointage.journees_set('2026-10-24', '2026-10-24', array[test.pid('Lucas')])),
+               'Samedi travaillé : 3 h « à valider », pas de boni automatique');
+select test.ok(exists (select 1 from pointage.journees_set('2026-10-24', '2026-10-24', array[test.pid('Lucas')]) where depassement > 0),
+               'Samedi travaillé : visible dans les heures à valider');
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('jour_non_prevu_a_valider', 0, 'test'); reset role;
+select test.ok((select boni = 180 and depassement = 0 from pointage.journees_set('2026-10-24', '2026-10-24', array[test.pid('Lucas')])),
+               'Réglage désactivé : le samedi va en boni');
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('jour_non_prevu_a_valider', 1, 'test'); reset role;
+update pointage.parametres set valeur = 60 where cle = 'anti_rebond_s';
+select test.connecte('Emma'); set role authenticated;
+select public.pointer();
+select test.erreur('select public.pointer()', 'Double appui (< 60 s) : refusé avec message', 'déjà de pointer');
+reset role;
+update pointage.pointages set cree_le = now() - interval '2 minutes' where personne_id = test.pid('Emma') and cree_le > now() - interval '1 minute';
+select test.connecte('Emma'); set role authenticated;
+select test.ok((public.pointer()->>'sens') is not null, 'Après 60 s : nouveau pointage accepté');
+reset role;
 
 -- ===================== Bilan =====================
 \o

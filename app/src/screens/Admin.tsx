@@ -373,7 +373,7 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
       {liste.length === 0 ? <p className="vide">Aucun accès particulier.</p> : (
         <ul className="liste">{liste.map((a) => (
           <li key={a.personne_id + a.service_id}>
-            <span style={{ flex: 1 }}><strong>{a.prenom} {a.nom}</strong> → {a.service}</span>
+            <span className="texte-ligne"><strong>{a.prenom} {a.nom}</strong> → {a.service}</span>
             <span className={`pilule ${a.peut_valider ? 'ok' : 'neutre'}`}>{a.peut_valider ? 'Lecture + validation' : 'Lecture'}</span>
             <button className="lien petit" onClick={async () => {
               try { await api.retirerAcces(a.personne_id, a.service_id); setMessage({ texte: 'Accès retiré' }); charger() } catch (e) { erreur(e) }
@@ -578,7 +578,7 @@ function ReseauFeries({ api, estAdmin, erreur, setMessage }: { api: Api; estAdmi
           <h2>Réseau du CFB</h2>
           <p className="doux petit">Un pointage fait depuis ces adresses compte comme « Bureau », ailleurs comme « Télétravail ».</p>
           <ul className="liste">{reseaux.map((r) => (
-            <li key={r.plage}><code style={{ flex: 1 }}>{r.plage}</code><span className="doux">{r.libelle}</span>
+            <li key={r.plage}><code className="texte-ligne">{r.plage}</code><span className="doux">{r.libelle}</span>
               <button className="lien petit" onClick={() => action(() => api.enregistrerReseau(r.plage, r.libelle, true), 'Plage retirée')}>Retirer</button></li>
           ))}</ul>
           <form className="champs-ligne aligne-bas" onSubmit={(e) => { e.preventDefault(); action(() => api.enregistrerReseau(plage.trim(), libelleReseau), 'Plage ajoutée ✅') }}>
@@ -591,7 +591,7 @@ function ReseauFeries({ api, estAdmin, erreur, setMessage }: { api: Api; estAdmi
       <section className="carte">
         <h2>Jours fériés</h2>
         <ul className="liste compacte">{feries.map((f) => (
-          <li key={f.jour}><span style={{ width: 110 }}>{dateCourte(f.jour)} {f.jour.slice(0, 4)}</span><span style={{ flex: 1 }}>{f.libelle}</span>
+          <li key={f.jour}><span style={{ width: 110 }}>{dateCourte(f.jour)} {f.jour.slice(0, 4)}</span><span className="texte-ligne">{f.libelle}</span>
             {f.recuperable && <span className="pilule attente">week-end → à récupérer</span>}
             {f.jour > jourBxl() && <button className="lien petit" onClick={() => action(() => api.enregistrerFerie(f.jour, f.libelle, true), 'Jour férié retiré')}>Retirer</button>}</li>
         ))}</ul>

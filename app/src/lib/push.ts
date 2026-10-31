@@ -9,7 +9,7 @@ function cleServeur(b64url: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(s + '='.repeat((4 - (s.length % 4)) % 4)), (c) => c.charCodeAt(0))
 }
 
-export const pushSupporte = () =>
+const pushSupporte = () =>
   typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 
 async function enregistrement(): Promise<ServiceWorkerRegistration | null> {

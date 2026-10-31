@@ -362,7 +362,8 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .pilule, .badge, .puce, .bouton, .lien.petit { white-space: nowrap; flex-shrink: 0; }
 .ligne.entre { flex-wrap: wrap; row-gap: 8px; }
 .ligne > *, .liste li > * { min-width: 0; }
-.texte-ligne { flex: 1; min-width: 0; }
+.texte-ligne { flex: 1 1 200px; min-width: 0; }
+.liste li { flex-wrap: wrap; }
 .carte h2 .doux, .carte h2 .pilule { font-family: var(--corps); font-weight: 600; vertical-align: middle; }
 .carte h2 .pilule { margin-left: 6px; }
 @media (min-width: 900px) { .decale .col-laterale { grid-row: 2 / span 3; } }

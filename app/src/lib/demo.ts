@@ -96,8 +96,9 @@ export function calculerJournee(jour: string, pts: Pointage[], absence = 0): Jou
   return {
     jour, prevues: p, absence: abs, a_prester: aPrester, nb_pointages: liste.length, brut, pause_deduite: pause,
     preste: brut - pause,
-    boni: liste.length === 0 || !complete ? 0 : Math.min(brut - pause, MAX_JOUR) - aPrester,
-    depassement: complete ? Math.max(0, brut - pause - MAX_JOUR) : 0,
+    // même règle que le serveur : jour non prévu → tout « à valider », pas de boni
+    boni: liste.length === 0 || !complete || p === 0 ? 0 : Math.min(brut - pause, MAX_JOUR) - aPrester,
+    depassement: !complete ? 0 : p === 0 ? brut - pause : Math.max(0, brut - pause - MAX_JOUR),
     complete,
   }
 }

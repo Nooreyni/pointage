@@ -186,7 +186,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
           )}
           <div className="chiffres">
             <div className="chiffre"><strong>{duree(direct.preste)}</strong><span>Prestées</span></div>
-            <div className="chiffre"><strong className={boniJour !== null && boniJour < 0 ? 'negatif' : 'positif'}>
+            <div className="chiffre"><strong className={boniJour === null ? 'doux' : boniJour < 0 ? 'negatif' : 'positif'}>
               {boniJour === null ? '—' : duree(boniJour, true)}</strong><span>Boni du jour</span></div>
             <div className="chiffre"><strong className={boni !== null && boni < 0 ? 'negatif' : ''}>{boni === null ? '—' : duree(boni, true)}</strong>
               <span>Boni trimestre</span></div>
@@ -223,7 +223,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
             {duJour.map((p) => (
               <li key={p.id} className={p.annule ? 'annule' : ''}>
                 <span className="h">{heure(p.horodatage)}</span>
-                <span className="quoi" style={{ flex: 1 }}>{p.sens === 'entree' ? 'Entrée' : 'Sortie'} · {libelleType(p.type_code)}
+                <span className="quoi texte-ligne">{p.sens === 'entree' ? 'Entrée' : 'Sortie'} · {libelleType(p.type_code)}
                   {p.remarque && <div className="doux petit">{p.remarque}</div>}
                   {p.annule && p.annule_motif && <div className="negatif petit">Annulé : {p.annule_motif}</div>}</span>
                 {p.enAttente ? <span className="badge attente">En attente</span>

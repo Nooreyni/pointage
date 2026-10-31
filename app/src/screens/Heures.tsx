@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Api, Demande, Journee, PersonneVisible, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
+import { telechargerCsv } from '../lib/csv'
 import { dateCourte, decalerJour, duree, heure, jourBxl } from '../lib/temps'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -17,7 +18,8 @@ interface Ligne { j: Journee; pts: Pointage[]; absence: Demande | undefined }
 /** Fiche de temps mensuelle : « Mes heures » pour chacun, fiche d'une personne pour N+1 / RH / direction. */
 export default function Heures({ api, profil, personneInitiale }: { api: Api; profil: Profil; personneInitiale?: string | null }) {
   const mois = useMemo(moisDisponibles, [])
-  const [choixMois, setChoixMois] = useState(mois[0])
+  // Le 1er du mois, aucun jour n'est encore écoulé : on ouvre le mois précédent
+  const [choixMois, setChoixMois] = useState(jourBxl().endsWith('-01') ? mois[1] : mois[0])
   const [personnes, setPersonnes] = useState<PersonneVisible[]>([])
   const [qui, setQui] = useState<string>(personneInitiale ?? profil.id)
   const [lignes, setLignes] = useState<Ligne[] | null>(null)
@@ -55,11 +57,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
     const entete = ['Date', 'Prévu (h)', 'Absence', 'Absence (h)', 'Pointages', 'Prestées (h)', 'Boni (h)', 'Statut']
     const corps = lignes.map(({ j, pts, absence }) => [j.jour, h(j.prevues), absence?.libelle_absence ?? '', h(j.absence),
       pts.map((p) => `${p.sens === 'entree' ? 'E' : 'S'} ${heure(p.horodatage)}`).join(' '), h(j.preste), h(j.boni), statut(j).texte])
-    const csv = [entete, ...corps].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n')
-    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a'); a.href = url
-    a.download = `fiche-temps-${nomQui.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${choixMois.slice(0, 7)}.csv`; a.click()
-    URL.revokeObjectURL(url)
+    telechargerCsv([entete, ...corps], `fiche-temps-${nomQui.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${choixMois.slice(0, 7)}.csv`)
   }
 
   return (

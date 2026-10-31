@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Api, LigneCpas, Profil, StatService, StatsDirection } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
+import { telechargerCsv } from '../lib/csv'
 import { duree, jourBxl } from '../lib/temps'
 
 const MOIS_LONG = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -74,8 +75,7 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
                     'Taux d’absence (%)', 'Jours prestés', 'Jours télétravail', 'Anomalies (jours)']
     const corps = s!.services.map((x) => [x.service, x.effectif, h(x.prevues), h(x.preste), h(x.absence_conge),
       x.absence_maladie === null ? 'masqué' : h(x.absence_maladie), h(x.absence_autre), p1(tauxAbs(x)), x.jours_presence, x.jours_tt, x.anomalies])
-    const csv = [entete, ...corps].map((r) => r.map(celluleCsv).join(';')).join('\r\n')
-    telecharger(csv, `indicateurs-${mois.slice(0, 7)}.csv`)
+    telechargerCsv([entete, ...corps], `indicateurs-${mois.slice(0, 7)}.csv`)
   }
 
   return (
@@ -163,17 +163,6 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
   )
 }
 
-// Export CSV : séparateur « ; » (Excel belge), BOM UTF-8, cellules à risque neutralisées (=, +, -, @)
-function celluleCsv(c: string | number): string {
-  let v = String(c)
-  if (typeof c === 'string' && /^[=+\-@\t\r]/.test(v) && !/^-?\d+([.,]\d+)?$/.test(v)) v = `'${v}`
-  return `"${v.replace(/"/g, '""')}"`
-}
-function telecharger(csv: string, nom: string) {
-  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a'); a.href = url; a.download = nom; a.click()
-  URL.revokeObjectURL(url)
-}
 
 // Petit graphique en barres, une seule série (pas de légende : le titre la nomme)
 function Barres({ titre, sousTitre, donnees }: { titre: string; sousTitre: string; donnees: [string, number | null][] }) {
@@ -238,8 +227,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
                     'Congés (h)', 'Autres absences justifiées (h)', 'Maladie (h)', 'Jours non justifiés', 'Jours incomplets']
     const corps = lignes.map((l) => [l.nom, l.prenom, l.partenaire, l.service, l.regime ?? '', h(l.a_prester), h(l.preste), h(l.ecart),
                                      h(l.conges), h(l.absence_justifiee), h(l.absence_maladie), l.jours_non_justifies, l.jours_incomplets])
-    const csv = [entete, ...corps].map((r) => r.map(celluleCsv).join(';')).join('\r\n')
-    telecharger(csv, `rapport-cpas-${mois.slice(0, 7)}.csv`)
+    telechargerCsv([entete, ...corps], `rapport-cpas-${mois.slice(0, 7)}.csv`)
   }
 
   if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>

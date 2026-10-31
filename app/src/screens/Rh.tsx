@@ -92,7 +92,7 @@ export default function Rh({ api }: { api: Api }) {
             <ul className="liste">
               {heures.map((h) => (
                 <li key={h.personne_id + h.jour}>
-                  <span style={{ flex: 1 }}><strong>{h.prenom} {h.nom}</strong> · {dateCourte(h.jour)} · +{duree(h.minutes)}</span>
+                  <span className="texte-ligne"><strong>{h.prenom} {h.nom}</strong> · {dateCourte(h.jour)} · +{duree(h.minutes)}</span>
                   <button className="bouton secondaire petit" onClick={async () => {
                     try { await api.deciderHeures(h.personne_id, h.jour, false, 'Non autorisé'); await toutRecharger('Heures refusées') } catch (e) { erreur(e) }
                   }}>Refuser</button>
@@ -278,7 +278,7 @@ function Constat({ api, demandes, onConstater, onMessage }: {
       <ul className="liste compacte">
         {demandes.map((d) => (
           <li key={d.id}>
-            <span style={{ flex: 1 }}><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+            <span className="texte-ligne"><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
               <span className="doux"> · {d.date_debut === d.date_fin ? dateCourte(d.date_debut) : `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`}
               {d.demi ? (d.demi === 'matin' ? ' matin' : ' après-midi') : ''}</span></span>
             <span className="doux petit">{duree(d.minutes_decomptees)}</span>

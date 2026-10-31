@@ -368,7 +368,7 @@ function LigneDemande({ d, enJours, onAnnuler, api, onMessage }: {
   const annulable = d.statut === 'en_attente' || (d.statut === 'accordee' && d.date_debut > jourBxl())
   return (
     <li>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="texte-ligne">
         <div><strong>{d.libelle_absence}</strong> · {periode(d)}</div>
         <div className="doux petit">{d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
           {d.commentaire_decision && ` · « ${d.commentaire_decision} »`}</div>
@@ -410,7 +410,7 @@ function AValider({ demandes, enJours, onDecider }: {
         {demandes.map((d) => (
           <li key={d.id}>
             <input type="checkbox" id={`v-${d.id}`} checked={choisies.has(d.id)} onChange={() => basculer(d.id)} />
-            <label htmlFor={`v-${d.id}`} style={{ flex: 1, minWidth: 0 }}>
+            <label htmlFor={`v-${d.id}`} className="texte-ligne">
               <strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
               <div className="doux petit">{periode(d)} · {d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
                 {d.commentaire && ` · « ${d.commentaire} »`}

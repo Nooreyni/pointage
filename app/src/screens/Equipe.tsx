@@ -9,7 +9,7 @@ const ETATS: Record<Etat, string> = {
 }
 const ORDRE: Etat[] = ['non_pointe', 'present', 'tt', 'absent', 'parti', 'non_prevu']
 
-export function etatDe(statut: string): Etat {
+function etatDe(statut: string): Etat {
   if (statut === 'Télétravail') return 'tt'
   if (statut === 'Parti') return 'parti'
   if (statut === 'Pas encore pointé') return 'non_pointe'
@@ -17,7 +17,7 @@ export function etatDe(statut: string): Etat {
   if (statut === 'Présent' || statut.startsWith('En ') || statut === 'Mandat' || statut === 'Permanence VAD') return 'present'
   return 'absent' // « Absent » ou motif visible par le N+1
 }
-export const classeStatut = (s: string) => ({ present: 'present', tt: 'tt', absent: 'absent', parti: 'parti', non_pointe: '', non_prevu: '' })[etatDe(s)]
+const classeStatut = (s: string) => ({ present: 'present', tt: 'tt', absent: 'absent', parti: 'parti', non_pointe: '', non_prevu: '' })[etatDe(s)]
 
 const compter = (l: Presence[]) => l.reduce((c, p) => { c[etatDe(p.statut)]++; return c },
   { present: 0, tt: 0, absent: 0, parti: 0, non_pointe: 0, non_prevu: 0 } as Record<Etat, number>)
