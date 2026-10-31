@@ -12,8 +12,8 @@ const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut:
 
 interface Message { texte: string; erreur?: boolean }
 
-export default function Pointer({ api, profil, enLigne, onVoirEquipe }: {
-  api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void
+export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois }: {
+  api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void; onVoirMois?: () => void
 }) {
   const [regles, setRegles] = useState(DEFAUTS)
   const PAUSE = regles.pause_midi_min, SEUIL_PAUSE = regles.pause_seuil_min
@@ -190,7 +190,10 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe }: {
             <div className="chiffre"><strong className={boni !== null && boni < 0 ? 'negatif' : ''}>{boni === null ? '—' : duree(boni, true)}</strong>
               <span>Boni trimestre</span></div>
           </div>
-          <p className="doux petit" style={{ margin: '10px 0 0' }}>Pause de midi : {PAUSE} min retirées automatiquement</p>
+          <div className="ligne entre" style={{ marginTop: 10 }}>
+            <p className="doux petit" style={{ margin: 0 }}>Pause de midi : {PAUSE} min retirées automatiquement</p>
+            {onVoirMois && <button className="lien petit" onClick={onVoirMois}>Voir mon mois →</button>}
+          </div>
         </section>
 
         {aRegler.slice(0, 3).map((a) => (

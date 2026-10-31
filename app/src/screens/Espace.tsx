@@ -4,7 +4,7 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcRh, IcStats } from '../components/Icones'
+import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcRh, IcStats } from '../components/Icones'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes, { type Destination } from './Alertes'
@@ -12,8 +12,9 @@ import Conges, { type VueConges } from './Conges'
 import Rh from './Rh'
 import Rapports from './Rapports'
 import Admin from './Admin'
+import Heures from './Heures'
 
-type Onglet = 'pointer' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
+type Onglet = 'pointer' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
 
 const VUES_DEMO: [Persona, string, string][] = [
   ['employe', 'Employée', 'Pointe, demande ses congés'],
@@ -33,7 +34,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>(() => {
     const demande = new URLSearchParams(location.search).get('onglet')
-    return (['pointer', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+    return (['pointer', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
   })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
@@ -42,6 +43,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [aValider, setAValider] = useState(0)
   const [nbAnomalies, setNbAnomalies] = useState(0)
   const [vueConges, setVueConges] = useState<VueConges>('mes')
+  const [ficheDe, setFicheDe] = useState<string | null>(null)   // fiche de temps ouverte depuis Équipe
 
   useEffect(() => {
     api.profil().then((p) => { definirProprietaire(p.id); setProfil(p) }).catch((e) => setErreur(messageErreur(e)))
@@ -94,7 +96,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
   const onglets: [Onglet, string, () => React.JSX.Element, number][] = [
-    ['pointer', 'Pointer', IcHorloge, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
+    ['pointer', 'Pointer', IcHorloge, 0], ['heures', 'Heures', IcHeures, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
     ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [['rh', 'RH', IcRh, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ...(['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
       ? [['rapports', 'Rapports', IcStats, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
@@ -160,12 +162,13 @@ export default function Espace({ api, onQuitter, vueDemo }: {
           </div>
         </div>
       )}
-      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} />}
+      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}
       {actif === 'admin' && <Admin api={api} profil={profil} />}
-      {actif === 'equipe' && <Equipe api={api} profil={profil} />}
+      {actif === 'heures' && <Heures api={api} profil={profil} personneInitiale={ficheDe} />}
+      {actif === 'equipe' && <Equipe api={api} profil={profil} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
     </div>
   )

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -257,6 +257,23 @@ export function apiSupabase(): Api {
 
     async envoyerRappel(ids, message) {
       return verifier(await sb.rpc('envoyer_rappel', { p_ids: ids, p_message: message ?? null })) as number
+    },
+    async servicesSuivis() {
+      return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]
+    },
+    async suivreService(serviceId, suivre) {
+      verifier(await sb.rpc('suivre_service', { p_service_id: serviceId, p_suivre: suivre }))
+    },
+    async journeesPersonne(personneId, debut, fin) {
+      return verifier(await sb.rpc('journees', { p_personne_id: personneId, p_debut: debut, p_fin: fin })) as Journee[]
+    },
+    async pointagesPersonne(personneId, debut, fin) {
+      return verifier(await sb.from('pointages').select('*').eq('personne_id', personneId).gte('jour', debut).lte('jour', fin)
+        .order('horodatage')) as Pointage[]
+    },
+    async absencesPersonne(personneId, debut, fin) {
+      return verifier(await sb.from('demandes').select('*').eq('personne_id', personneId).eq('statut', 'accordee')
+        .lte('date_debut', fin).gte('date_fin', debut).order('date_debut')) as Demande[]
     },
     async personnesVisibles() {
       return verifier(await sb.from('personnes').select('id, prenom, nom, service').is('date_sortie', null).order('nom')) as PersonneVisible[]

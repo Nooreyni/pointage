@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
+import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, ServiceSuivi, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, decalerJour, duree, jourBxl } from '../lib/temps'
 
@@ -118,8 +118,11 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
         <div className="col-laterale pile">{blocSoldes('pc-seulement')}</div>
       </>}
 
+      {vue === 'valider' && ['direction', 'admin'].includes(profil.role) && (
+        <div className="col-laterale pile"><PreferencesDirection api={api} /></div>
+      )}
       {vue === 'valider' && (
-        <div className="col-pleine pile">
+        <div className={`${['direction', 'admin'].includes(profil.role) ? 'col-principale' : 'col-pleine'} pile`}>
           {aValider.length === 0
             ? <section className="carte vide-grand"><div className="pictogramme" aria-hidden="true">✓</div>
                 <h3>Aucune demande en attente</h3><p className="doux">Les demandes de ton équipe apparaîtront ici.</p></section>
@@ -430,6 +433,35 @@ function AValider({ demandes, enJours, onDecider }: {
           </div>
         </div>
       )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Direction : services dont elle reçoit aussi les demandes (en plus de ses N-1 et des services dont le chef est absent)
+function PreferencesDirection({ api }: { api: Api }) {
+  const [liste, setListe] = useState<ServiceSuivi[] | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+  useEffect(() => { api.servicesSuivis().then(setListe).catch((e) => setErreur(messageErreur(e))) }, [api])
+  async function basculer(s: ServiceSuivi) {
+    setListe((l) => l?.map((x) => (x.service_id === s.service_id ? { ...x, suivi: !x.suivi } : x)) ?? l)
+    try { await api.suivreService(s.service_id, !s.suivi) } catch (e) {
+      setErreur(messageErreur(e)); setListe((l) => l?.map((x) => (x.service_id === s.service_id ? { ...x, suivi: s.suivi } : x)) ?? l)
+    }
+  }
+  return (
+    <section className="carte">
+      <h2>Demandes que je reçois</h2>
+      <p className="doux petit" style={{ marginTop: 0 }}>Toujours : tes N-1 directs, et un service dont le chef est absent. En plus, coche les services
+        dont tu veux recevoir toutes les demandes.</p>
+      {erreur && <p className="negatif petit">{erreur}</p>}
+      {!liste && !erreur && <p className="vide">Chargement…</p>}
+      <ul className="liste">{liste?.map((s) => (
+        <li key={s.service_id} className="ligne-param">
+          <span className="texte-ligne">{s.nom}<div className="doux petit">{s.effectif} pers.{s.chef_absent_aujourdhui ? ' · chef absent aujourd’hui (reçu d’office)' : ''}</div></span>
+          <button className="interrupteur" role="switch" aria-checked={s.suivi} aria-label={`Recevoir les demandes de ${s.nom}`} onClick={() => basculer(s)}><span /></button>
+        </li>
+      ))}</ul>
     </section>
   )
 }

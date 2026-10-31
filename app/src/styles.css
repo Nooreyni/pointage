@@ -520,3 +520,22 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .bandeau-push { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; box-shadow: inset 4px 0 0 var(--bleu), var(--ombre); }
 .pictogramme-push { font-size: 20px; flex: none; }
 .bandeau-push .texte-ligne { flex: 1 1 180px; }
+
+/* ---------- Fiche de temps ---------- */
+.outils-fiche { flex-wrap: wrap; }
+.outils-fiche select { border: 1px solid var(--bord); border-radius: 12px; padding: 9px 12px; font: inherit; font-weight: 600; max-width: 100%; }
+.fiche-tuiles { margin-top: 14px; }
+@media (min-width: 900px) { .fiche-tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tableau.fiche td { vertical-align: middle; }
+.tableau.fiche tr.repos td { color: var(--texte-doux); background: var(--fond); }
+.cellule-pointages { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; white-space: normal !important; min-width: 180px; }
+.puce-pointage { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+.puce-pointage.entree { background: #EAF4D8; color: #4E7A12; }
+.puce-pointage.sortie { background: #EEF2FA; color: var(--bleu-fonce); }
+.lien-nom { background: none; border: 0; padding: 0; text-align: left; font-weight: 600; color: var(--bleu-fonce); text-decoration: underline; text-underline-offset: 3px; }
+/* Navigation : défilement horizontal quand il y a beaucoup d'onglets (rôles admin) sur mobile */
+@media (max-width: 899px) {
+  .nav:has(> button:nth-child(7)) { justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+  .nav:has(> button:nth-child(7))::-webkit-scrollbar { display: none; }
+  .nav:has(> button:nth-child(7)) button { flex: 0 0 auto; min-width: 64px; font-size: 11.5px; padding: 6px 4px; }
+}

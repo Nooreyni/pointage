@@ -60,6 +60,26 @@ function minutesDemande(s: SaisieDemande): number {
   return total
 }
 
+// Pointages fictifs mais stables pour une autre personne (fiche de temps en démo)
+function pointagesFictifs(personneId: string, debut: string, fin: string): Pointage[] {
+  const r: Pointage[] = []
+  const graine = [...personneId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+  const auj = jourBxl()
+  for (let j = debut; j <= fin && j < auj; j = decalerJour(j, 1)) {
+    if (prevues(j) === 0) continue
+    const h = (graine + Number(j.replace(/-/g, '')) * 2654435761) >>> 0
+    if (h % 29 === 0) continue                                   // jour sans pointage
+    const tt = h % 5 === 0
+    const entree = 465 + (h % 45), sortie = entree + 486 + ((h >>> 3) % 40) - 20
+    const ajout = (min: number, sens: Sens, k: string) => r.push({
+      id: `${personneId}-${j}-${k}`, horodatage: isoBxl(j, min), jour: j, sens, type_code: tt ? 'TT' : 'BUREAU', source: 'web',
+      lieu: tt ? 'externe' : 'reseau_cfb', remarque: null, annule: false, annule_motif: null, cree_le: isoBxl(j, min) })
+    ajout(entree, 'entree', 'e')
+    if (h % 23 !== 0) ajout(sortie, 'sortie', 's')               // de temps en temps : sortie oubliée
+  }
+  return r
+}
+
 export function calculerJournee(jour: string, pts: Pointage[]): Journee {
   const liste = pts.filter((p) => p.jour === jour && !p.annule).sort((a, b) => a.horodatage.localeCompare(b.horodatage))
   let brut = 0, pausePointee = 0, complete = true
@@ -203,8 +223,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     pts.push({ id: crypto.randomUUID(), horodatage: h, jour, sens, type_code: type, source: 'web',
                lieu: type === 'TT' ? 'externe' : 'reseau_cfb', remarque: null, annule: false, annule_motif: null, cree_le: h })
   }
-  // 15 jours ouvrés passés, dont une sortie oubliée
-  for (let i = 21; i >= 1; i--) {
+  for (let i = 400; i >= 1; i--) {   // ~13 mois d’historique (fiche de temps), une sortie oubliée récente
     const j = decalerJour(aujourdhui, -i)
     if (prevues(j) === 0) continue
     const tt = i % 5 === 2
@@ -246,6 +265,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     n(7, 'rappel_manuel', 'Rappel de la RH', 'Il te reste des pointages à régulariser avant la clôture du mois.', 24 * 9, true),
   ]
 
+  const suivis = new Set<string>(['s-Administration'])
   const attendre = () => new Promise((r) => setTimeout(r, 150))
 
   return {
@@ -287,13 +307,15 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async journee(jour) { return calculerJournee(jour, pts) },
     async soldeBoni() {
+      // Depuis le début du trimestre (période de référence du boni)
+      const m = Number(aujourdhui.slice(5, 7)), debut = `${aujourdhui.slice(0, 4)}-${String(m - ((m - 1) % 3)).padStart(2, '0')}-01`
       let total = 0
-      for (let i = 1; i <= 21; i++) total += calculerJournee(decalerJour(aujourdhui, -i), pts).boni
+      for (let j = debut; j < aujourdhui; j = decalerJour(j, 1)) total += calculerJournee(j, pts).boni
       return total
     },
     async anomalies() {
       const r: Anomalie[] = []
-      for (let i = 1; i <= 21; i++) {
+      for (let i = 1; i <= 62; i++) {   // même fenêtre que le serveur (2 mois)
         const j = decalerJour(aujourdhui, -i), jr = calculerJournee(j, pts)
         if (jr.nb_pointages === 0 && jr.a_prester > 0) r.push({ jour: j, code: 'absent', libelle: 'Absent sans justification' })
         else if (jr.nb_pointages > 0 && !jr.complete) r.push({ jour: j, code: 'pointages_incomplets', libelle: 'Sortie manquante' })
@@ -526,6 +548,26 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async envoyerRappel(ids) {
       await attendre()
       const nouveaux = ids.filter((id) => !rappels.has(id)); nouveaux.forEach((id) => rappels.add(id)); return nouveaux.length
+    },
+    async servicesSuivis() {
+      if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
+      return services.map((x) => ({ service_id: x.id, nom: x.nom, suivi: suivis.has(x.id),
+        effectif: PERSONNES.filter((p) => p.service === x.nom).length, chef_absent_aujourdhui: x.nom === 'Service social' }))
+        .sort((a, b) => a.nom.localeCompare(b.nom))
+    },
+    async suivreService(serviceId, suivre) { if (suivre) suivis.add(serviceId); else suivis.delete(serviceId) },
+    async journeesPersonne(personneId, debut, fin) {
+      const liste = personneId === profil.id ? pts : pointagesFictifs(personneId, debut, fin)
+      const r: Journee[] = []
+      for (let j = debut; j <= fin && j < aujourdhui; j = decalerJour(j, 1)) r.push(calculerJournee(j, liste))
+      return r
+    },
+    async pointagesPersonne(personneId, debut, fin) {
+      return (personneId === profil.id ? pts : pointagesFictifs(personneId, debut, fin)).filter((p) => p.jour >= debut && p.jour <= fin)
+    },
+    async absencesPersonne(personneId, debut, fin) {
+      return [...demandes, ...congesEquipe].filter((d) => d.statut === 'accordee' && d.date_debut <= fin && d.date_fin >= debut
+        && (personneId === profil.id ? d.personne_id === profil.id || d.prenom === profil.prenom : d.personne_id === personneId))
     },
     async personnesVisibles(): Promise<PersonneVisible[]> {
       if (persona === 'employe') return [{ id: 'demo', prenom: profil.prenom, nom: profil.nom, service: profil.service }]

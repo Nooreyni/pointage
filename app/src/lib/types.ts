@@ -286,6 +286,7 @@ export interface Compteur {
   code: string; libelle: string; periodicite: 'annuelle' | 'trimestrielle' | 'aucune'; visible_employe: boolean; autorise_negatif: boolean
   ordre: number; actif: boolean; report_mode: 'perdu' | 'total' | 'plafonne'; report_vers: string | null; report_plafond_min: number | null; regle_provisoire: boolean
 }
+export interface ServiceSuivi { service_id: string; nom: string; suivi: boolean; effectif: number; chef_absent_aujourdhui: boolean }
 export interface PersonneVisible { id: string; prenom: string; nom: string; service: string }
 export interface Ferie { jour: string; libelle: string; recuperable: boolean }
 export interface Reseau { plage: string; libelle: string }
@@ -351,6 +352,11 @@ export interface Api {
   enregistrerReseau(plage: string, libelle: string, supprimer?: boolean): Promise<void>
   envoyerRappel(ids: string[], message?: string): Promise<number>
   personnesVisibles(): Promise<PersonneVisible[]>
+  servicesSuivis(): Promise<ServiceSuivi[]>
+  suivreService(serviceId: string, suivre: boolean): Promise<void>
+  journeesPersonne(personneId: string, debut: string, fin: string): Promise<Journee[]>
+  pointagesPersonne(personneId: string, debut: string, fin: string): Promise<Pointage[]>
+  absencesPersonne(personneId: string, debut: string, fin: string): Promise<Demande[]>
   demandesEquipe(debut: string, fin: string): Promise<Demande[]>
   compteurs(): Promise<Compteur[]>
   enregistrerCompteur(c: Compteur): Promise<void>

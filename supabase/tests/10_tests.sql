@@ -633,6 +633,17 @@ select test.ok((select count(*) = 1 from pointage.push_abonnements where personn
 select test.connecte('Sofia'); set role authenticated; select public.retirer_push('https://push.exemple.test/abc'); reset role;
 select test.ok((select count(*) = 0 from pointage.push_abonnements where personne_id = test.pid('Sofia')), 'Désabonnement de son appareil');
 
+
+-- ===================== Préférences de la direction =====================
+select test.connecte('Claire'); set role authenticated;
+select test.ok((select suivi from public.services_suivis() where nom = 'Administration'), 'Direction : voit le service suivi (Administration)');
+select public.suivre_service((select service_id from public.services_suivis() where nom = 'Administration'), false);
+select test.ok((select not suivi from public.services_suivis() where nom = 'Administration'), 'Direction : ne plus suivre un service');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur('select * from public.services_suivis()', 'Employé : pas de préférences de direction', 'réservée');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0
