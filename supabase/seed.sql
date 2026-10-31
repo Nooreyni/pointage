@@ -45,3 +45,8 @@ cross join (values ('CONGE_LEGAL', 9120), ('EXTRA_LEGAL', 912)) c(code, minutes)
 
 -- Réseau CFB fictif (plage de documentation RFC 5737)
 insert into pointage.reseaux_cfb (plage, libelle) values ('203.0.113.0/24', 'Siège (fictif)');
+
+-- Admin général (IT) : tous les droits
+insert into pointage.personnes (id, nom, prenom, email, role, service_id, date_entree)
+values ('b0000000-0000-0000-0000-000000000099', 'IT', 'Admin', 'admin.it@cfb.test', 'admin', 'a0000000-0000-0000-0000-000000000003', '2020-01-01');
+insert into pointage.personne_regimes values ('b0000000-0000-0000-0000-000000000099', '2020-01-01', 1);

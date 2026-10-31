@@ -3,6 +3,7 @@ import { messageErreur, supabase } from '../lib/supabase'
 import { IcMicrosoft } from '../components/Icones'
 
 const COMPTES_DEV = [
+  ['admin.it@cfb.test', 'Admin général (tous les droits)'],
   ['sofia.janssens@cfb.test', 'Sofia — employée (Administration)'],
   ['yanis.peeters@cfb.test', 'Yanis — employé temps partiel'],
   ['marc.dupont@cfb.test', 'Marc — chef de service'],

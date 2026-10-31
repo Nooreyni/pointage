@@ -83,7 +83,7 @@ export default function Espace({ api, onQuitter, onChangerVue }: {
       {api.mode === 'demo' && (
         <div className="bandeau-demo">Mode démo — données fictives, rien n’est enregistré
           {onChangerVue && <button className="lien-bandeau" onClick={onChangerVue}>
-            {profil.role === 'direction' ? 'Voir comme employée' : profil.role === 'rh' ? 'Voir comme direction' : profil.est_chef_service ? 'Voir comme RH' : 'Voir comme chef de service'}</button>}
+            {profil.role === 'admin' ? 'Voir comme employée' : profil.role === 'direction' ? 'Voir comme admin général' : profil.role === 'rh' ? 'Voir comme direction' : profil.est_chef_service ? 'Voir comme RH' : 'Voir comme chef de service'}</button>}
         </div>
       )}
       {!enLigne && <div className="bandeau-hors-ligne">Hors ligne — tes pointages sont gardés sur l’appareil et envoyés dès le retour du réseau</div>}

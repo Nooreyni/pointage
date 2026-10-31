@@ -27,7 +27,7 @@ grant execute on all functions in schema test to authenticated, anon;
 
 insert into auth.users (email) select email from pointage.personnes;
 insert into auth.users (email) values ('inconnu@exterieur.test');
-select test.ok((select count(*) = 13 from pointage.personnes where auth_user_id is not null), 'SSO : 13 comptes liés par e-mail');
+select test.ok((select count(*) = 14 from pointage.personnes where auth_user_id is not null), 'SSO : 14 comptes liés par e-mail');
 
 -- ===================== Accès =====================
 set role anon;
@@ -60,23 +60,23 @@ reset role;
 -- ===================== Visibilité =====================
 select test.connecte('Sofia');  set role authenticated;
 select test.ok((select count(*) = 1 from public.personnes), 'Employé : ne voit que lui');
-select test.ok((select count(*) = 13 from public.presence_jour()), 'Présence du jour : tout le monde');
+select test.ok((select count(*) = 14 from public.presence_jour()), 'Présence du jour : tout le monde');
 select test.ok((select bool_and(mon_service) = false from (select mon_service from public.presence_jour() limit 1 offset 6) x), 'Présence : son service en premier');
 reset role;
 select test.connecte('Marc');   set role authenticated;
 select test.ok((select count(*) = 5 from public.personnes), 'Chef Administration : son service (5, ISP compris)');
 reset role;
 select test.connecte('Lucas');  set role authenticated;
-select test.ok((select count(*) = 2 from public.personnes), 'Chef IT : son service (2)');
+select test.ok((select count(*) = 3 from public.personnes), 'Chef IT : son service (2 + admin IT)');
 reset role;
 select test.connecte('Paul');   set role authenticated;
 select test.ok((select count(*) = 1 from public.personnes), 'Logistique (sans équipe) : comme un employé');
 reset role;
 select test.connecte('Claire'); set role authenticated;
-select test.ok((select count(*) = 13 from public.personnes), 'Direction : tout le monde');
+select test.ok((select count(*) = 14 from public.personnes), 'Direction : tout le monde');
 reset role;
 select test.connecte('Nadia');  set role authenticated;
-select test.ok((select count(*) = 13 from public.personnes), 'RH : tout le monde (constat)');
+select test.ok((select count(*) = 14 from public.personnes), 'RH : tout le monde (constat)');
 reset role;
 
 -- ===================== Accès inter-services =====================
@@ -87,7 +87,7 @@ select test.connecte('Claire'); set role authenticated;
 select public.donner_acces_service(test.pid('Lucas'), 'a0000000-0000-0000-0000-000000000002', false);
 reset role;
 select test.connecte('Lucas'); set role authenticated;
-select test.ok((select count(*) = 7 from public.personnes), 'Accès lecture à Administration : 2 + 5');
+select test.ok((select count(*) = 8 from public.personnes), 'Accès lecture à Administration : 3 + 5');
 select test.ok((select not je_peux_valider from public.personnes where prenom = 'Sofia'), 'Accès lecture : pas de validation');
 reset role;
 
@@ -270,7 +270,7 @@ select test.ok((select minutes = 9120 from public.proposition_conges(2027) where
 select test.ok((select minutes = 8640 from public.proposition_conges(2027) where prenom = 'Yanis'), 'Temps partiel 36h : 144h');
 select test.ok((select minutes = 3000 and mois_presence = 4 from public.proposition_conges(2027) where prenom = 'Jordan'),
                'Entré en septembre : 4/12 de 4 × 37h30 = 50h');
-select test.ok(public.attribuer_conges(2027) = 13, 'Attribution en 1 clic (13)');
+select test.ok(public.attribuer_conges(2027) = 14, 'Attribution en 1 clic (14)');
 select test.ok(public.attribuer_conges(2027) = 0, 'Attribution idempotente');
 reset role;
 select test.connecte('Sofia'); set role authenticated;
@@ -344,6 +344,18 @@ select test.connecte('Inès'); set role authenticated;
 select test.ok((select count(*) = 1 and min(prenom) = 'Jordan' and min(partenaire) = 'CPAS (fictif)' from public.rapport_cpas('2026-10-01')),
                'Rapport CPAS : uniquement les ISP');
 select test.ok((select preste >= 450 and jours_non_justifies > 0 from public.rapport_cpas('2026-10-01')), 'Rapport CPAS : heures et jours non justifiés');
+reset role;
+
+-- ===================== Admin général =====================
+select test.connecte('Paul'); set role authenticated; select public.soumettre_demande('conge_jours', 'CP', '2026-12-21'); reset role;
+select test.connecte('Admin'); set role authenticated;
+select test.ok((select count(*) = 14 from public.personnes), 'Admin : voit tout le monde');
+select test.ok((select bool_and(je_peux_valider) from public.demandes where statut = 'en_attente'), 'Admin : peut valider toutes les demandes');
+select test.ok(public.decider(array(select id from public.demandes where prenom = 'Paul' and statut = 'en_attente'), true) = 1, 'Admin : valide une demande');
+select test.ok((select count(*) >= 0 from public.heures_a_valider()), 'Admin : liste des heures à valider');
+select test.ok((select jsonb_array_length(s->'services') = 5 from public.stats_direction('2026-10-01') s), 'Admin : tableau de bord');
+select test.ok((select count(*) = 1 from public.rapport_cpas('2026-10-01')), 'Admin : rapport CPAS');
+select test.ok((select (e->>'mois_termine')::boolean from public.etat_cloture('2026-09-01') e), 'Admin : état de clôture');
 reset role;
 
 -- ===================== Bilan =====================

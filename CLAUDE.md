@@ -40,6 +40,7 @@
 | Congés temps partiel | Calcul **automatique au prorata** du régime, RH valide en 1 clic |
 | Rappels | **Notifications push** en priorité, e-mail en secours |
 | Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
+| Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
 
 ## Stack
 - **Simple à maintenir** : l'IT = 1 personne aujourd'hui, successeur inconnu, gestion à distance possible.

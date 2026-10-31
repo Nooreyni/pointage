@@ -12,6 +12,7 @@ export default function App() {
     || (new URLSearchParams(location.search).has('demo') && import.meta.env.VITE_MODE_DEMO === '1'))
 
   const [persona, setPersona] = useState<Persona>('employe')
+  const suivante: Record<Persona, Persona> = { employe: 'chef', chef: 'rh', rh: 'direction', direction: 'admin', admin: 'employe' }
 
   useEffect(() => {
     if (!supabase) return
@@ -22,7 +23,7 @@ export default function App() {
 
   if (demo) {
     return <Espace key={persona} api={apiDemo(persona)} onQuitter={() => setDemo(false)}
-                   onChangerVue={() => setPersona((p) => (p === 'employe' ? 'chef' : p === 'chef' ? 'rh' : p === 'rh' ? 'direction' : 'employe'))} />
+                   onChangerVue={() => setPersona((p) => suivante[p])} />
   }
   if (session === undefined) return <div className="squelette">Chargement…</div>
   if (!session) return <Connexion onDemo={() => setDemo(true)} />

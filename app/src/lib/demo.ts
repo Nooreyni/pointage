@@ -28,7 +28,7 @@ const PERSONNES: Personne[] = ([
 ] as const).map(([nom, prenom, service, role], i) =>
   ({ id: `p${i}`, nom, prenom, service, role, type: prenom === 'Jordan' ? 'isp' : 'interne' }) as Personne)
 
-export type Persona = 'employe' | 'chef' | 'rh' | 'direction'
+export type Persona = 'admin' | 'employe' | 'chef' | 'rh' | 'direction'
 
 function prevues(jour: string): number {
   if (FERIES.has(jour)) return 0
@@ -71,6 +71,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME }
   const profil: Profil = persona === 'chef'
     ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'Administration', est_chef_service: true }
+    : persona === 'admin'
+    ? { ...base, prenom: 'Admin', nom: 'IT', email: 'admin.it@cfb.test', role: 'admin', service: 'IT', est_chef_service: false }
     : persona === 'direction'
     ? { ...base, prenom: 'Claire', nom: 'Lambert', email: 'claire.lambert@cfb.test', role: 'direction', service: 'Direction', est_chef_service: true }
     : persona === 'rh'
@@ -234,7 +236,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       demandes.push(demande('demo', profil.prenom, profil.nom, s, 'en_attente'))
     },
     async mesDemandes() { return demandes.filter((d) => d.personne_id === 'demo').sort((a, b) => b.date_debut.localeCompare(a.date_debut)) },
-    async aValider() { return persona === 'chef' ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : [] },
+    async aValider() { return ['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : [] },
     async decider(ids, accorder, commentaire) {
       await attendre()
       if (!accorder && !commentaire?.trim()) throw new Error('Un refus doit être motivé')
