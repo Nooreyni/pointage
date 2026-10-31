@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, ServiceSuivi, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
+import Justificatif from '../components/Justificatif'
 import { dateCourte, decalerJour, duree, jourBxl } from '../lib/temps'
 
 const STATUTS: Record<Demande['statut'], [string, string]> = {
@@ -106,7 +107,8 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
             {mes?.length === 0 && <p className="vide">Aucune demande pour l’instant.</p>}
             <ul className="liste">
               {mes?.map((d) => (
-                <LigneDemande key={d.id} d={d} enJours={enJours}
+                <LigneDemande key={d.id} d={d} enJours={enJours} api={api}
+                              onMessage={async (texte, erreur) => { setMessage({ texte, erreur }); if (!erreur) await charger() }}
                               onAnnuler={async () => {
                                 try { await api.annulerDemande(d.id); setMessage({ texte: 'Demande annulée' }); await charger() }
                                 catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
@@ -358,7 +360,9 @@ function periode(d: Demande): string {
   return `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`
 }
 
-function LigneDemande({ d, enJours, onAnnuler }: { d: Demande; enJours: (m: number) => string; onAnnuler: () => Promise<void> }) {
+function LigneDemande({ d, enJours, onAnnuler, api, onMessage }: {
+  d: Demande; enJours: (m: number) => string; onAnnuler: () => Promise<void>; api: Api; onMessage: (t: string, erreur?: boolean) => void
+}) {
   const [confirmer, setConfirmer] = useState(false)
   const [libelle, classe] = STATUTS[d.statut]
   const annulable = d.statut === 'en_attente' || (d.statut === 'accordee' && d.date_debut > jourBxl())
@@ -368,6 +372,7 @@ function LigneDemande({ d, enJours, onAnnuler }: { d: Demande; enJours: (m: numb
         <div><strong>{d.libelle_absence}</strong> · {periode(d)}</div>
         <div className="doux petit">{d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
           {d.commentaire_decision && ` · « ${d.commentaire_decision} »`}</div>
+        <Justificatif api={api} d={d} peutDeposer onChange={onMessage} />
       </div>
       <span className={`pilule ${classe}`}>{libelle}</span>
       {annulable && (confirmer

@@ -258,6 +258,28 @@ export function apiSupabase(): Api {
     async envoyerRappel(ids, message) {
       return verifier(await sb.rpc('envoyer_rappel', { p_ids: ids, p_message: message ?? null })) as number
     },
+    async deposerJustificatif(d, fichier) {
+      const ext = (fichier.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5)
+      const chemin = `${d.personne_id}/${d.id}/${crypto.randomUUID()}.${ext}`
+      const { error } = await sb.storage.from('justificatifs').upload(chemin, fichier, { contentType: fichier.type, upsert: false })
+      if (error) throw new Error(`Envoi du fichier impossible : ${error.message}`)
+      verifier(await sb.rpc('joindre_justificatif', { p_demande: d.id, p_chemin: chemin }))
+      if (d.justificatif_chemin) await sb.storage.from('justificatifs').remove([d.justificatif_chemin])   // remplace l'ancien
+    },
+    async justificatifsManquants() {
+      return verifier(await sb.from('demandes').select('*').eq('statut', 'accordee').eq('justificatif_requis', true)
+        .eq('justificatif_joint', false).gte('date_fin', new Date(Date.now() - 92 * 86_400_000).toISOString().slice(0, 10))
+        .order('date_debut', { ascending: false })) as Demande[]
+    },
+    async lienJustificatif(chemin) {
+      const { data, error } = await sb.storage.from('justificatifs').createSignedUrl(chemin, 120)
+      if (error || !data) throw new Error('Justificatif introuvable')
+      return data.signedUrl
+    },
+    async retirerJustificatif(d) {
+      verifier(await sb.rpc('joindre_justificatif', { p_demande: d.id, p_chemin: null }))
+      if (d.justificatif_chemin) await sb.storage.from('justificatifs').remove([d.justificatif_chemin])
+    },
     async servicesSuivis() {
       return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]
     },

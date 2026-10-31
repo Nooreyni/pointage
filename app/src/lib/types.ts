@@ -128,6 +128,9 @@ export interface Demande {
   encode_par_rh: boolean
   cree_le: string
   je_peux_valider: boolean
+  justificatif_requis?: boolean
+  justificatif_joint?: boolean
+  justificatif_chemin?: string | null      // présent seulement pour qui peut l'ouvrir
 }
 
 export interface SaisieDemande {
@@ -353,6 +356,10 @@ export interface Api {
   envoyerRappel(ids: string[], message?: string): Promise<number>
   personnesVisibles(): Promise<PersonneVisible[]>
   servicesSuivis(): Promise<ServiceSuivi[]>
+  deposerJustificatif(d: Demande, fichier: File): Promise<void>
+  justificatifsManquants(): Promise<Demande[]>
+  lienJustificatif(chemin: string): Promise<string>
+  retirerJustificatif(d: Demande): Promise<void>
   suivreService(serviceId: string, suivre: boolean): Promise<void>
   journeesPersonne(personneId: string, debut: string, fin: string): Promise<Journee[]>
   pointagesPersonne(personneId: string, debut: string, fin: string): Promise<Pointage[]>

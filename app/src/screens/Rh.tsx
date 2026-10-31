@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
+import Justificatif from '../components/Justificatif'
 import { dateCourte, duree, hhmm, isoBxl, jourBxl } from '../lib/temps'
 import Fenetre from '../components/Fenetre'
 
@@ -79,7 +80,7 @@ export default function Rh({ api }: { api: Api }) {
 
       <div className="col-principale pile">
         {aConstater.length > 0 && (
-          <Constat demandes={aConstater} onConstater={async (ids) => {
+          <Constat api={api} demandes={aConstater} onMessage={(texte, e) => (e ? setMessage({ texte, erreur: true }) : toutRecharger(texte))} onConstater={async (ids) => {
             try { const n = await api.constater(ids); await toutRecharger(`${n} congé(s) constaté(s)`) } catch (e) { erreur(e) }
           }} />
         )}
@@ -175,6 +176,8 @@ export default function Rh({ api }: { api: Api }) {
           <button className="bouton large" onClick={() => setAction({ type: 'absence' })}>Nouvelle absence</button>
         </section>
 
+        <Manquants api={api} onMessage={(texte, e) => setMessage({ texte, erreur: e })} />
+
         <CongesAnnuels api={api} onFait={(n) => toutRecharger(`Congés attribués à ${n} personne(s) ✅`)} onErreur={erreur} />
       </div>
 
@@ -263,7 +266,9 @@ function Cloture({ mois, setMois, etat, onCloturer }: {
   )
 }
 
-function Constat({ demandes, onConstater }: { demandes: Demande[]; onConstater: (ids: string[]) => Promise<void> }) {
+function Constat({ api, demandes, onConstater, onMessage }: {
+  api: Api; demandes: Demande[]; onConstater: (ids: string[]) => Promise<void>; onMessage: (t: string, erreur?: boolean) => void
+}) {
   const [enCours, setEnCours] = useState(false)
   return (
     <section className="carte">
@@ -277,6 +282,7 @@ function Constat({ demandes, onConstater }: { demandes: Demande[]; onConstater: 
               <span className="doux"> · {d.date_debut === d.date_fin ? dateCourte(d.date_debut) : `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`}
               {d.demi ? (d.demi === 'matin' ? ' matin' : ' après-midi') : ''}</span></span>
             <span className="doux petit">{duree(d.minutes_decomptees)}</span>
+            <Justificatif api={api} d={d} peutDeposer onChange={onMessage} />
           </li>
         ))}
       </ul>
@@ -416,3 +422,29 @@ function FenetreAbsence({ personnes, codes, personne, jour, onFermer, onValider 
   )
 }
 
+
+// Absences accordées dont le justificatif requis manque (3 derniers mois) : joindre ou relancer la personne
+function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur?: boolean) => void }) {
+  const [liste, setListe] = useState<Demande[] | null>(null)
+  const charger = useCallback(() => { api.justificatifsManquants().then(setListe).catch(() => setListe([])) }, [api])
+  useEffect(() => { charger() }, [charger])
+  if (!liste?.length) return null
+  return (
+    <section className="carte">
+      <div className="ligne entre"><h2>Justificatifs manquants</h2><span className="pilule attente">{liste.length}</span></div>
+      <ul className="liste compacte">{liste.map((d) => (
+        <li key={d.id}>
+          <span className="texte-ligne"><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+            <span className="doux"> · {d.date_debut === d.date_fin ? dateCourte(d.date_debut) : `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`}</span></span>
+          <Justificatif api={api} d={d} peutDeposer onChange={(t, e) => { onMessage(t, e); if (!e) charger() }} />
+          <button className="lien petit" onClick={async () => {
+            try {
+              const n = await api.envoyerRappel([d.personne_id], `Merci de joindre ton justificatif (${d.libelle_absence}) dans l’appli, onglet Congés.`)
+              onMessage(n ? 'Rappel envoyé ✅' : 'Déjà rappelé récemment')
+            } catch (e) { onMessage(messageErreur(e), true) }
+          }}>Rappeler</button>
+        </li>
+      ))}</ul>
+    </section>
+  )
+}

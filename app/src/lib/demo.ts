@@ -17,7 +17,7 @@ const CODES: CodeAbsence[] = ([
   ['AT', 'Accident de travail', 'AT', null, false], ['PETIT_CHOMAGE', 'Petit chômage', 'PC', null, false],
   ['RAISONS_IMP', 'Congé familial raisons impérieuses', 'FAM', null, false], ['SANS_SOLDE', 'Congé sans solde', 'SS', null, false],
 ] as const).map(([code, libelle, code_court, compteur_code, demandable], i) =>
-  ({ code, libelle, code_court, compteur_code, demandable, justificatif_requis: false, ordre: i }) as CodeAbsence)
+  ({ code, libelle, code_court, compteur_code, demandable, justificatif_requis: ['MAL', 'AT', 'PETIT_CHOMAGE'].includes(code), ordre: i }) as CodeAbsence)
 
 const PERSONNES: Personne[] = ([
   ['Lambert', 'Claire', 'Direction', 'direction'], ['Dupont', 'Marc', 'Administration', 'employe'],
@@ -80,7 +80,7 @@ function pointagesFictifs(personneId: string, debut: string, fin: string): Point
   return r
 }
 
-export function calculerJournee(jour: string, pts: Pointage[]): Journee {
+export function calculerJournee(jour: string, pts: Pointage[], absence = 0): Journee {
   const liste = pts.filter((p) => p.jour === jour && !p.annule).sort((a, b) => a.horodatage.localeCompare(b.horodatage))
   let brut = 0, pausePointee = 0, complete = true
   liste.forEach((p, i) => {
@@ -92,11 +92,11 @@ export function calculerJournee(jour: string, pts: Pointage[]): Journee {
   })
   brut = Math.round(brut)
   const pause = brut > SEUIL_PAUSE ? Math.max(0, PAUSE - Math.round(pausePointee)) : 0
-  const p = prevues(jour)
+  const p = prevues(jour), abs = Math.min(p, absence), aPrester = p - abs
   return {
-    jour, prevues: p, absence: 0, a_prester: p, nb_pointages: liste.length, brut, pause_deduite: pause,
+    jour, prevues: p, absence: abs, a_prester: aPrester, nb_pointages: liste.length, brut, pause_deduite: pause,
     preste: brut - pause,
-    boni: liste.length === 0 || !complete ? 0 : Math.min(brut - pause, MAX_JOUR) - p,
+    boni: liste.length === 0 || !complete ? 0 : Math.min(brut - pause, MAX_JOUR) - aPrester,
     depassement: complete ? Math.max(0, brut - pause - MAX_JOUR) : 0,
     complete,
   }
@@ -125,6 +125,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     statut, decide_le: statut === 'en_attente' ? null : new Date().toISOString(), commentaire_decision: null,
     constate_le: null, encode_par_rh: false,
     cree_le: `${cree}T09:00:00Z`, je_peux_valider: personne_id !== 'demo' && statut === 'en_attente',
+    justificatif_requis: CODES.find((c) => c.code === s.code_absence)?.justificatif_requis ?? false, justificatif_joint: false, justificatif_chemin: null,
   })
   const lundi = (n: number) => { let j = decalerJour(aujourdhui, 7 * n); while (new Date(`${j}T12:00:00Z`).getUTCDay() !== 1) j = decalerJour(j, 1); return j }
   const demandes: Demande[] = [
@@ -135,6 +136,9 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     demande('p3', 'Jordan', 'Kabongo', { type: 'conge_heures', code_absence: 'RECUP', debut: decalerJour(lundi(1), 3), fin: decalerJour(lundi(1), 3), demi: null, minutes: 120 }, 'en_attente'),
   ]
   demandes.push(
+    // Maladie encodée par la RH : certificat à joindre (employée) / manquant (RH)
+    { ...demande('demo', profil.prenom, profil.nom, { type: 'conge_jours', code_absence: 'MAL', debut: decalerJour(aujourdhui, -16), fin: decalerJour(aujourdhui, -15), demi: null, minutes: null }, 'accordee', decalerJour(aujourdhui, -16)), encode_par_rh: true },
+    { ...demande('p5', 'Emma', 'Claes', { type: 'conge_jours', code_absence: 'AT', debut: decalerJour(aujourdhui, -9), fin: decalerJour(aujourdhui, -9), demi: null, minutes: null }, 'accordee', decalerJour(aujourdhui, -9)), encode_par_rh: true },
     demande('p6', 'Lucas', 'Martin', { type: 'conge_jours', code_absence: 'CP', debut: lundi(1), fin: decalerJour(lundi(1), 1), demi: null, minutes: null }, 'accordee'),
     demande('p12', 'Paul', 'Renard', { type: 'conge_demi_jour', code_absence: 'CEL', debut: decalerJour(lundi(1), 4), fin: decalerJour(lundi(1), 4), demi: 'matin', minutes: null }, 'accordee'),
   )
@@ -231,6 +235,13 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     if (i !== 3) ajouter(j, 968 + (i % 3) * 6, 'sortie', tt ? 'TT' : 'BUREAU')
   }
 
+  const absenceDemo = (jour: string) => demandes.filter((d) => d.personne_id === 'demo' && d.statut === 'accordee' && d.date_debut <= jour && d.date_fin >= jour)
+    .reduce((t, d) => t + (d.type === 'conge_heures' ? d.minutes_decomptees : d.type === 'conge_demi_jour' ? Math.floor(prevues(jour) / 2) : prevues(jour)), 0)
+  // Jours de maladie de la personne de démo : pas de pointage ces jours-là
+  for (const d of demandes.filter((x) => x.personne_id === 'demo' && x.code_absence === 'MAL')) {
+    for (let i = pts.length - 1; i >= 0; i--) if (pts[i].jour >= d.date_debut && pts[i].jour <= d.date_fin) pts.splice(i, 1)
+  }
+
   // Présence du jour : les vraies personas gardent un statut connu, les figurants suivent une répartition réaliste
   const connus: Record<string, string> = { Marc: 'Présent', Yanis: 'Télétravail', Awa: 'Absent', Jordan: 'Pas encore pointé', Lucas: 'Présent',
     Emma: 'En formation', Nadia: 'Présent', Paul: 'En mission', Claire: 'Présent', Sofia: 'Pas encore pointé', Tom: 'Présent', Inès: 'Télétravail', Léa: 'Pas prévu (temps partiel)' }
@@ -266,6 +277,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   ]
 
   const suivis = new Set<string>(['s-Administration'])
+  const fichiers = new Map<string, string>()   // justificatifs déposés pendant la démo (restent dans le navigateur)
   const attendre = () => new Promise((r) => setTimeout(r, 150))
 
   return {
@@ -305,18 +317,18 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       if (Date.now() - Date.parse(p.cree_le) > 15 * 60_000) throw new Error('Annulation possible pendant 15 min')
       p.annule = true
     },
-    async journee(jour) { return calculerJournee(jour, pts) },
+    async journee(jour) { return calculerJournee(jour, pts, absenceDemo(jour)) },
     async soldeBoni() {
       // Depuis le début du trimestre (période de référence du boni)
       const m = Number(aujourdhui.slice(5, 7)), debut = `${aujourdhui.slice(0, 4)}-${String(m - ((m - 1) % 3)).padStart(2, '0')}-01`
       let total = 0
-      for (let j = debut; j < aujourdhui; j = decalerJour(j, 1)) total += calculerJournee(j, pts).boni
+      for (let j = debut; j < aujourdhui; j = decalerJour(j, 1)) total += calculerJournee(j, pts, absenceDemo(j)).boni
       return total
     },
     async anomalies() {
       const r: Anomalie[] = []
       for (let i = 1; i <= 62; i++) {   // même fenêtre que le serveur (2 mois)
-        const j = decalerJour(aujourdhui, -i), jr = calculerJournee(j, pts)
+        const j = decalerJour(aujourdhui, -i), jr = calculerJournee(j, pts, absenceDemo(j))
         if (jr.nb_pointages === 0 && jr.a_prester > 0) r.push({ jour: j, code: 'absent', libelle: 'Absent sans justification' })
         else if (jr.nb_pointages > 0 && !jr.complete) r.push({ jour: j, code: 'pointages_incomplets', libelle: 'Sortie manquante' })
       }
@@ -549,6 +561,22 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       await attendre()
       const nouveaux = ids.filter((id) => !rappels.has(id)); nouveaux.forEach((id) => rappels.add(id)); return nouveaux.length
     },
+    async deposerJustificatif(d, fichier) {
+      await attendre()
+      const cible = [...demandes, ...congesEquipe].find((x) => x.id === d.id)
+      if (!cible) throw new Error('Demande introuvable')
+      const chemin = `demo/${d.id}/${fichier.name}`
+      fichiers.set(chemin, URL.createObjectURL(fichier))
+      Object.assign(cible, { justificatif_joint: true, justificatif_chemin: chemin })
+    },
+    async justificatifsManquants() {
+      return [...demandes, ...congesEquipe].filter((d) => d.statut === 'accordee' && d.justificatif_requis && !d.justificatif_joint)
+    },
+    async lienJustificatif(chemin) { return fichiers.get(chemin) ?? 'about:blank' },
+    async retirerJustificatif(d) {
+      const cible = [...demandes, ...congesEquipe].find((x) => x.id === d.id)
+      if (cible) Object.assign(cible, { justificatif_joint: false, justificatif_chemin: null })
+    },
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
       return services.map((x) => ({ service_id: x.id, nom: x.nom, suivi: suivis.has(x.id),
@@ -559,7 +587,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async journeesPersonne(personneId, debut, fin) {
       const liste = personneId === profil.id ? pts : pointagesFictifs(personneId, debut, fin)
       const r: Journee[] = []
-      for (let j = debut; j <= fin && j < aujourdhui; j = decalerJour(j, 1)) r.push(calculerJournee(j, liste))
+      for (let j = debut; j <= fin && j < aujourdhui; j = decalerJour(j, 1)) r.push(calculerJournee(j, liste, personneId === profil.id ? absenceDemo(j) : 0))
       return r
     },
     async pointagesPersonne(personneId, debut, fin) {

@@ -644,6 +644,33 @@ select test.connecte('Sofia'); set role authenticated;
 select test.erreur('select * from public.services_suivis()', 'Employé : pas de préférences de direction', 'réservée');
 reset role;
 
+
+-- ===================== Justificatifs =====================
+select id as dem_awa, personne_id as pid_awa from pointage.demandes where personne_id = test.pid('Awa') and code_absence = 'MAL' \gset
+select test.connecte('Awa'); set role authenticated;
+select test.ok((select justificatif_requis and not justificatif_joint from public.demandes where id = :'dem_awa'), 'Maladie : justificatif requis, pas encore joint');
+select test.erreur(format('select public.joindre_justificatif(%L, %L)', :'dem_awa', 'autre/chemin.pdf'), 'Chemin hors de son dossier refusé', 'invalide');
+select public.joindre_justificatif(:'dem_awa', :'pid_awa' || '/' || :'dem_awa' || '/certificat.pdf');
+select test.ok((select justificatif_joint and justificatif_chemin like '%certificat.pdf' from public.demandes where id = :'dem_awa'), 'La personne joint et revoit son certificat');
+select test.erreur(format('select public.joindre_justificatif(%L, null)', (select id from public.demandes where prenom = 'Awa' and statut = 'refusee' limit 1)),
+                   'Demande refusée : pas de justificatif', 'refusée');
+select test.ok(pointage.peut_deposer_justificatif(:'pid_awa') and not pointage.peut_deposer_justificatif(test.pid('Yanis')), 'Dépôt : seulement dans son propre dossier');
+reset role;
+select test.connecte('Yanis'); set role authenticated;
+select test.erreur(format('select public.joindre_justificatif(%L, null)', :'dem_awa'), 'Collègue : ne touche pas au justificatif', 'non autorisée');
+reset role;
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select justificatif_joint and justificatif_chemin is null from public.demandes where id = :'dem_awa'), 'N+1 : sait qu''il est joint, mais ne l''ouvre pas (par défaut)');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select justificatif_chemin is not null from public.demandes where id = :'dem_awa'), 'RH : ouvre le justificatif');
+reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('justificatif_visible_n1', 1, 'test'); reset role;
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select justificatif_chemin is not null from public.demandes where id = :'dem_awa'), 'Réglage activé : le N+1 l''ouvre aussi');
+reset role;
+select test.ok(pointage.dossier_personne('pas-un-uuid/x.pdf') is null, 'Nom de fichier malformé : aucun droit');
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0
