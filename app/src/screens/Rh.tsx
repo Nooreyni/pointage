@@ -3,6 +3,7 @@ import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, isoBxl, jourBxl } from '../lib/temps'
+import Fenetre from '../components/Fenetre'
 
 type Message = { texte: string; erreur?: boolean }
 type Action = { type: 'pointage' | 'absence'; personne?: Personne; jour?: string; incomplet?: boolean } | null
@@ -320,13 +321,6 @@ function CongesAnnuels({ api, onFait, onErreur }: { api: Api; onFait: (n: number
 }
 
 // ---------------------------------------------------------------------------
-function Fenetre({ titre, onFermer, children }: { titre: string; onFermer: () => void; children: React.ReactNode }) {
-  return (
-    <div className="voile" role="dialog" aria-modal="true" aria-label={titre} onClick={onFermer}>
-      <div className="fenetre" onClick={(e) => e.stopPropagation()}><h2>{titre}</h2>{children}</div>
-    </div>
-  )
-}
 
 const enMinutes = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
 

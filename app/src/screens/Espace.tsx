@@ -13,6 +13,7 @@ import Rh from './Rh'
 import Rapports from './Rapports'
 import Admin from './Admin'
 import Heures from './Heures'
+import { useDialogue } from '../components/useDialogue'
 
 type Onglet = 'pointer' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
 
@@ -60,6 +61,14 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     const t = setInterval(chargerNotifs, 60_000)
     return () => clearInterval(t)
   }, [profil, chargerNotifs])
+
+  useEffect(() => {   // menu du compte : Échap ou clic ailleurs le ferme
+    if (!menu) return
+    const clavier = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }
+    const clic = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('.menu-compte')) setMenu(false) }
+    document.addEventListener('keydown', clavier); document.addEventListener('click', clic)
+    return () => { document.removeEventListener('keydown', clavier); document.removeEventListener('click', clic) }
+  }, [menu])
 
   useEffect(() => {   // retire ?onglet=… de l'adresse une fois lu
     const u = new URL(location.href)
@@ -149,19 +158,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
         ))}
       </nav>
 
-      {attenteDeco > 0 && (
-        <div className="voile" role="dialog" aria-modal="true" aria-labelledby="titre-deco" onClick={() => setAttenteDeco(0)}>
-          <div className="fenetre" onClick={(e) => e.stopPropagation()}>
-            <h2 id="titre-deco">{attenteDeco} pointage(s) pas encore envoyé(s)</h2>
-            <p className="petit">Tu es hors ligne. Ils restent gardés sur cet appareil <strong>à ton nom uniquement</strong> et seront envoyés
-              à ta prochaine connexion ici. Une autre personne qui se connecte sur cet appareil ne les enverra pas.</p>
-            <div className="actions">
-              <button className="bouton secondaire" onClick={() => setAttenteDeco(0)}>Rester connecté</button>
-              <button className="bouton" onClick={() => { setAttenteDeco(0); quitter() }}>Se déconnecter</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
       {actif === 'rh' && <Rh api={api} />}
@@ -170,6 +167,23 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'heures' && <Heures api={api} profil={profil} personneInitiale={ficheDe} />}
       {actif === 'equipe' && <Equipe api={api} profil={profil} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
+    </div>
+  )
+}
+
+function ConfirmerDeconnexion({ n, onRester, onQuitter }: { n: number; onRester: () => void; onQuitter: () => void }) {
+  const ref = useDialogue<HTMLDivElement>(onRester)
+  return (
+    <div className="voile" role="dialog" aria-modal="true" aria-labelledby="titre-deco" onClick={onRester}>
+      <div className="fenetre" ref={ref} onClick={(e) => e.stopPropagation()}>
+        <h2 id="titre-deco">{n} pointage(s) pas encore envoyé(s)</h2>
+        <p className="petit">Tu es hors ligne. Ils restent gardés sur cet appareil <strong>à ton nom uniquement</strong> et seront envoyés
+          à ta prochaine connexion ici. Une autre personne qui se connecte sur cet appareil ne les enverra pas.</p>
+        <div className="actions">
+          <button className="bouton secondaire" onClick={onRester}>Rester connecté</button>
+          <button className="bouton" onClick={onQuitter}>Se déconnecter</button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Acces, AdminPersonne, AdminService, Api, Compteur, Ferie, Parametre, Profil, Regime, Reseau, Role, SaisiePersonne } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
+import Fenetre from '../components/Fenetre'
 
 type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
 type Message = { texte: string; erreur?: boolean }
@@ -61,13 +62,6 @@ export default function Admin({ api, profil }: { api: Api; profil: Profil }) {
 
 type Commun = { api: Api; ok: (t: string) => Promise<void>; erreur: (e: unknown) => void }
 
-function Fenetre({ titre, onFermer, children }: { titre: string; onFermer: () => void; children: React.ReactNode }) {
-  return (
-    <div className="voile" role="dialog" aria-modal="true" aria-label={titre} onClick={onFermer}>
-      <div className="fenetre" onClick={(e) => e.stopPropagation()}><h2>{titre}</h2>{children}</div>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 function Personnes({ personnes, services, regimes, estAdmin, api, ok, erreur }: Commun & {

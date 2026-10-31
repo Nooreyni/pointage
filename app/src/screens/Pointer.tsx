@@ -6,6 +6,7 @@ import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhm
 import { IcEntree, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
 import NotifAppareil from '../components/NotifAppareil'
+import { useDialogue } from '../components/useDialogue'
 
 // Valeurs de secours tant que les paramètres serveur ne sont pas chargés
 const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut: 510, heure_sortie_defaut: 1020 }
@@ -266,10 +267,11 @@ function Correction({ anomalie, hEntree, hSortie, onFermer, onValider }: {
   const [motif, setMotif] = useState('')
   const [enCours, setEnCours] = useState(false)
   const min = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
+  const dialogue = useDialogue<HTMLFormElement>(onFermer)
 
   return (
     <div className="voile" role="dialog" aria-modal="true" aria-labelledby="titre-correction" onClick={onFermer}>
-      <form className="fenetre" onClick={(e) => e.stopPropagation()} onSubmit={async (e) => {
+      <form className="fenetre" ref={dialogue} onClick={(e) => e.stopPropagation()} onSubmit={async (e) => {
         e.preventDefault(); setEnCours(true)
         await onValider(absent ? [['entree', min(entree)], ['sortie', min(sortie)]] : [['sortie', min(sortie)]], motif)
         setEnCours(false)

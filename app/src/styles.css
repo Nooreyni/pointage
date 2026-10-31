@@ -127,7 +127,7 @@ main.contenu {
   color: var(--texte-doux);
 }
 .puce[aria-pressed='true'] { background: #EEF2FA; border-color: var(--bleu); color: var(--bleu-fonce); }
-.lien { background: none; border: 0; color: var(--bleu); font-weight: 600; padding: 4px; text-decoration: underline; text-underline-offset: 3px; }
+.lien { background: none; border: 0; color: #1A5E97; font-weight: 600; padding: 4px; text-decoration: underline; text-underline-offset: 3px; }
 .remarque { width: 100%; max-width: 420px; margin-top: 10px; border: 1px solid var(--bord); border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
 
 /* Progression de la journée */
@@ -138,7 +138,7 @@ main.contenu {
 .chiffre { background: var(--fond); border-radius: 12px; padding: 10px; text-align: center; }
 .chiffre strong { display: block; font-family: var(--titre); font-size: 20px; font-variant-numeric: tabular-nums; }
 .chiffre span { font-size: 12.5px; color: var(--texte-doux); }
-.positif { color: #4E7A12; }
+.positif { color: #3D6609; }
 .negatif { color: var(--rouge); }
 
 /* Liste des pointages du jour */
@@ -150,7 +150,7 @@ main.contenu {
 .badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #EEF2FA; color: var(--bleu-fonce); white-space: nowrap; }
 .badge.externe { background: #E8F2FB; color: var(--bleu); }
 .badge.attente { background: #FFF4D9; color: #7A5A00; }
-.badge.correction { background: #F1F7E6; color: #4E7A12; }
+.badge.correction { background: #F1F7E6; color: #3D6609; }
 
 /* Anomalies */
 .anomalie { border-left: 5px solid var(--jaune); }
@@ -230,7 +230,7 @@ main.contenu {
 .bouton.petit { padding: 6px 10px; font-size: 14px; }
 .pilule { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .pilule.attente { background: #FFF4D9; color: #7A5A00; }
-.pilule.ok { background: #EAF4D8; color: #4E7A12; }
+.pilule.ok { background: #EAF4D8; color: #3D6609; }
 .pilule.ko { background: #FBE9E8; color: var(--rouge); }
 .pilule.neutre { background: #EEF0F5; color: var(--texte-doux); }
 .solde { padding: 10px 0; border-top: 1px solid var(--bord); }
@@ -285,7 +285,7 @@ input[type='date'], input[type='time'] { min-height: 48px; }
 .controle { list-style: none; padding: 0; margin: 4px 0 14px; display: grid; gap: 8px; }
 .controle li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; }
 .controle li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
-.controle li.ok span { background: #EAF4D8; color: #4E7A12; }
+.controle li.ok span { background: #EAF4D8; color: #3D6609; }
 .controle li.ko span { background: #FFF4D9; color: #7A5A00; }
 .confirmation { background: #FBE9E8; border-radius: 12px; padding: 12px 14px; }
 .tableau-defilant { overflow-x: auto; margin: 8px 0 12px; }
@@ -426,7 +426,7 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .tuile-personne .nom { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tuile-personne .etat { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--texte-doux); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tuile-personne.etat-non_pointe { box-shadow: inset 3px 0 0 var(--jaune); }
-.tuile-personne.etat-non_prevu, .tuile-personne.etat-parti { opacity: .75; }
+.tuile-personne.etat-non_prevu, .tuile-personne.etat-parti { background: transparent; box-shadow: inset 0 0 0 1px var(--bord); }
 
 /* ---------- Alertes ---------- */
 .liste-alertes { list-style: none; margin: 0; padding: 0; }
@@ -447,7 +447,7 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .vide-grand { text-align: center; padding: 36px 18px; }
 .vide-grand .pictogramme {
   width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center;
-  background: #EAF4D8; color: #4E7A12; font-size: 26px; font-weight: 700;
+  background: #EAF4D8; color: #3D6609; font-size: 26px; font-weight: 700;
 }
 .vide-grand p { margin: 6px 0 0; }
 
@@ -530,7 +530,7 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .tableau.fiche tr.repos td { color: var(--texte-doux); background: var(--fond); }
 .cellule-pointages { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; white-space: normal !important; min-width: 180px; }
 .puce-pointage { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
-.puce-pointage.entree { background: #EAF4D8; color: #4E7A12; }
+.puce-pointage.entree { background: #EAF4D8; color: #3D6609; }
 .puce-pointage.sortie { background: #EEF2FA; color: var(--bleu-fonce); }
 .lien-nom { background: none; border: 0; padding: 0; text-align: left; font-weight: 600; color: var(--bleu-fonce); text-decoration: underline; text-underline-offset: 3px; }
 /* Navigation : défilement horizontal quand il y a beaucoup d'onglets (rôles admin) sur mobile */

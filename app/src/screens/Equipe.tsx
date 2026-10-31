@@ -67,7 +67,7 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
         <div className="ligne entre"><h2>Mon équipe aujourd’hui</h2>
           {mien && <span className="doux petit">{mien.compte.present + mien.compte.tt}/{mien.membres.length} au travail</span>}</div>
         {mien && <Compteurs compte={mien.compte} />}
-        <div className="grille-personnes compacte">{mien?.membres.map((p) => <Tuile key={p.personne_id} p={p} />)}</div>
+        <div className="grille-personnes compacte" tabIndex={0} role="region" aria-label="Personnes de mon service">{mien?.membres.map((p) => <Tuile key={p.personne_id} p={p} />)}</div>
         {onVoirTout && <button className="lien petit" onClick={onVoirTout}>Voir tous les services →</button>}
       </section>
     )
