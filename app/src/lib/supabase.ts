@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -15,6 +15,16 @@ export const supabase: SupabaseClient | null = URL && CLE
 export function messageErreur(e: unknown): string {
   if (e && typeof e === 'object' && 'message' in e) return String((e as { message: string }).message)
   return 'Erreur inattendue'
+}
+
+// Messages de Supabase Auth les plus courants, en français
+export function traduireAuth(m: string): string {
+  if (/different from the old/i.test(m)) return 'Le nouveau mot de passe doit être différent de l’actuel'
+  if (/at least \d+ characters|too short|weak/i.test(m)) return 'Mot de passe trop court ou trop simple (8 caractères minimum)'
+  if (/pwned|leaked|compromised/i.test(m)) return 'Ce mot de passe circule sur Internet suite à une fuite : choisis-en un autre'
+  if (/invalid login/i.test(m)) return 'E-mail ou mot de passe incorrect'
+  if (/rate limit|too many/i.test(m)) return 'Trop d’essais : patiente quelques minutes'
+  return m
 }
 
 function verifier<T>(r: { data: T | null; error: unknown }): T {
@@ -33,7 +43,7 @@ export function apiSupabase(): Api {
       let p = verifier(await sb.from('mon_profil').select('*').maybeSingle()) as Profil | null
       // Pas encore lié (personne ajoutée après le 1er login, adresse corrigée…) : tentative de liaison vérifiée
       if (!p && verifier(await sb.rpc('lier_mon_compte'))) p = verifier(await sb.from('mon_profil').select('*').maybeSingle()) as Profil | null
-      if (!p) throw new Error('Ton compte Microsoft n’est pas encore enregistré dans CFB Pointage. Contacte la RH.')
+      if (!p) throw new Error('Ton compte n’est pas encore enregistré dans CFB Pointage. Contacte la RH.')
       monId = p.id
       return p
     },
@@ -191,6 +201,9 @@ export function apiSupabase(): Api {
       return verifier(await sb.rpc('stats_direction', { p_mois: mois })) as StatsDirection
     },
 
+    async rapportTeletravail(mois) {
+      return verifier(await sb.rpc('rapport_teletravail', { p_mois: mois })) as LigneTeletravail[]
+    },
     async rapportCpas(mois) {
       return verifier(await sb.rpc('rapport_cpas', { p_mois: mois })) as LigneCpas[]
     },
@@ -204,6 +217,29 @@ export function apiSupabase(): Api {
         p_partenaire_isp: p.partenaire_isp, p_matricule: p.matricule, p_date_entree: p.date_entree, p_date_sortie: p.date_sortie,
         p_regime_id: p.regime_id,
       })) as string
+    },
+    async genererMotDePasse(personneId) {
+      const { data, error } = await sb.functions.invoke('gerer-comptes', { body: { personne_id: personneId } })
+      if (error) {
+        let texte = 'Service des comptes indisponible, réessaie dans un instant'
+        try { const j = await (error as { context?: Response }).context?.json(); if (j?.erreur) texte = j.erreur } catch { /* réponse non JSON */ }
+        throw new Error(texte)
+      }
+      return data as MotDePasseGenere
+    },
+    async connexion() {
+      const { data } = await sb.auth.getUser()
+      const f = new Set<string>([...(data.user?.identities ?? []).map((i) => i.provider), ...((data.user?.app_metadata?.providers as string[] | undefined) ?? [])])
+      return { motDePasse: f.has('email'), microsoft: f.has('azure') }
+    },
+    async changerMotDePasse(actuel, nouveau) {
+      const { data } = await sb.auth.getUser()
+      const email = data.user?.email
+      if (!email) throw new Error('Session expirée : reconnecte-toi')
+      // Vérifie le mot de passe actuel (quelqu'un qui passe devant un PC resté ouvert ne peut pas le changer)
+      if ((await sb.auth.signInWithPassword({ email, password: actuel })).error) throw new Error('Mot de passe actuel incorrect')
+      const { error } = await sb.auth.updateUser({ password: nouveau })
+      if (error) throw new Error(traduireAuth(error.message))
     },
     async delierCompte(personneId) {
       verifier(await sb.rpc('delier_compte', { p_personne_id: personneId }))

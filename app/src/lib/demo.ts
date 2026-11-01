@@ -2,7 +2,7 @@
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
 import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
-  LigneCpas, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
+  LigneCpas, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
 
 const REGIME = [456, 456, 456, 456, 456, 0, 0]
@@ -146,6 +146,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const lundi = (n: number) => { let j = decalerJour(aujourdhui, 7 * n); while (new Date(`${j}T12:00:00Z`).getUTCDay() !== 1) j = decalerJour(j, 1); return j }
   const demandes: Demande[] = [
     demande('demo', profil.prenom, profil.nom, { type: 'conge_jours', code_absence: 'CP', debut: '2026-08-10', fin: '2026-08-14', demi: null, minutes: null }, 'accordee', '2026-07-01'),
+    // Congé déjà accordé dans 2 semaines (exemple visible dans l'agenda et « Mes prochains congés »)
+    demande('demo', profil.prenom, profil.nom, { type: 'conge_jours', code_absence: 'CP', debut: lundi(2), fin: decalerJour(lundi(2), 3), demi: null, minutes: null }, 'accordee', decalerJour(aujourdhui, -5)),
     demande('demo', profil.prenom, profil.nom, { type: 'conge_demi_jour', code_absence: 'CEL', debut: decalerJour(lundi(3), 2), fin: decalerJour(lundi(3), 2), demi: 'apres_midi', minutes: null }, 'en_attente'),
     demande('p1', 'Yanis', 'Peeters', { type: 'conge_jours', code_absence: 'CP', debut: lundi(2), fin: decalerJour(lundi(2), 4), demi: null, minutes: null, commentaire: 'Vacances de Noël' }, 'en_attente', decalerJour(aujourdhui, -4)),
     demande('p2', 'Awa', 'Diallo', { type: 'conge_jours', code_absence: 'RECUP', debut: decalerJour(lundi(2), 1), fin: decalerJour(lundi(2), 1), demi: null, minutes: null }, 'en_attente', decalerJour(aujourdhui, -1)),
@@ -508,6 +510,40 @@ export function apiDemo(persona: Persona = 'employe'): Api {
           conges: j as number, absence_justifiee: 0, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
           ecart: (p as number) - ((a as number) - (j as number) - (mal as number)) }))
     },
+    async rapportTeletravail(mois): Promise<LigneTeletravail[]> {
+      if (!['rh', 'admin', 'direction'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, direction, admin')
+      await attendre()
+      const fin = (() => { const d = new Date(`${mois}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, 0); return d.toISOString().slice(0, 10) })()
+      const isodow = (j: string) => ((new Date(`${j}T12:00:00Z`).getUTCDay() + 6) % 7) + 1
+      return PERSONNES.map((x, i) => ({ x, jours: teletravail.get(x.id) ?? (i % 3 === 0 ? [((i % 5) + 1)] : []) }))
+        .filter(({ jours }) => jours.length > 0)
+        .map(({ x, jours }, k) => {
+          const dates: string[] = []
+          for (let j = mois; j <= fin && j <= aujourdhui; j = decalerJour(j, 1)) if (jours.includes(isodow(j)) && !feries.some((f) => f.jour === j)) dates.push(j)
+          // Exemple : une personne sur quatre a aussi télétravaillé un autre jour (exceptionnel)
+          if (k % 4 === 1) { const extra = decalerJour(mois, 8); if (extra <= aujourdhui && isodow(extra) < 6 && !dates.includes(extra)) dates.push(extra) }
+          dates.sort()
+          return { personne_id: x.id, prenom: x.prenom, nom: x.nom, service: x.service, jours_tt: dates.length, dates, jours_habituels: jours }
+        })
+        .sort((a, b) => a.service.localeCompare(b.service) || a.nom.localeCompare(b.nom))
+    },
+    async genererMotDePasse(personneId) {
+      if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
+      if (personneId === 'p99' && persona !== 'admin') throw new Error('Seul un admin général peut gérer le mot de passe d’un admin général')
+      await attendre()
+      const x = adminP.find((a) => a.id === personneId)
+      const cree = !x?.compte_lie
+      adminP = adminP.map((a) => (a.id === personneId ? { ...a, compte_lie: true } : a))
+      const A = 'abcdefghjkmnpqrstuvwxyz23456789', o = crypto.getRandomValues(new Uint8Array(12))
+      const c = [...o].map((v) => A[v % A.length]).join('')
+      return { email: x?.email ?? 'personne@cfb.test', nom: x ? `${x.prenom} ${x.nom}` : 'Personne', mot_de_passe: `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`, cree }
+    },
+    async connexion() { return { motDePasse: true, microsoft: false } },
+    async changerMotDePasse(actuel, nouveau) {
+      await attendre()
+      if (!actuel) throw new Error('Mot de passe actuel incorrect')
+      if (actuel === nouveau) throw new Error('Le nouveau mot de passe doit être différent de l’actuel')
+    },
     async adminPersonnes() {
       exigerAdmin()
       return [...adminP].sort((a, b) => a.nom.localeCompare(b.nom))
@@ -609,11 +645,15 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async teletravailDe(personneId) {
       const jours = personneId === profil.id ? profil.jours_teletravail ?? [] : teletravail.get(personneId) ?? []
-      return { jours, modifiable: ['chef', 'rh', 'admin', 'direction'].includes(persona) && personneId !== profil.id }
+      return { jours, modifiable: personneId === profil.id || ['chef', 'rh', 'admin', 'direction'].includes(persona) }
     },
     async definirTeletravail(personneId, jours) {
-      if (!['chef', 'rh', 'admin', 'direction'].includes(persona)) throw new Error('Seuls la RH, l’admin ou le responsable peuvent définir les jours de télétravail')
-      teletravail.set(personneId, [...new Set(jours)].sort())
+      if (personneId !== profil.id && !['chef', 'rh', 'admin', 'direction'].includes(persona)) {
+        throw new Error('Tu ne peux pas modifier les jours de télétravail de cette personne')
+      }
+      const tri = [...new Set(jours)].sort()
+      if (personneId === profil.id) profil.jours_teletravail = tri
+      else teletravail.set(personneId, tri)
     },
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')

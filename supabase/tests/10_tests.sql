@@ -710,18 +710,37 @@ reset role;
 
 
 -- ===================== Télétravail habituel =====================
-select test.connecte('Sofia'); set role authenticated;
-select test.erreur(format('select public.definir_teletravail(%L, array[3])', pointage.moi()), 'Employée : ne fixe pas seule ses jours (par défaut)', 'responsable');
-reset role;
+select count(*) as notif_sofia_avant from pointage.notifications where personne_id = test.pid('Sofia') and type = 'teletravail_modifie' \gset
+select test.pid('Nadia') as pid_nadia, test.pid('Sofia') as pid_sofia \gset
 select test.connecte('Marc'); set role authenticated;
 select public.definir_teletravail(test.pid('Sofia'), array[extract(isodow from pointage.aujourdhui())::int]);
 select test.erreur(format('select public.definir_teletravail(%L, array[8])', test.pid('Sofia')), 'Jour invalide refusé', 'invalide');
-select test.erreur(format('select public.definir_teletravail(%L, array[1])', test.pid('Nadia')), 'Chef : pas pour une personne hors de son équipe', 'responsable');
+select test.erreur(format('select public.definir_teletravail(%L, array[1])', :'pid_nadia'), 'Chef : pas pour une personne hors de son équipe', 'ne peux pas');
+reset role;
+select test.ok((select count(*) from pointage.notifications where personne_id = test.pid('Sofia') and type = 'teletravail_modifie') = :notif_sofia_avant + 1,
+               'Jours modifiés par le chef : la personne est prévenue');
+select test.connecte('Yanis'); set role authenticated;
+select test.erreur(format('select public.definir_teletravail(%L, array[2])', :'pid_sofia'), 'Collègue : ne modifie pas les jours d''un autre', 'ne peux pas');
 reset role;
 select test.connecte('Sofia'); set role authenticated;
 select test.ok((select jours_teletravail = array[extract(isodow from pointage.aujourdhui())::smallint] from public.mon_profil), 'Profil : jour de télétravail visible');
-select test.ok(not (public.teletravail_de(pointage.moi())->>'modifiable')::boolean, 'Employée : jours en lecture seule');
+select test.erreur('select public.definir_teletravail(null, array[1])', 'Personne vide : refusé', 'ne peux pas');
+select test.ok((public.teletravail_de(pointage.moi())->>'modifiable')::boolean, 'Chacun peut modifier ses propres jours');
 reset role;
+select count(*) as notif_marc_avant from pointage.notifications where personne_id = test.pid('Marc') and type = 'teletravail_modifie' \gset
+select test.connecte('Sofia'); set role authenticated;
+select public.definir_teletravail(pointage.moi(), array[extract(isodow from pointage.aujourdhui())::int, 1, 1]);
+reset role;
+select test.ok((select count(*) from pointage.notifications where personne_id = test.pid('Marc') and type = 'teletravail_modifie') = :notif_marc_avant + 1,
+               'Changement par la personne : son responsable est prévenu');
+select test.ok((select corps like 'Avant : %→ maintenant : %' from pointage.notifications where personne_id = test.pid('Marc') and type = 'teletravail_modifie' order by cree_le desc limit 1),
+               'Notification : jours avant / après');
+select test.connecte('Sofia'); set role authenticated;
+select public.definir_teletravail(pointage.moi(), array[1, extract(isodow from pointage.aujourdhui())::int]);
+reset role;
+select test.ok((select count(*) from pointage.notifications where personne_id = test.pid('Marc') and type = 'teletravail_modifie') = :notif_marc_avant + 1,
+               'Mêmes jours renvoyés : pas de nouvelle notification');
+select test.ok(exists (select 1 from pointage.journal_audit where table_nom = 'teletravail_prevu'), 'Changements de jours tracés dans le journal');
 -- Inès travaille aussi ce jour-là (régime 7 j) et n'a pas encore pointé : l'équipe voit « Télétravail prévu »
 insert into pointage.regimes (id, libelle, contrat, minutes_jour) values (99, 'Test 7 jours', 'temps_plein', array[456,456,456,456,456,456,456])
 on conflict do nothing;
@@ -730,18 +749,53 @@ insert into pointage.teletravail_prevu values (test.pid('Inès'), extract(isodow
 select test.connecte('Yanis'); set role authenticated;
 select test.ok((select statut = 'Télétravail prévu' from public.presence_jour() where prenom = 'Inès'), 'Présence : « Télétravail prévu » avant de pointer');
 reset role;
-select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('teletravail_modifiable_employe', 1, 'test'); reset role;
-select test.connecte('Sofia'); set role authenticated;
-select public.definir_teletravail(pointage.moi(), array[extract(isodow from pointage.aujourdhui())::int]);
-select test.ok((public.teletravail_de(pointage.moi())->>'modifiable')::boolean, 'Réglage activé : chacun fixe ses jours');
-reset role;
--- Pointage depuis l'extérieur… et depuis une IP inconnue un jour de télétravail : type automatique Télétravail
+-- Pointage depuis une IP inconnue un jour de télétravail : type automatique Télétravail
 update pointage.parametres set valeur = 0 where cle = 'anti_rebond_s';
 select set_config('request.headers', '{}', false);
 select test.connecte('Sofia'); set role authenticated;
 select (public.pointer(p_client_id => gen_random_uuid()))->>'type_code' as type_auto \gset
 reset role;
 select test.ok(:'type_auto' = 'TT', 'Jour de télétravail habituel : pointage « Télétravail » automatiquement');
+
+-- Jours de TT du mois (indemnité) : 1 jour dès qu'il y a un pointage Télétravail
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select jours_tt >= 1 and pointage.aujourdhui() = any(dates) from public.rapport_teletravail(pointage.aujourdhui()) where prenom = 'Sofia'),
+               'Rapport TT : jour compté pour l''indemnité');
+select test.ok((select count(*) = count(distinct d) from public.rapport_teletravail(pointage.aujourdhui()) r, unnest(r.dates) d where r.prenom = 'Sofia'),
+               'Rapport TT : un jour avec plusieurs pointages TT compte une seule fois');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur('select * from public.rapport_teletravail(current_date)', 'Rapport TT : réservé RH / direction / admin', 'réservée');
+reset role;
+
+-- ===================== Comptes avec mot de passe =====================
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur(format('select public.preparer_compte(%L)', test.pid('Yanis')), 'Employée : ne gère pas les comptes', 'réservée');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((public.preparer_compte(test.pid('Yanis'))->>'email') = 'yanis.peeters@cfb.test', 'RH : prépare le compte (e-mail pro)');
+select test.erreur(format('select public.preparer_compte(%L)', (select id from pointage.personnes where role = 'admin' limit 1)), 'RH : pas le mot de passe d''un admin général', 'admin général');
+select test.erreur(format('select public.preparer_compte(%L)', pointage.moi()), 'Son propre compte : via Mon compte', 'Mon compte');
+select test.erreur(format('select public.attacher_compte(%L, gen_random_uuid(), null)', test.pid('Yanis')), 'Attacher un compte : interdit depuis l''appli', 'permission');
+reset role;
+select test.connecte('Admin'); set role authenticated;
+select public.enregistrer_personne(null, 'Nouvelle', 'Recrue', 'nouvelle.recrue@cfb.test', (select id from pointage.services where nom = 'Administration'),
+  p_regime_id => (select id from pointage.regimes where actif order by id limit 1)) as recrue \gset
+reset role;
+insert into auth.users (email) values ('nouvelle.recrue@cfb.test') returning id as compte_recrue \gset
+select test.ok((select auth_user_id is null from pointage.personnes where id = :'recrue'), 'Compte e-mail + mot de passe : pas lié automatiquement');
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((public.preparer_compte(:'recrue')->>'compte') = :'compte_recrue', 'Compte existant retrouvé par l''e-mail');
+reset role;
+set role service_role;
+select public.attacher_compte(:'recrue', :'compte_recrue', null);
+reset role;
+select test.ok((select auth_user_id = :'compte_recrue' from pointage.personnes where id = :'recrue'), 'Compte créé par la RH : lié à la personne');
+select test.ok(exists (select 1 from pointage.journal_audit where table_nom = 'comptes' and ligne_id = :'recrue'), 'Mot de passe généré : tracé dans le journal');
+select test.pid('Yanis') as pid_yanis \gset
+set role service_role;
+select test.erreur(format('select public.attacher_compte(%L, %L, null)', :'pid_yanis', :'compte_recrue'), 'Un compte ne peut pas servir à deux personnes', 'déjà lié');
+reset role;
 
 -- ===================== Bilan =====================
 \o

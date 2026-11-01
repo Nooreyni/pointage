@@ -9,6 +9,7 @@ tout se règle dans la base (paramètres + configuration) ou dans l'écran Admin
 |---|---|---|---|
 | Base PostgreSQL + API + authentification | Données, règles, droits | Supabase (ou Supabase auto-hébergé sur serveur interne) | 0 € (plan gratuit) à 25 €/mois |
 | Fonction `envoyer-notifications` | Push + e-mail de secours | Supabase Edge Functions (Deno) | inclus |
+| Fonction `gerer-comptes` | Création de compte / mot de passe généré par la RH | Supabase Edge Functions (Deno) | inclus |
 | Appli (PWA) | Écrans | Cloudflare Pages, ou tout serveur web statique (IIS, nginx…) | 0 € |
 
 ## 2. Base de données
@@ -49,6 +50,20 @@ tout se règle dans la base (paramètres + configuration) ou dans l'écran Admin
 
 Chaque personne active ensuite les notifications sur son téléphone / PC (onglet **Alertes**, ou bandeau sur l'écran Pointer).
 Sur iPhone : ajouter d'abord l'appli à l'écran d'accueil (exigence d'Apple, iOS ≥ 16.4).
+
+## 3 bis. Connexion : mot de passe + Microsoft
+
+Chacun se connecte avec son **e-mail professionnel + mot de passe** ; « Se connecter avec Microsoft » reste possible.
+
+1. Déployer la fonction : `supabase functions deploy gerer-comptes` (vérification du jeton **activée**).
+   Aucun secret à configurer : elle utilise les variables fournies par Supabase et la base vérifie les droits (RH, admin RH, admin).
+2. Tableau de bord Supabase → Authentication :
+   - **désactiver les inscriptions libres** (« Allow new users to sign up » : off) — seuls la RH / l'admin créent les comptes ;
+   - mot de passe : **8 caractères minimum** (l'appli l'exige déjà au changement) ; sur plan Pro, activer la protection
+     contre les mots de passe ayant fuité.
+3. La RH crée le compte depuis **RH → Fiche d'une personne** (ou Admin → Personnes) : un mot de passe aléatoire
+   (`xxxx-xxxx-xxxx`) est affiché **une seule fois**, à remettre à la personne. Elle peut le garder ou le changer
+   dans **Mon compte** (menu en haut à droite). Oubli : la RH en génère un nouveau, l'ancien cesse de fonctionner.
 
 ## 4. Appli (front)
 

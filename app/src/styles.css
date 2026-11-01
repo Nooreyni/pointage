@@ -557,3 +557,81 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 .teletravail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
 .etiquette-tt { font-size: 13px; font-weight: 700; color: var(--texte-doux); text-transform: uppercase; letter-spacing: .04em; }
 .jours-tt { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.aide-tt { flex-basis: 100%; margin: 4px 0 0; }
+
+/* ---------- Agenda ---------- */
+.nav-mois { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.nav-mois .bouton { min-width: 40px; font-size: 18px; line-height: 1; padding: 6px 10px; }
+.titre-mois { font-family: var(--titre); font-size: 20px; min-width: 170px; text-align: center; }
+.titre-mois::first-letter, .detail-jour h3::first-letter { text-transform: uppercase; }
+.resume-agenda { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 12px; font-size: 14.5px; color: var(--texte-doux); }
+.resume-agenda strong { color: var(--texte); font-variant-numeric: tabular-nums; }
+.resume-agenda .attente-txt strong { color: #7A5A00; }
+.grille-agenda { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.entete-jour { font-size: 12.5px; font-weight: 700; color: var(--texte-doux); text-align: center; padding: 2px 0 4px; text-transform: uppercase; letter-spacing: .03em; }
+.jour-agenda {
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-height: 92px; padding: 6px; text-align: left;
+  background: var(--carte); border: 1px solid var(--bord); border-radius: 10px; min-width: 0;
+}
+.jour-agenda:hover { border-color: #B9C4DC; }
+.jour-agenda[aria-pressed='true'] { border: 2px solid var(--bleu-fonce); padding: 5px; }
+.jour-agenda.hors-mois { background: #FAFBFD; border-style: dashed; }
+.jour-agenda.hors-mois .num-jour { color: var(--texte-doux); font-weight: 400; }
+.jour-agenda.repos { background: repeating-linear-gradient(135deg, #F3F5F9 0 6px, #ECEFF5 6px 12px); }
+.num-jour { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.jour-agenda.aujourdhui .num-jour { background: var(--bleu-fonce); color: #fff; border-radius: 999px; min-width: 24px; height: 24px; display: inline-grid; place-items: center; align-self: flex-start; padding: 0 6px; }
+.evts { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.evt { display: inline-block; font-size: 12px; font-weight: 700; line-height: 1.25; padding: 2px 6px; border-radius: 6px; border: 1.5px solid transparent;
+       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.evt .court { display: none; }
+.evt.tt-prevu { background: #fff; color: #1A5E97; border: 1.5px dashed #2479BE; }
+.evt.tt-fait { background: #1A5E97; color: #fff; }
+.evt.conge.accordee { background: #EAF4D8; color: #3D6609; border-color: #A3C854; }
+.evt.conge.en_attente { background: #FFF4D9; color: #7A5A00; border: 1.5px dashed #C99A1C; }
+.evt.ferie { background: #EFE9F7; color: #5B3A8C; }
+.legende-agenda { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13.5px; color: var(--texte-doux); }
+.legende-agenda li { display: inline-flex; align-items: center; gap: 6px; }
+.legende-agenda .evt { font-size: 11.5px; }
+.carre-repos { width: 22px; height: 16px; border-radius: 4px; border: 1px solid var(--bord); background: repeating-linear-gradient(135deg, #F3F5F9 0 4px, #DDE2EC 4px 8px); }
+.detail-jour { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--fond); }
+.detail-jour h3 { font-size: 17px; }
+.liste-detail { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.liste-detail li { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
+.liste-detail .evt { flex-shrink: 0; }
+@media (max-width: 599px) {
+  .grille-agenda { gap: 2px; }
+  .jour-agenda { min-height: 62px; padding: 3px; border-radius: 7px; }
+  .jour-agenda[aria-pressed='true'] { padding: 2px; }
+  .evt { font-size: 10.5px; padding: 1px 3px; border-radius: 4px; }
+  .evt .long { display: none; }
+  .evt .court { display: inline; }
+  .entete-jour { font-size: 11px; }
+  .titre-mois { min-width: 0; font-size: 18px; }
+}
+
+/* ---------- Liste « à venir » et prochains congés ---------- */
+.item-avenir .bloc-date { flex-shrink: 0; width: 48px; text-align: center; border-radius: 10px; background: #EEF2FA; color: var(--bleu-fonce); padding: 4px 0; line-height: 1.1; }
+.bloc-date span { display: block; font-family: var(--titre); font-size: 20px; font-weight: 600; }
+.bloc-date small { font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.bloc-date.accordee { background: #EAF4D8; color: #3D6609; }
+.bloc-date.en_attente { background: #FFF4D9; color: #7A5A00; }
+.item-avenir.nouveau-mois .groupe-titre { margin-top: 0; }
+.pilule.grande { font-size: 14px; padding: 5px 12px; }
+.prochains-conges .liste li { padding: 12px 0; }
+.prochain-conge { padding-top: 14px; padding-bottom: 14px; }
+.prochain-conge .pilule { align-self: center; }
+
+/* ---------- Mon compte, mots de passe ---------- */
+.infos-compte { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 20px; margin: 12px 0; }
+.infos-compte dt { font-size: 12.5px; font-weight: 700; color: var(--texte-doux); text-transform: uppercase; letter-spacing: .03em; }
+.infos-compte dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.form-mdp, .form-connexion { display: grid; gap: 10px; margin-top: 8px; }
+.form-mdp .champ, .form-connexion .champ { margin: 0; }
+.champ-mdp { display: flex; align-items: center; gap: 8px; }
+.champ-mdp input { flex: 1; min-width: 0; }
+.mdp-genere { background: #EAF4D8; border-radius: 12px; padding: 12px 14px; }
+code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 22px; font-weight: 700; letter-spacing: .06em;
+           background: #fff; border: 1px solid #A3C854; border-radius: 8px; padding: 6px 12px; user-select: all; }
+.sous-titre { font-family: var(--corps); font-size: 14px; font-weight: 700; color: var(--texte-doux); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.tableau tfoot td { border-bottom: 0; border-top: 2px solid var(--bord); }
+.connexion .form-connexion { text-align: left; margin-top: 18px; }

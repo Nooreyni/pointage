@@ -3,6 +3,8 @@ import type { Acces, AdminPersonne, AdminService, Api, Compteur, Ferie, Parametr
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
 import Fenetre from '../components/Fenetre'
+import MotDePasseRH from '../components/MotDePasseRH'
+import TeletravailHabituel from '../components/TeletravailHabituel'
 
 export type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
 type Message = { texte: string; erreur?: boolean }
@@ -130,7 +132,7 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
     <Fenetre titre={personne ? `${personne.prenom} ${personne.nom}` : 'Nouvelle personne'} onFermer={onFermer}>
       <form onSubmit={async (e) => {
         e.preventDefault(); setEnCours(true)
-        try { await api.enregistrerPersonne(f); await ok(personne ? 'Fiche mise à jour ✅' : 'Personne créée ✅ — elle pourra se connecter avec son compte Microsoft') }
+        try { await api.enregistrerPersonne(f); await ok(personne ? 'Fiche mise à jour ✅' : 'Personne créée ✅ — ouvre sa fiche pour créer son mot de passe') }
         catch (err) { erreur(err) } finally { setEnCours(false) }
       }}>
         {verrouille && <p className="attention petit">Seul un admin général peut modifier un admin général.</p>}
@@ -139,7 +141,7 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
             <label className="champ">Prénom<input id="p-prenom" value={f.prenom} required onChange={(e) => maj('prenom', e.target.value)} /></label>
             <label className="champ">Nom<input id="p-nom" value={f.nom} required onChange={(e) => maj('nom', e.target.value)} /></label>
           </div>
-          <label className="champ">E-mail Microsoft du CFB
+          <label className="champ">E-mail professionnel (identifiant de connexion)
             <input id="p-email" type="email" value={f.email} required onChange={(e) => maj('email', e.target.value)} placeholder="prenom.nom@…" /></label>
           <div className="champs-ligne">
             <label className="champ">Service
@@ -179,18 +181,24 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
       {personne && !verrouille && (
         <div className="encart">
           <h3>Compte de connexion</h3>
-          {personne.compte_lie ? <>
-            <p className="petit" style={{ marginTop: 0 }}>Lié au compte <strong>{personne.email}</strong>. Délier si un mauvais compte a été associé :
-              la personne sera reliée à sa prochaine connexion vérifiée (Microsoft).</p>
+          <MotDePasseRH api={api} personneId={personne.id} compteLie={personne.compte_lie} />
+          {personne.compte_lie && <>
+            <p className="petit">Lié au compte <strong>{personne.email}</strong>. Délier seulement si un mauvais compte a été associé.</p>
             {confirmerDelier
               ? <div className="actions" style={{ justifyContent: 'flex-start' }}>
                   <button className="bouton danger" onClick={async () => {
                     try { await api.delierCompte(personne.id); await ok('Compte délié') } catch (e) { erreur(e) } finally { setConfirmerDelier(false) }
                   }}>Confirmer</button>
                   <button className="bouton secondaire" onClick={() => setConfirmerDelier(false)}>Annuler</button></div>
-              : <button className="bouton secondaire" onClick={() => setConfirmerDelier(true)}>Délier le compte</button>}
-          </> : <p className="petit" style={{ margin: 0 }}>Pas encore connecté. Le compte sera lié automatiquement à sa première connexion
-            avec l’adresse ci-dessus, une fois l’identité vérifiée.</p>}
+              : <button className="lien petit" onClick={() => setConfirmerDelier(true)}>Délier le compte</button>}
+          </>}
+        </div>
+      )}
+
+      {personne && (
+        <div className="encart">
+          <h3>Télétravail habituel</h3>
+          <TeletravailHabituel api={api} personneId={personne.id} moi={false} />
         </div>
       )}
 

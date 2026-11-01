@@ -4,7 +4,7 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import { IcAdmin, IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import Recherche, { type Cible } from '../components/Recherche'
 import type { Section } from './Admin'
 import Pointer from './Pointer'
@@ -17,10 +17,12 @@ const Heures = lazy(() => import('./Heures'))
 const Rh = lazy(() => import('./Rh'))
 const Rapports = lazy(() => import('./Rapports'))
 const Admin = lazy(() => import('./Admin'))
+const Agenda = lazy(() => import('./Agenda'))
+const Compte = lazy(() => import('./Compte'))
 import { useDialogue } from '../components/useDialogue'
 import { useInactivite } from '../components/useInactivite'
 
-type Onglet = 'pointer' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes'
+type Onglet = 'pointer' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
 
 const VUES_DEMO: [Persona, string, string][] = [
   ['employe', 'Employée', 'Pointe, demande ses congés'],
@@ -40,7 +42,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>(() => {
     const demande = new URLSearchParams(location.search).get('onglet')
-    return (['pointer', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+    return (['pointer', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
   })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
@@ -129,7 +131,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
   const onglets: [Onglet, string, () => React.JSX.Element, number][] = [
-    ['pointer', 'Pointer', IcHorloge, 0], ['heures', 'Heures', IcHeures, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
+    ['pointer', 'Pointer', IcHorloge, 0], ['agenda', 'Agenda', IcAgenda, 0], ['heures', 'Heures', IcHeures, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
     ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [['rh', 'RH', IcRh, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
     ...(['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
       ? [['rapports', 'Rapports', IcStats, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
@@ -137,7 +139,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     ['alertes', 'Alertes', IcCloche, 0],
   ]
   // Onglet demandé (lien d'une notification) mais non autorisé pour ce rôle → Pointer
-  const actif: Onglet = onglets.some(([id]) => id === onglet) ? onglet : 'pointer'
+  const actif: Onglet = onglet === 'compte' || onglets.some(([id]) => id === onglet) ? onglet : 'pointer'
 
   return (
     <div className="app">
@@ -155,6 +157,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
           {menu && (
             <div className="menu" role="menu">
               <div className="menu-nom"><strong>{profil.prenom} {profil.nom}</strong><span className="doux petit">{libelleRole} · {profil.service}</span></div>
+              <button role="menuitem" onClick={() => { setMenu(false); aller('compte') }}>Mon compte</button>
               <button role="menuitem" onClick={seDeconnecter}>Se déconnecter</button>
             </div>
           )}
@@ -185,7 +188,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
 
       {restantInactif !== null && !deconnecteInactif && <AvertirInactivite secondes={restantInactif} onRester={resterConnecte} />}
       {rechercheOuverte && (
-        <Recherche api={api} profil={profil} onglets={onglets.map(([id, libelle]) => [id, libelle])} onFermer={() => setRechercheOuverte(false)}
+        <Recherche api={api} profil={profil} onglets={[...onglets.map(([id, libelle]) => [id, libelle] as [string, string]), ['compte', 'Mon compte']]} onFermer={() => setRechercheOuverte(false)}
                    onChoisir={(c: Cible) => {
                      if (c.type === 'onglet') aller(c.onglet as Onglet)
                      else if (c.type === 'personne' && c.fiche) { setFicheDe(c.id); aller('heures') }
@@ -196,8 +199,10 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       )}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
-      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
-      {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
+      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} onVoirAgenda={() => aller('agenda')} />}
+      {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} onVoirAgenda={() => aller('agenda')} />}
+      {actif === 'agenda' && <Agenda api={api} profil={profil} onDemanderConge={() => aller('conges')} onVoirCompte={() => aller('compte')} />}
+      {actif === 'compte' && <Compte api={api} profil={profil} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}
       {actif === 'admin' && <Admin api={api} profil={profil} sectionInitiale={sectionAdmin} />}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { messageErreur, supabase } from '../lib/supabase'
+import { supabase, traduireAuth } from '../lib/supabase'
 import { IcMicrosoft } from '../components/Icones'
 
 const COMPTES_DEV = [
@@ -15,7 +15,9 @@ const COMPTES_DEV = [
 
 export default function Connexion({ onDemo }: { onDemo: () => void }) {
   const [erreur, setErreur] = useState<string | null>(null)
-  const [email, setEmail] = useState(COMPTES_DEV[0][0])
+  const dev = import.meta.env.VITE_CONNEXION_DEV === '1'
+  const [email, setEmail] = useState(dev ? COMPTES_DEV[0][0] : '')
+  const [voir, setVoir] = useState(false)
   const [mdp, setMdp] = useState('')
   const [enCours, setEnCours] = useState(false)
 
@@ -27,12 +29,12 @@ export default function Connexion({ onDemo }: { onDemo: () => void }) {
     if (error) setErreur('Connexion Microsoft pas encore activée (enregistrement Entra ID à faire).')
   }
 
-  async function dev(e: React.FormEvent) {
+  async function seConnecter(e: React.FormEvent) {
     e.preventDefault()
     setEnCours(true); setErreur(null)
-    const { error } = await supabase!.auth.signInWithPassword({ email, password: mdp })
+    const { error } = await supabase!.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: mdp })
     setEnCours(false)
-    if (error) setErreur(messageErreur(error))
+    if (error) setErreur(traduireAuth(error.message))
   }
 
   return (
@@ -43,25 +45,31 @@ export default function Connexion({ onDemo }: { onDemo: () => void }) {
         <p className="doux">Centre Familial de Bruxelles</p>
 
         {supabase && (
-          <button className="bouton-ms" onClick={microsoft}><IcMicrosoft /> Se connecter avec Microsoft</button>
-        )}
-
-        {supabase && import.meta.env.VITE_CONNEXION_DEV === '1' && (
-          <>
-            <div className="separateur">Comptes fictifs (développement)</div>
-            <form onSubmit={dev}>
-              <label className="champ">Compte
+          <form onSubmit={seConnecter} className="form-connexion">
+            {dev && (
+              <label className="champ">Compte fictif (développement)
                 <select value={email} onChange={(e) => setEmail(e.target.value)}>
                   {COMPTES_DEV.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </label>
-              <label className="champ">Mot de passe
-                <input type="password" value={mdp} onChange={(e) => setMdp(e.target.value)} autoComplete="current-password" required />
-              </label>
-              <button className="bouton" disabled={enCours}>{enCours ? 'Connexion…' : 'Se connecter'}</button>
-            </form>
-          </>
+            )}
+            <label className="champ">E-mail professionnel
+              <input id="cx-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required
+                     placeholder="prenom.nom@…" inputMode="email" /></label>
+            <label className="champ">Mot de passe
+              <span className="champ-mdp">
+                <input id="cx-mdp" type={voir ? 'text' : 'password'} value={mdp} onChange={(e) => setMdp(e.target.value)} autoComplete="current-password" required />
+                <button type="button" className="lien petit" onClick={() => setVoir((v) => !v)} aria-pressed={voir}>{voir ? 'Masquer' : 'Afficher'}</button>
+              </span></label>
+            <button className="bouton" disabled={enCours}>{enCours ? 'Connexion…' : 'Se connecter'}</button>
+            <p className="doux petit" style={{ margin: 0 }}>Mot de passe oublié ? Demande à la RH de t’en générer un nouveau.</p>
+          </form>
         )}
+
+        {supabase && <>
+          <div className="separateur">ou</div>
+          <button className="bouton-ms" onClick={microsoft}><IcMicrosoft /> Se connecter avec Microsoft</button>
+        </>}
 
         {import.meta.env.VITE_MODE_DEMO === '1' && (
           <p style={{ marginTop: 18 }}><button className="lien" onClick={onDemo}>Essayer en mode démo (sans serveur)</button></p>

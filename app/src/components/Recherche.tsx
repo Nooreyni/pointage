@@ -38,6 +38,9 @@ export default function Recherche({ api, profil, onglets, onChoisir, onFermer }:
     const r: Resultat[] = onglets.map(([id, libelle]) => ({
       cle: `o-${id}`, titre: libelle, detail: 'Écran', groupe: 'Écrans', cible: { type: 'onglet', onglet: id }, texte: libelle }))
     r.push({ cle: 'a-conge', titre: 'Demander un congé', detail: 'Congés', groupe: 'Écrans', cible: { type: 'onglet', onglet: 'conges' }, texte: 'demander conge vacances absence' })
+    r.push({ cle: 'a-mdp', titre: 'Changer mon mot de passe', detail: 'Mon compte', groupe: 'Écrans', cible: { type: 'onglet', onglet: 'compte' }, texte: 'mot de passe changer compte profil' })
+    r.push({ cle: 'a-tt', titre: 'Mes jours de télétravail', detail: 'Mon compte', groupe: 'Écrans', cible: { type: 'onglet', onglet: 'compte' }, texte: 'teletravail tt jours habituels domicile' })
+    r.push({ cle: 'a-agenda', titre: 'Mon agenda du mois', detail: 'Agenda', groupe: 'Écrans', cible: { type: 'onglet', onglet: 'agenda' }, texte: 'agenda calendrier planning mois conges prevus' })
     r.push({ cle: 'a-notif', titre: 'Activer les notifications', detail: 'Alertes', groupe: 'Écrans', cible: { type: 'onglet', onglet: 'alertes' }, texte: 'notifications rappels push' })
     for (const p of personnes) {
       const fiche = voitTout || (profil.est_chef_service && p.mon_service)

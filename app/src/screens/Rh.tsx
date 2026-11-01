@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import MotDePasseRH from '../components/MotDePasseRH'
+import TeletravailHabituel from '../components/TeletravailHabituel'
 import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
@@ -169,6 +171,8 @@ export default function Rh({ api }: { api: Api }) {
               + (r.boni_hors_limites ? ` · ${r.boni_hors_limites} boni hors limites à vérifier` : ''))
           } catch (e) { erreur(e) }
         }} />
+
+        <FichePersonne api={api} personnes={personnes} />
 
         <section className="carte">
           <h2>Encoder une absence</h2>
@@ -445,6 +449,30 @@ function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur
           }}>Rappeler</button>
         </li>
       ))}</ul>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+/** Fiche rapide d'une personne : jours de télétravail habituels et mot de passe (création / oubli). */
+function FichePersonne({ api, personnes }: { api: Api; personnes: Personne[] }) {
+  const [id, setId] = useState('')
+  const tri = useMemo(() => [...personnes].sort((a, b) => a.nom.localeCompare(b.nom)), [personnes])
+  return (
+    <section className="carte">
+      <h2>Fiche d’une personne</h2>
+      <p className="doux petit">Jours de télétravail habituels et mot de passe (nouveau compte, oubli).</p>
+      <label className="champ">Personne
+        <select id="rh-fiche-personne" value={id} onChange={(e) => setId(e.target.value)}>
+          <option value="">Choisir…</option>
+          {[...new Set(tri.map((p) => p.service))].sort().map((s) => (
+            <optgroup key={s} label={s}>{tri.filter((p) => p.service === s).map((p) => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}</optgroup>
+          ))}
+        </select></label>
+      {id && <div key={id} className="pile" style={{ gap: 12 }}>
+        <div><h3 className="sous-titre">Télétravail habituel</h3><TeletravailHabituel api={api} personneId={id} moi={false} /></div>
+        <div><h3 className="sous-titre">Mot de passe</h3><MotDePasseRH api={api} personneId={id} /></div>
+      </div>}
     </section>
   )
 }

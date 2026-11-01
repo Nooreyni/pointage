@@ -4,8 +4,11 @@ import { messageErreur } from '../lib/supabase'
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-/** Jours de télétravail habituels d'une personne : lecture pour tous, modification pour RH / admin / N+1 (serveur). */
-export default function TeletravailHabituel({ api, personneId }: { api: Api; personneId: string }) {
+/**
+ * Jours de télétravail habituels d'une personne. Chacun modifie les siens (son responsable est prévenu) ;
+ * la RH, l'admin et le N+1 peuvent aussi les modifier (la personne est prévenue). Droits vérifiés par le serveur.
+ */
+export default function TeletravailHabituel({ api, personneId, moi, detaille }: { api: Api; personneId: string; moi: boolean; detaille?: boolean }) {
   const [etat, setEtat] = useState<{ jours: number[]; modifiable: boolean } | null>(null)
   const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
 
@@ -18,7 +21,7 @@ export default function TeletravailHabituel({ api, personneId }: { api: Api; per
   const basculer = async (j: number) => {
     const jours = etat.jours.includes(j) ? etat.jours.filter((x) => x !== j) : [...etat.jours, j].sort()
     setEtat({ ...etat, jours })
-    try { await api.definirTeletravail(personneId, jours); setMessage({ texte: 'Enregistré ✅' }) }
+    try { await api.definirTeletravail(personneId, jours); setMessage({ texte: moi ? 'Enregistré ✅ ton responsable est prévenu' : 'Enregistré ✅ la personne est prévenue' }) }
     catch (e) { setEtat(etat); setMessage({ texte: messageErreur(e), erreur: true }) }
   }
 
@@ -33,7 +36,11 @@ export default function TeletravailHabituel({ api, personneId }: { api: Api; per
         <strong className="petit">{etat.jours.length ? etat.jours.map((j) => JOURS[j - 1]).join(', ') : 'aucun'}</strong>
       )}
       {message && <span className={`petit ${message.erreur ? 'negatif' : 'doux'}`} role="status">{message.texte}</span>}
-      {!etat.modifiable && <span className="doux petit">défini par la RH ou ton responsable</span>}
+      {!etat.modifiable && <span className="doux petit">défini par la RH ou le responsable</span>}
+      {detaille && etat.modifiable && moi && !message && (
+        <p className="doux petit aide-tt">Change-les quand tu veux : ton responsable est prévenu automatiquement. Ces jours-là, ton pointage
+          passe en « Télétravail » tout seul. Un autre jour, choisis simplement « Télétravail » au moment de pointer.</p>
+      )}
     </div>
   )
 }

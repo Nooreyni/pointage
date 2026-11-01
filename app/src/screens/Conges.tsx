@@ -10,8 +10,8 @@ const STATUTS: Record<Demande['statut'], [string, string]> = {
 
 export type VueConges = 'mes' | 'valider' | 'calendrier'
 
-export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValider }: {
-  api: Api; profil: Profil; vueInitiale?: VueConges; onCompteValider?: (n: number) => void
+export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValider, onVoirAgenda }: {
+  api: Api; profil: Profil; vueInitiale?: VueConges; onCompteValider?: (n: number) => void; onVoirAgenda?: () => void
 }) {
   const [soldes, setSoldes] = useState<Solde[] | null>(null)
   const [codes, setCodes] = useState<CodeAbsence[]>([])
@@ -97,6 +97,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
 
       {vue === 'mes' && <>
         <div className="col-principale pile">
+          <ProchainsConges demandes={mes} enJours={enJours} onVoirAgenda={onVoirAgenda} />
           {blocSoldes('mobile-seulement')}
           <NouvelleDemande api={api} codes={codes} enJours={enJours}
                            onEnvoyee={async () => { setMessage({ texte: 'Demande envoyée à ton responsable ✅' }); await charger() }}
@@ -354,6 +355,40 @@ function NouvelleDemande({ api, codes, enJours, onEnvoyee, onErreur }: {
 }
 
 // ---------------------------------------------------------------------------
+const MOIS_COURT = new Intl.DateTimeFormat('fr-BE', { month: 'short', timeZone: 'UTC' })
+/** Congés à venir (accordés ou en attente), bien visibles en haut de « Mes congés ». */
+function ProchainsConges({ demandes, enJours, onVoirAgenda }: { demandes: Demande[] | null; enJours: (m: number) => string; onVoirAgenda?: () => void }) {
+  if (!demandes) return null
+  const auj = jourBxl()
+  const aVenir = demandes.filter((d) => (d.statut === 'accordee' || d.statut === 'en_attente') && d.date_fin >= auj)
+    .sort((a, b) => a.date_debut.localeCompare(b.date_debut))
+  const dans = (j: string) => Math.round((new Date(`${j}T12:00:00Z`).getTime() - new Date(`${auj}T12:00:00Z`).getTime()) / 86_400_000)
+  return (
+    <section className="carte prochains-conges">
+      <div className="ligne entre"><h2>Mes prochains congés</h2>
+        {onVoirAgenda && <button className="lien petit" onClick={onVoirAgenda}>Voir mon agenda</button>}</div>
+      {aVenir.length === 0 && <p className="vide" style={{ margin: '8px 0 0' }}>Aucun congé prévu.</p>}
+      <ul className="liste">
+        {aVenir.map((d) => {
+          const n = dans(d.date_debut)
+          return (
+            <li key={d.id} className="item-avenir">
+              <div className={`bloc-date ${d.statut}`} aria-hidden="true"><span>{Number(d.date_debut.slice(8))}</span>
+                <small>{MOIS_COURT.format(new Date(`${d.date_debut}T12:00:00Z`)).replace('.', '')}</small></div>
+              <div className="texte-ligne">
+                <div><strong>{d.libelle_absence}</strong> · {periode(d)}</div>
+                <div className="doux petit">{d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
+                  {' · '}{d.date_debut <= auj ? 'en cours' : n === 1 ? 'demain' : `dans ${n} jours`}</div>
+              </div>
+              <span className={`pilule grande ${d.statut === 'accordee' ? 'ok' : 'attente'}`}>{d.statut === 'accordee' ? 'Accordé ✓' : 'En attente'}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 function periode(d: Demande): string {
   if (d.type === 'conge_demi_jour') return `${dateCourte(d.date_debut)} ${d.demi === 'matin' ? 'matin' : 'après-midi'}`
   if (d.date_debut === d.date_fin) return dateCourte(d.date_debut)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Anomalie, Api, Journee, Pointage, Profil, Sens, TypePointage } from '../lib/types'
+import type { Anomalie, Api, Demande, Journee, Pointage, Profil, Sens, TypePointage } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { enAttente, estErreurReseau, mettreEnAttente, synchroniser, versPointage } from '../lib/file'
 import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhmm, isoBxl, jourBxl, minutesDepuisMinuit } from '../lib/temps'
@@ -13,9 +13,17 @@ const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut:
 
 interface Message { texte: string; erreur?: boolean }
 
-export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois }: {
-  api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void; onVoirMois?: () => void
+export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois, onVoirAgenda }: {
+  api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void; onVoirMois?: () => void; onVoirAgenda?: () => void
 }) {
+  const [ttJours, setTtJours] = useState<number[]>(profil.jours_teletravail ?? [])
+  const [prochain, setProchain] = useState<Demande | null>(null)
+  useEffect(() => {
+    api.teletravailDe(profil.id).then((t) => setTtJours(t.jours)).catch(() => {})
+    const auj = jourBxl()
+    api.mesDemandes().then((ds) => setProchain(ds.filter((d) => (d.statut === 'accordee' || d.statut === 'en_attente') && d.date_fin >= auj)
+      .sort((a, b) => a.date_debut.localeCompare(b.date_debut))[0] ?? null)).catch(() => {})
+  }, [api, profil.id])
   const [regles, setRegles] = useState(DEFAUTS)
   const PAUSE = regles.pause_midi_min, SEUIL_PAUSE = regles.pause_seuil_min
   const [maintenant, setMaintenant] = useState(new Date())
@@ -137,7 +145,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   }
 
   const isoJour = ((new Date(`${jour}T12:00:00Z`).getUTCDay() + 6) % 7) + 1
-  const ttPrevu = !!profil.jours_teletravail?.includes(isoJour)
+  const ttPrevu = ttJours.includes(isoJour)
   const statut = !dernier ? { texte: aPrester > 0 ? (ttPrevu ? 'Jour de télétravail : pas encore pointé' : 'Pas encore pointé') : 'Pas de prestation prévue aujourd’hui', classe: ttPrevu ? 'tt' : '' }
     : present ? { texte: `${dernier.type_code === 'TT' ? 'En télétravail' : libelleType(dernier.type_code) === 'Bureau' ? 'Présent' : libelleType(dernier.type_code)} depuis ${heure(dernier.horodatage)}`,
                   classe: dernier.type_code === 'TT' ? 'tt' : 'present' }
@@ -200,6 +208,20 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
             {onVoirMois && <button className="lien petit" onClick={onVoirMois}>Voir mon mois →</button>}
           </div>
         </section>
+
+        {prochain && (
+          <section className="carte prochain-conge">
+            <div className="ligne entre">
+              <div className="texte-ligne">
+                <span className="doux petit">Prochain congé</span>
+                <div><strong>{prochain.libelle_absence}</strong> · {prochain.date_debut === prochain.date_fin ? dateCourte(prochain.date_debut)
+                  : `${dateCourte(prochain.date_debut)} → ${dateCourte(prochain.date_fin)}`}{prochain.demi ? ` (${prochain.demi === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
+              </div>
+              <span className={`pilule grande ${prochain.statut === 'accordee' ? 'ok' : 'attente'}`}>{prochain.statut === 'accordee' ? 'Accordé ✓' : 'En attente'}</span>
+            </div>
+            {onVoirAgenda && <button className="lien petit" onClick={onVoirAgenda}>Voir mon agenda →</button>}
+          </section>
+        )}
 
         {aRegler.slice(0, 3).map((a) => (
           <section key={a.jour} className="carte anomalie">

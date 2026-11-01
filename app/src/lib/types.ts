@@ -210,6 +210,18 @@ export interface StatsDirection {
   demandes: { en_attente: number; accordees: number; refusees: number; delai_moyen_heures: number | null }
 }
 
+export interface LigneTeletravail {
+  personne_id: string
+  prenom: string
+  nom: string
+  service: string
+  jours_tt: number          // jours avec au moins un pointage « Télétravail » (indemnité)
+  dates: string[]
+  jours_habituels: number[]
+}
+
+export interface MotDePasseGenere { email: string; nom: string; mot_de_passe: string; cree: boolean }
+
 export interface LigneCpas {
   personne_id: string
   prenom: string
@@ -336,10 +348,16 @@ export interface Api {
   // Rapports
   statsDirection(mois: string): Promise<StatsDirection>
   rapportCpas(mois: string): Promise<LigneCpas[]>
+  rapportTeletravail(mois: string): Promise<LigneTeletravail[]>
   // Administration
   adminPersonnes(): Promise<AdminPersonne[]>
   enregistrerPersonne(p: SaisiePersonne): Promise<string>
   delierCompte(personneId: string): Promise<void>
+  /** RH / admin : crée le compte (ou génère un nouveau mot de passe) ; le mot de passe n'est renvoyé qu'une fois */
+  genererMotDePasse(personneId: string): Promise<MotDePasseGenere>
+  /** Moyens de connexion du compte actuel */
+  connexion(): Promise<{ motDePasse: boolean; microsoft: boolean }>
+  changerMotDePasse(actuel: string, nouveau: string): Promise<void>
   changerRegime(personneId: string, regimeId: number, debut: string): Promise<void>
   adminServices(): Promise<AdminService[]>
   enregistrerService(s: Omit<AdminService, 'effectif' | 'id'> & { id: string | null }): Promise<string>

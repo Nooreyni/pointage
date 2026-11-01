@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Api, LigneCpas, Profil, StatService, StatsDirection } from '../lib/types'
+import type { Api, LigneCpas, LigneTeletravail, Profil, StatService, StatsDirection } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { telechargerCsv } from '../lib/csv'
 import { duree, jourBxl } from '../lib/temps'
@@ -20,7 +20,7 @@ function moisDisponibles(): string[] {
 export default function Rapports({ api, profil }: { api: Api; profil: Profil }) {
   const voitStats = ['direction', 'admin', 'rh', 'admin_rh'].includes(profil.role)
   const voitCpas = ['direction', 'admin', 'rh', 'admin_rh', 'responsable_isp'].includes(profil.role)
-  const [vue, setVue] = useState<'stats' | 'cpas'>(voitStats ? 'stats' : 'cpas')
+  const [vue, setVue] = useState<'stats' | 'tt' | 'cpas'>(voitStats ? 'stats' : 'cpas')
   const mois = useMemo(moisDisponibles, [])
   const [choix, setChoix] = useState(mois[1])   // mois précédent (complet)
 
@@ -28,17 +28,19 @@ export default function Rapports({ api, profil }: { api: Api; profil: Profil }) 
     <main className="contenu">
       <div className="col-pleine pile">
         <div className="ligne entre barre-outils">
-          {voitStats && voitCpas ? (
+          {voitStats ? (
             <div className="segments compact" role="radiogroup" aria-label="Rapport">
               <button type="button" role="radio" aria-checked={vue === 'stats'} onClick={() => setVue('stats')}>Tableau de bord</button>
-              <button type="button" role="radio" aria-checked={vue === 'cpas'} onClick={() => setVue('cpas')}>Rapport CPAS</button>
+              <button type="button" role="radio" aria-checked={vue === 'tt'} onClick={() => setVue('tt')}>Télétravail</button>
+              {voitCpas && <button type="button" role="radio" aria-checked={vue === 'cpas'} onClick={() => setVue('cpas')}>Rapport CPAS</button>}
             </div>
-          ) : <h2>{voitStats ? 'Tableau de bord' : 'Rapport CPAS'}</h2>}
+          ) : <h2>Rapport CPAS</h2>}
           <select id="mois-rapport" className="choix-mois" value={choix} onChange={(e) => setChoix(e.target.value)} aria-label="Mois">
             {mois.map((m, i) => <option key={m} value={m}>{nomMois(m)}{i === 0 ? ' (en cours)' : ''}</option>)}
           </select>
         </div>
         {vue === 'stats' && voitStats && <TableauDeBord api={api} mois={choix} />}
+        {vue === 'tt' && voitStats && <RapportTeletravail api={api} mois={choix} />}
         {vue === 'cpas' && voitCpas && <RapportCpas api={api} mois={choix} />}
       </div>
     </main>
@@ -268,6 +270,67 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
         </div>
       )}
       <p className="doux petit" style={{ marginBottom: 0 }}>À prester = heures du régime moins les absences accordées. Jours non justifiés = aucun pointage et aucune absence encodée.</p>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+const JOURS_SEM = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim']
+/** Jours de télétravail par personne (indemnité de fin de mois) : 1 jour dès qu'il y a un pointage « Télétravail ». */
+function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
+  const [lignes, setLignes] = useState<LigneTeletravail[] | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+  const [filtre, setFiltre] = useState('')
+  useEffect(() => { setLignes(null); setErreur(null); api.rapportTeletravail(mois).then(setLignes).catch((e) => setErreur(messageErreur(e))) }, [api, mois])
+
+  const sansAccent = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const visibles = (lignes ?? []).filter((l) => !filtre || sansAccent(`${l.nom} ${l.prenom} ${l.service}`).includes(sansAccent(filtre)))
+  const total = visibles.reduce((t, l) => t + l.jours_tt, 0)
+  const enCours = mois.slice(0, 7) === jourBxl().slice(0, 7)
+
+  function exporterCsv() {
+    if (!lignes) return
+    const entete = ['Nom', 'Prénom', 'Service', 'Jours de télétravail', 'Dates', 'Jours habituels']
+    const corps = lignes.map((l) => [l.nom, l.prenom, l.service, l.jours_tt, l.dates.map((d) => `${d.slice(8)}/${d.slice(5, 7)}`).join(' '),
+                                     l.jours_habituels.map((j) => JOURS_SEM[j - 1]).join(' ')])
+    telechargerCsv([entete, ...corps], `teletravail-${mois.slice(0, 7)}.csv`)
+  }
+
+  if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
+  return (
+    <section className="carte">
+      <div className="ligne entre">
+        <div><h2>Jours de télétravail — {nomMois(mois)}</h2>
+          <p className="doux petit" style={{ margin: '4px 0 0' }}>Pour l’indemnité de télétravail : un jour compte dès qu’il y a au moins un pointage « Télétravail ».
+            {enCours && ' Mois en cours : chiffres provisoires.'}</p></div>
+        <span className="ligne">
+          <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
+          <button className="bouton petit" disabled={!lignes?.length} onClick={exporterCsv}>Export Excel (CSV)</button>
+        </span>
+      </div>
+      {lignes && lignes.length > 8 && (
+        <input type="search" id="filtre-tt" className="recherche" style={{ marginTop: 12 }} placeholder="Filtrer par nom ou service…" aria-label="Filtrer" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+      )}
+      {!lignes && <p className="vide">Calcul…</p>}
+      {lignes?.length === 0 && <p className="vide">Aucun télétravail sur ce mois.</p>}
+      {lignes && lignes.length > 0 && (
+        <div className="tableau-defilant">
+          <table className="tableau">
+            <thead><tr><th>Personne</th><th>Service</th><th className="num">Jours TT</th><th>Dates</th><th>Jours habituels</th></tr></thead>
+            <tbody>{visibles.map((l) => (
+              <tr key={l.personne_id}>
+                <td><strong>{l.nom} {l.prenom}</strong></td>
+                <td>{l.service}</td>
+                <td className="num"><strong>{l.jours_tt}</strong></td>
+                <td className="petit">{l.dates.length ? l.dates.map((d) => Number(d.slice(8))).join(', ') : <span className="doux">—</span>}</td>
+                <td className="petit">{l.jours_habituels.length ? l.jours_habituels.map((j) => JOURS_SEM[j - 1]).join(', ') : <span className="doux">aucun</span>}</td>
+              </tr>
+            ))}</tbody>
+            <tfoot><tr><td colSpan={2}><strong>Total</strong> ({visibles.length} personne{visibles.length > 1 ? 's' : ''})</td><td className="num"><strong>{total}</strong></td><td colSpan={2} /></tr></tfoot>
+          </table>
+        </div>
+      )}
+      <p className="doux petit" style={{ marginBottom: 0 }}>Le montant de l’indemnité n’est pas calculé ici : il dépend de la règle du CFB (à confirmer par la RH).</p>
     </section>
   )
 }
