@@ -15,6 +15,14 @@ Conçue pour être **réinstallée ailleurs sans recoder** : toutes les règles 
 | Admin | Personnes, services et chefs, régimes, accès inter-services, compteurs et reports, paramètres, réseau, fériés |
 | Notifications | Push sur téléphone / PC, e-mail de secours Microsoft 365, rappels automatiques |
 
+## Démarrer en local (1 double-clic)
+Prérequis : [Node.js LTS](https://nodejs.org).
+- **Windows** : double-cliquer sur `demarrer.bat`
+- **macOS / Linux** : `./demarrer.sh`
+
+Le premier lancement installe l'appli (≈ 1 min), puis le navigateur s'ouvre tout seul.
+Connexion au projet de **dev** (données fictives) ou « Essayer en mode démo » (sans serveur).
+
 ## Structure
 | Dossier | Contenu |
 |---|---|
