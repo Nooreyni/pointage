@@ -46,6 +46,12 @@ const STATUTS_DEMO = ['Présent', 'Présent', 'Télétravail', 'Présent', 'Pas 
 
 export type Persona = 'admin' | 'employe' | 'chef' | 'rh' | 'direction'
 
+// Circuit des demandes entre les vues de la démo : une demande envoyée dans une vue arrive chez son
+// valideur dans une autre vue, et la décision revient au demandeur (le changement de vue ne l'efface pas).
+type Transmise = Demande & { de: Persona; vers: Persona | null }
+const VALIDEUR: Record<Persona, Persona | null> = { employe: 'chef', chef: 'direction', rh: 'direction', admin: 'direction', direction: null }
+const transmises: Transmise[] = []
+
 function prevues(jour: string): number {
   if (FERIES.has(jour)) return 0
   const iso = (new Date(`${jour}T12:00:00Z`).getUTCDay() + 6) % 7
@@ -367,14 +373,25 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       if (demandes.some((d) => d.personne_id === 'demo' && ['en_attente', 'accordee'].includes(d.statut)
                                && d.date_debut <= s.fin && d.date_fin >= s.debut && (d.type === 'conge_jours' || s.type === 'conge_jours')))
         throw new Error('Tu as déjà une demande sur cette période')
-      demandes.push(demande('demo', profil.prenom, profil.nom, s, 'en_attente'))
+      if (transmises.some((d) => d.de === persona && ['en_attente', 'accordee'].includes(d.statut)
+                                 && d.date_debut <= s.fin && d.date_fin >= s.debut && (d.type === 'conge_jours' || s.type === 'conge_jours')))
+        throw new Error('Tu as déjà une demande sur cette période')
+      const nouvelle = demande('demo', profil.prenom, profil.nom, s, 'en_attente')
+      if (VALIDEUR[persona]) transmises.push({ ...nouvelle, personne_id: `vue-${persona}`, de: persona, vers: VALIDEUR[persona] })
+      else demandes.push(nouvelle)
     },
-    async mesDemandes() { return demandes.filter((d) => d.personne_id === 'demo').sort((a, b) => b.date_debut.localeCompare(a.date_debut)) },
-    async aValider() { return ['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : [] },
+    async mesDemandes() {
+      return [...demandes.filter((d) => d.personne_id === 'demo'), ...transmises.filter((d) => d.de === persona)]
+        .sort((a, b) => b.date_debut.localeCompare(a.date_debut))
+    },
+    async aValider() {
+      const recues = transmises.filter((d) => d.vers === persona && d.statut === 'en_attente').map((d) => ({ ...d, je_peux_valider: true }))
+      return [...(['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : []), ...recues]
+    },
     async decider(ids, accorder, commentaire) {
       await attendre()
       if (!accorder && !commentaire?.trim()) throw new Error('Un refus doit être motivé')
-      for (const d of demandes.filter((x) => ids.includes(x.id))) {
+      for (const d of [...demandes, ...transmises].filter((x) => ids.includes(x.id))) {
         d.statut = accorder ? 'accordee' : 'refusee'; d.decide_le = new Date().toISOString(); d.commentaire_decision = commentaire ?? null
       }
       return ids.length
