@@ -19,28 +19,33 @@ const CODES: CodeAbsence[] = ([
 ] as const).map(([code, libelle, code_court, compteur_code, demandable], i) =>
   ({ code, libelle, code_court, compteur_code, demandable, justificatif_requis: ['MAL', 'AT', 'PETIT_CHOMAGE'].includes(code), ordre: i }) as CodeAbsence)
 
+// Structure réelle du CFB (services) ; noms des personnes fictifs.
+// SAF ≈ 30 personnes (le plus grand service), ES / ISP = 16 dont 14 ISP (article 60), RH = 3 RH + 1 admin RH,
+// Direction, IT (1 personne), Logistique et SIPP (services sans équipe).
 const PERSONNES: Personne[] = ([
-  ['Lambert', 'Claire', 'Direction', 'direction'], ['Dupont', 'Marc', 'Administration', 'employe'],
-  ['Janssens', 'Sofia', 'Administration', 'employe'], ['Peeters', 'Yanis', 'Administration', 'employe'],
-  ['Diallo', 'Awa', 'Administration', 'employe'], ['Kabongo', 'Jordan', 'Administration', 'employe'],
-  ['Martin', 'Lucas', 'IT', 'employe'], ['Claes', 'Emma', 'IT', 'employe'], ['Benali', 'Nadia', 'Ressources humaines', 'rh'],
+  ['Lambert', 'Claire', 'Direction', 'direction'], ['Dupont', 'Marc', 'SAF', 'employe'],
+  ['Janssens', 'Sofia', 'SAF', 'employe'], ['Peeters', 'Yanis', 'SAF', 'employe'],
+  ['Diallo', 'Awa', 'SAF', 'employe'], ['Kabongo', 'Jordan', 'ES / ISP', 'employe'],
+  ['Martin', 'Lucas', 'SAF', 'employe'], ['Claes', 'Emma', 'ES / ISP', 'employe'], ['Benali', 'Nadia', 'Ressources humaines', 'rh'],
   ['Wouters', 'Tom', 'Ressources humaines', 'rh'], ['Leroy', 'Inès', 'Ressources humaines', 'admin_rh'],
   ['Simon', 'Léa', 'Ressources humaines', 'rh'], ['Renard', 'Paul', 'Logistique', 'employe'],
 ] as const).map(([nom, prenom, service, role], i) =>
   ({ id: `p${i}`, nom, prenom, service, role, type: prenom === 'Jordan' ? 'isp' : 'interne' }) as Personne)
 
-// Figurants : ~70 personnes au total, réparties comme dans une vraie structure (noms fictifs, générés)
+// Figurants pour atteindre l'effectif de chaque service (noms fictifs, générés)
 const PRENOMS = ['Amine', 'Julie', 'Kevin', 'Sarah', 'Mehdi', 'Laura', 'Thomas', 'Fatima', 'Nicolas', 'Chloé', 'Youssef', 'Manon', 'Antoine',
   'Aïcha', 'Maxime', 'Camille', 'Ibrahim', 'Elise', 'Hugo', 'Mariam', 'Simon', 'Noor', 'Arthur', 'Zoé', 'Bilal', 'Margaux', 'Jonas', 'Salma']
 const NOMS = ['Mertens', 'Willems', 'El Amrani', 'Goossens', 'Lemaire', 'Nkosi', 'Dubois', 'Maes', 'Bakkali', 'Hermans', 'Lefèvre', 'Jacobs',
   'Mbaye', 'Vermeulen', 'Collin', 'Aydin', 'Michel', 'Desmet', 'Ouali', 'Pirlot', 'Lambrecht', 'Moreau', 'Ndiaye', 'Smets', 'Gilson', 'Rahmani']
-const REPARTITION: [string, number][] = [['Accueil', 6], ['Service social', 13], ['Médiation familiale', 9], ['Petite enfance', 15],
-  ['Administration', 9], ['IT', 1], ['Logistique', 1], ['SIPP', 1]]
+// SAF : 5 personnes nommées + 25 = 30 ; ES / ISP : Jordan (ISP) + Emma (encadrement) + 14 = 16, dont 14 ISP au total
+const REPARTITION: [string, number][] = [['SAF', 25], ['ES / ISP', 14], ['Logistique', 1], ['SIPP', 1]]
 let rang = 0
 for (const [service, n] of REPARTITION) for (let k = 0; k < n; k++, rang++) {
   PERSONNES.push({ id: `p${13 + rang}`, prenom: PRENOMS[(rang * 5 + 1) % PRENOMS.length], nom: NOMS[(rang * 11 + 3) % NOMS.length], service,
-                   role: 'employe', type: rang % 17 === 5 ? 'isp' : 'interne' } as Personne)
+                   role: 'employe', type: service === 'ES / ISP' && k < 13 ? 'isp' : 'interne' } as Personne)
 }
+// Le service IT (une personne) = le compte admin général
+PERSONNES.push({ id: 'p99', prenom: 'Admin', nom: 'IT', service: 'IT', type: 'interne', role: 'admin' } as Personne)
 const STATUTS_DEMO = ['Présent', 'Présent', 'Télétravail', 'Présent', 'Pas encore pointé', 'Présent', 'En formation', 'Absent', 'Présent',
   'Télétravail', 'Parti', 'Présent', 'Pas prévu (temps partiel)', 'Présent', 'En mission']
 
@@ -113,14 +118,14 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const aujourdhui = jourBxl()
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME }
   const profil: Profil = persona === 'chef'
-    ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'Administration', est_chef_service: true }
+    ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'SAF', est_chef_service: true }
     : persona === 'admin'
     ? { ...base, prenom: 'Admin', nom: 'IT', email: 'admin.it@cfb.test', role: 'admin', service: 'IT', est_chef_service: false }
     : persona === 'direction'
     ? { ...base, prenom: 'Claire', nom: 'Lambert', email: 'claire.lambert@cfb.test', role: 'direction', service: 'Direction', est_chef_service: true }
     : persona === 'rh'
     ? { ...base, prenom: 'Nadia', nom: 'Benali', email: 'nadia.benali@cfb.test', role: 'rh', service: 'Ressources humaines', est_chef_service: false }
-    : { ...base, prenom: 'Sofia', nom: 'Janssens', email: 'sofia.janssens@cfb.test', role: 'employe', service: 'Administration', est_chef_service: false }
+    : { ...base, prenom: 'Sofia', nom: 'Janssens', email: 'sofia.janssens@cfb.test', role: 'employe', service: 'SAF', est_chef_service: false }
 
   // Congés : soldes d'ouverture + demandes (les siennes et, pour le chef, celles de l'équipe)
   const ouverture: Record<string, number> = { CONGE_LEGAL: 9120, EXTRA_LEGAL: 912, RECUP: 220 }
@@ -167,21 +172,20 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   ]
   let heures: HeureAValider[] = [{ personne_id: 'p7', prenom: 'Emma', nom: 'Claes', jour: j2, minutes: 60 }]
   const clotures = new Set<string>(['2026-08-01'])
-  // Administration (démo)
+  // Écran Administration (démo)
   const sid = (nom: string) => `s-${nom}`
-  let services: AdminService[] = (['Direction', 'Administration', 'IT', 'Ressources humaines', 'Logistique', 'Accueil', 'Service social',
-    'Médiation familiale', 'Petite enfance', 'SIPP'] as const).map((nom, i) => ({
+  let services: AdminService[] = (['Direction', 'SAF', 'ES / ISP', 'Ressources humaines', 'IT', 'Logistique', 'SIPP'] as const).map((nom, i) => ({
     id: sid(nom), nom, parent_id: i === 0 ? null : sid('Direction'),
-    couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A', '#2479BE', '#223A87', '#A3C854', '#F7BC39', '#7A869A'][i],
-    seuil_absence_pct: nom === 'Administration' ? 40 : 50, actif: true,
-    chefs: nom === 'Direction' ? ['p0'] : nom === 'Administration' ? ['p1'] : nom === 'IT' ? ['p6'] : [], effectif: 0 }))
+    couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A', '#5B6683', '#B23A33'][i],
+    seuil_absence_pct: nom === 'SAF' ? 30 : 50, actif: true,
+    chefs: nom === 'Direction' ? ['p0'] : nom === 'SAF' ? ['p1'] : [], effectif: 0 }))
   let regimes: Regime[] = [
     [1, 'Temps plein 38h', 'temps_plein', [456, 456, 456, 456, 456, 0, 0]], [2, 'Temps plein 37h30', 'temps_plein', [450, 450, 450, 450, 450, 0, 0]],
     [3, 'Temps partiel 36h (8h × 4 + 4h mer.)', 'temps_partiel', [480, 480, 240, 480, 480, 0, 0]],
     [4, 'Temps partiel 35h (8/5h30/8/8/5h30)', 'temps_partiel', [480, 330, 480, 480, 330, 0, 0]],
   ].map(([id, libelle, contrat, minutes_jour]) => ({ id, libelle, contrat, minutes_jour, actif: true, utilisations: 0,
     minutes_semaine: (minutes_jour as number[]).reduce((a, b) => a + b, 0) }) as Regime)
-  let adminP: AdminPersonne[] = [...PERSONNES, { id: 'p99', prenom: 'Admin', nom: 'IT', service: 'IT', type: 'interne', role: 'admin' } as Personne]
+  let adminP: AdminPersonne[] = [...PERSONNES]
     .map((p) => {
       const rid = p.prenom === 'Yanis' ? 3 : ['Awa', 'Jordan'].includes(p.prenom) ? 2 : p.prenom === 'Léa' ? 4 : 1
       return { ...p, email: `${p.prenom.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')}.${p.nom.toLowerCase()}@cfb.test`,
@@ -284,7 +288,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     n(7, 'rappel_manuel', 'Rappel de la RH', 'Il te reste des pointages à régulariser avant la clôture du mois.', 24 * 9, true),
   ]
 
-  const suivis = new Set<string>(['s-Administration'])
+  const suivis = new Set<string>(['s-ES / ISP'])
   const fichiers = new Map<string, string>()   // justificatifs déposés pendant la démo (restent dans le navigateur)
   const attendre = () => new Promise((r) => setTimeout(r, 150))
 
@@ -463,10 +467,9 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return {
         debut: mois, fin: mois.slice(0, 8) + '28',
         services: (() => {
-          const tous = [ligne('Accueil', 6, 0.05, 0.02, 0, 1), ligne('Administration', 16, 0.07 + (g % 3) / 100, 0.03, 0.22, 6),
-            ligne('Direction', 2, 0.05, 0, 0.1, 0), ligne('IT', 3, 0.06, 0.01, 0.4, 1), ligne('Logistique', 2, 0.08, 0.05, 0, 2),
-            ligne('Médiation familiale', 8, 0.06, 0.04, 0.3, 2), ligne('Petite enfance', 14, 0.08, 0.05, 0, 4),
-            ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0), ligne('Service social', 12, 0.07, 0.03, 0.2, 3), ligne('SIPP', 1, 0.04, 0, 0.2, 0)]
+          const tous = [ligne('SAF', 30, 0.07 + (g % 3) / 100, 0.04, 0.05, 7), ligne('ES / ISP', 16, 0.06, 0.05, 0, 4),
+            ligne('Direction', 1, 0.05, 0, 0.1, 0), ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0), ligne('IT', 1, 0.05, 0, 0.4, 0),
+            ligne('Logistique', 2, 0.08, 0.05, 0, 1), ligne('SIPP', 1, 0.04, 0, 0.2, 0)]
           const seuil = 3, petits = tous.filter((x) => x.effectif < seuil)
           const somme = (k: 'effectif' | 'prevues' | 'preste' | 'absence_conge' | 'absence_maladie' | 'absence_autre' | 'jours_presence' | 'jours_tt' | 'anomalies') =>
             petits.reduce((t, x) => t + x[k], 0)
@@ -489,8 +492,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async rapportCpas(): Promise<LigneCpas[]> {
       await attendre()
-      return [['Kabongo', 'Jordan', 'Administration', 9450, 8820, 450, 0, 1, 1], ['Mertens', 'Lina', 'Administration', 9450, 9480, 0, 450, 0, 0],
-              ['Haddad', 'Sami', 'IT', 9450, 8100, 900, 0, 2, 0]]
+      return [['Kabongo', 'Jordan', 'ES / ISP', 9450, 8820, 450, 0, 1, 1], ['Mertens', 'Lina', 'ES / ISP', 9450, 9480, 0, 450, 0, 0],
+              ['Haddad', 'Sami', 'ES / ISP', 9450, 8100, 900, 0, 2, 0]]
         .map(([nom, prenom, service, a, p, j, mal, nj, inc], i) => ({
           personne_id: `isp${i}`, prenom: prenom as string, nom: nom as string, partenaire: 'CPAS (fictif)', service: service as string,
           regime: 'Temps plein 37h30', a_prester: a as number - (j as number) - (mal as number), preste: p as number,
@@ -599,7 +602,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
       return services.map((x) => ({ service_id: x.id, nom: x.nom, suivi: suivis.has(x.id),
-        effectif: PERSONNES.filter((p) => p.service === x.nom).length, chef_absent_aujourdhui: x.nom === 'Service social' }))
+        effectif: PERSONNES.filter((p) => p.service === x.nom).length, chef_absent_aujourdhui: false }))
         .sort((a, b) => a.nom.localeCompare(b.nom))
     },
     async suivreService(serviceId, suivre) { if (suivre) suivis.add(serviceId); else suivis.delete(serviceId) },
