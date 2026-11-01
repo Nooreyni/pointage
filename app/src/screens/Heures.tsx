@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Api, Demande, Journee, PersonneVisible, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { telechargerCsv } from '../lib/csv'
+import TeletravailHabituel from '../components/TeletravailHabituel'
 import { dateCourte, decalerJour, duree, heure, jourBxl } from '../lib/temps'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -81,6 +82,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
               </select>
             </span>
           </div>
+          <TeletravailHabituel api={api} personneId={qui} />
           <div className="tuiles fiche-tuiles">
             <div className="tuile"><strong>{duree(tot.preste)}</strong><span>prestées</span><small className="doux">sur {duree(tot.aPrester)} à prester</small></div>
             <div className="tuile"><strong className={tot.boni < 0 ? 'negatif' : 'positif'}>{duree(tot.boni, true)}</strong><span>boni du mois</span></div>

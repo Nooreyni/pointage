@@ -4,7 +4,9 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcRh, IcStats } from '../components/Icones'
+import { IcAdmin, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import Recherche, { type Cible } from '../components/Recherche'
+import type { Section } from './Admin'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
 import Alertes, { type Destination } from './Alertes'
@@ -48,6 +50,9 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [nbAnomalies, setNbAnomalies] = useState(0)
   const [vueConges, setVueConges] = useState<VueConges>('mes')
   const [ficheDe, setFicheDe] = useState<string | null>(null)   // fiche de temps ouverte depuis Équipe
+  const [rechercheOuverte, setRechercheOuverte] = useState(false)
+  const [rechercheEquipe, setRechercheEquipe] = useState('')
+  const [sectionAdmin, setSectionAdmin] = useState<Section | undefined>(undefined)
   const [inactiviteMin, setInactiviteMin] = useState(0)
   const [deconnecteInactif, setDeconnecteInactif] = useState(false)
 
@@ -67,6 +72,14 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     const t = setInterval(chargerNotifs, 60_000)
     return () => clearInterval(t)
   }, [profil, chargerNotifs])
+
+  useEffect(() => {   // Ctrl+K (ou Cmd+K) ouvre la recherche
+    const clavier = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setRechercheOuverte(true) }
+    }
+    addEventListener('keydown', clavier)
+    return () => removeEventListener('keydown', clavier)
+  }, [])
 
   useEffect(() => {   // menu du compte : Échap ou clic ailleurs le ferme
     if (!menu) return
@@ -131,7 +144,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       <header className="entete">
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
         <div className="espace" />
-        <span className="badge-role" title="Ton rôle dans l’application">{libelleRole}</span>
+        <button className="cloche bouton-recherche" aria-label="Rechercher (Ctrl + K)" title="Rechercher (Ctrl + K)" onClick={() => setRechercheOuverte(true)}><IcLoupe /></button>
+        {api.mode !== 'demo' && <span className="badge-role" title="Ton rôle dans l’application">{libelleRole}</span>}
         <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} onClick={() => aller('alertes')}>
           <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues}</span>}
         </button>
@@ -163,22 +177,32 @@ export default function Espace({ api, onQuitter, vueDemo }: {
 
       <nav className="nav" aria-label="Navigation principale">
         {onglets.map(([id, libelle, Icone, compte]) => (
-          <button key={id} aria-current={actif === id ? 'page' : undefined} onClick={() => aller(id)}>
+          <button key={id} aria-current={actif === id ? 'page' : undefined} onClick={() => { setRechercheEquipe(''); setSectionAdmin(undefined); aller(id) }}>
             <span className="icone-nav"><Icone />{compte > 0 && <span className="pastille-nav">{compte}</span>}</span>{libelle}
           </button>
         ))}
       </nav>
 
       {restantInactif !== null && !deconnecteInactif && <AvertirInactivite secondes={restantInactif} onRester={resterConnecte} />}
+      {rechercheOuverte && (
+        <Recherche api={api} profil={profil} onglets={onglets.map(([id, libelle]) => [id, libelle])} onFermer={() => setRechercheOuverte(false)}
+                   onChoisir={(c: Cible) => {
+                     if (c.type === 'onglet') aller(c.onglet as Onglet)
+                     else if (c.type === 'personne' && c.fiche) { setFicheDe(c.id); aller('heures') }
+                     else if (c.type === 'personne') { setRechercheEquipe(c.nom); aller('equipe') }
+                     else if (c.type === 'service') { setRechercheEquipe(c.nom); aller('equipe') }
+                     else { setSectionAdmin('parametres'); aller('admin') }
+                   }} />
+      )}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
       {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}
-      {actif === 'admin' && <Admin api={api} profil={profil} />}
+      {actif === 'admin' && <Admin api={api} profil={profil} sectionInitiale={sectionAdmin} />}
       {actif === 'heures' && <Heures api={api} profil={profil} personneInitiale={ficheDe} />}
-      {actif === 'equipe' && <Equipe api={api} profil={profil} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
+      {actif === 'equipe' && <Equipe api={api} profil={profil} rechercheInitiale={rechercheEquipe} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
       </Suspense>
     </div>

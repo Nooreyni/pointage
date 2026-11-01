@@ -4,7 +4,7 @@ import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
 import Fenetre from '../components/Fenetre'
 
-type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
+export type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -13,9 +13,10 @@ export const ROLES: Record<Role, string> = {
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const enMin = (v: string) => { const [h, m] = (v || '0:0').split(':').map(Number); return h * 60 + (m || 0) }
 
-export default function Admin({ api, profil }: { api: Api; profil: Profil }) {
+export default function Admin({ api, profil, sectionInitiale }: { api: Api; profil: Profil; sectionInitiale?: Section }) {
   const estAdmin = profil.role === 'admin'
-  const [section, setSection] = useState<Section>('personnes')
+  const [section, setSection] = useState<Section>(sectionInitiale ?? 'personnes')
+  useEffect(() => { if (sectionInitiale) setSection(sectionInitiale) }, [sectionInitiale])
   const [personnes, setPersonnes] = useState<AdminPersonne[] | null>(null)
   const [services, setServices] = useState<AdminService[]>([])
   const [regimes, setRegimes] = useState<Regime[]>([])

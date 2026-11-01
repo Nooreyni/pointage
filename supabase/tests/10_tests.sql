@@ -677,9 +677,9 @@ select test.ok(pointage.dossier_personne('pas-un-uuid/x.pdf') is null, 'Nom de f
 -- ===================== Moindre privilège =====================
 select test.ok((select count(*) = 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                 where n.nspname = 'pointage' and has_function_privilege('anon', p.oid, 'execute')), 'Anonyme : aucune fonction interne exécutable');
-select test.ok((select count(*) = 11 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+select test.ok((select count(*) = 12 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                 where n.nspname = 'pointage' and has_function_privilege('authenticated', p.oid, 'execute')),
-               'Connecté : seulement les 11 fonctions utiles aux vues / règles d''accès');
+               'Connecté : seulement les 12 fonctions utiles aux vues / règles d''accès');
 select test.connecte('Sofia'); set role authenticated;
 select test.erreur('select pointage.purger_donnees()', 'Connecté : purge interdite', 'permission denied');
 select test.erreur($$select pointage.notifier(pointage.moi(), 'x', 'x', 'x')$$, 'Connecté : création de notification directe interdite', 'permission denied');
@@ -707,6 +707,41 @@ update pointage.pointages set cree_le = now() - interval '2 minutes' where perso
 select test.connecte('Emma'); set role authenticated;
 select test.ok((public.pointer()->>'sens') is not null, 'Après 60 s : nouveau pointage accepté');
 reset role;
+
+
+-- ===================== Télétravail habituel =====================
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur(format('select public.definir_teletravail(%L, array[3])', pointage.moi()), 'Employée : ne fixe pas seule ses jours (par défaut)', 'responsable');
+reset role;
+select test.connecte('Marc'); set role authenticated;
+select public.definir_teletravail(test.pid('Sofia'), array[extract(isodow from pointage.aujourdhui())::int]);
+select test.erreur(format('select public.definir_teletravail(%L, array[8])', test.pid('Sofia')), 'Jour invalide refusé', 'invalide');
+select test.erreur(format('select public.definir_teletravail(%L, array[1])', test.pid('Nadia')), 'Chef : pas pour une personne hors de son équipe', 'responsable');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.ok((select jours_teletravail = array[extract(isodow from pointage.aujourdhui())::smallint] from public.mon_profil), 'Profil : jour de télétravail visible');
+select test.ok(not (public.teletravail_de(pointage.moi())->>'modifiable')::boolean, 'Employée : jours en lecture seule');
+reset role;
+-- Inès travaille aussi ce jour-là (régime 7 j) et n'a pas encore pointé : l'équipe voit « Télétravail prévu »
+insert into pointage.regimes (id, libelle, contrat, minutes_jour) values (99, 'Test 7 jours', 'temps_plein', array[456,456,456,456,456,456,456])
+on conflict do nothing;
+insert into pointage.personne_regimes (personne_id, debut, regime_id) values (test.pid('Inès'), pointage.aujourdhui(), 99) on conflict do nothing;
+insert into pointage.teletravail_prevu values (test.pid('Inès'), extract(isodow from pointage.aujourdhui())::smallint);
+select test.connecte('Yanis'); set role authenticated;
+select test.ok((select statut = 'Télétravail prévu' from public.presence_jour() where prenom = 'Inès'), 'Présence : « Télétravail prévu » avant de pointer');
+reset role;
+select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('teletravail_modifiable_employe', 1, 'test'); reset role;
+select test.connecte('Sofia'); set role authenticated;
+select public.definir_teletravail(pointage.moi(), array[extract(isodow from pointage.aujourdhui())::int]);
+select test.ok((public.teletravail_de(pointage.moi())->>'modifiable')::boolean, 'Réglage activé : chacun fixe ses jours');
+reset role;
+-- Pointage depuis l'extérieur… et depuis une IP inconnue un jour de télétravail : type automatique Télétravail
+update pointage.parametres set valeur = 0 where cle = 'anti_rebond_s';
+select set_config('request.headers', '{}', false);
+select test.connecte('Sofia'); set role authenticated;
+select (public.pointer(p_client_id => gen_random_uuid()))->>'type_code' as type_auto \gset
+reset role;
+select test.ok(:'type_auto' = 'TT', 'Jour de télétravail habituel : pointage « Télétravail » automatiquement');
 
 -- ===================== Bilan =====================
 \o

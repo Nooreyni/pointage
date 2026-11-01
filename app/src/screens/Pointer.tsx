@@ -136,7 +136,9 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
     catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
   }
 
-  const statut = !dernier ? { texte: aPrester > 0 ? 'Pas encore pointé' : 'Pas de prestation prévue aujourd’hui', classe: '' }
+  const isoJour = ((new Date(`${jour}T12:00:00Z`).getUTCDay() + 6) % 7) + 1
+  const ttPrevu = !!profil.jours_teletravail?.includes(isoJour)
+  const statut = !dernier ? { texte: aPrester > 0 ? (ttPrevu ? 'Jour de télétravail : pas encore pointé' : 'Pas encore pointé') : 'Pas de prestation prévue aujourd’hui', classe: ttPrevu ? 'tt' : '' }
     : present ? { texte: `${dernier.type_code === 'TT' ? 'En télétravail' : libelleType(dernier.type_code) === 'Bureau' ? 'Présent' : libelleType(dernier.type_code)} depuis ${heure(dernier.horodatage)}`,
                   classe: dernier.type_code === 'TT' ? 'tt' : 'present' }
     : { texte: `Parti à ${heure(dernier.horodatage)}`, classe: 'parti' }
@@ -166,8 +168,10 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
 
           {!present && (
             <div className="puces" role="group" aria-label="Type de prestation">
-              <button className="puce" aria-pressed={type === null} onClick={() => setType(null)} title="Bureau sur le réseau CFB, télétravail sinon">Auto</button>
-              {types.filter((t) => t.code !== 'BUREAU').map((t) => (
+              <button className="puce" aria-pressed={type === null} onClick={() => setType(null)}
+                      title={ttPrevu ? 'Jour de télétravail habituel : Télétravail, sauf si tu es sur le réseau du bureau' : 'Bureau sur le réseau CFB, télétravail sinon'}>
+                {ttPrevu ? 'Auto · télétravail' : 'Auto'}</button>
+              {types.filter((t) => t.code !== 'BUREAU' || ttPrevu).map((t) => (
                 <button key={t.code} className="puce" aria-pressed={type === t.code} onClick={() => setType(t.code)}>{t.libelle}</button>
               ))}
             </div>

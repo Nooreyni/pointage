@@ -12,6 +12,7 @@ export interface Profil {
   regime: string | null
   minutes_jour: number[] | null
   est_chef_service: boolean
+  jours_teletravail?: number[]   // 1 = lundi … 7 = dimanche
 }
 
 export interface Pointage {
@@ -356,6 +357,8 @@ export interface Api {
   envoyerRappel(ids: string[], message?: string): Promise<number>
   personnesVisibles(): Promise<PersonneVisible[]>
   servicesSuivis(): Promise<ServiceSuivi[]>
+  teletravailDe(personneId: string): Promise<{ jours: number[]; modifiable: boolean }>
+  definirTeletravail(personneId: string, jours: number[]): Promise<void>
   deposerJustificatif(d: Demande, fichier: File): Promise<void>
   justificatifsManquants(): Promise<Demande[]>
   lienJustificatif(chemin: string): Promise<string>

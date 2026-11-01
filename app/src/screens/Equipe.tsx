@@ -7,12 +7,13 @@ type Etat = 'present' | 'tt' | 'absent' | 'parti' | 'non_pointe' | 'non_prevu'
 const ETATS: Record<Etat, string> = {
   present: 'Présents', tt: 'Télétravail', absent: 'Absents', parti: 'Partis', non_pointe: 'Pas encore pointé', non_prevu: 'Pas prévus',
 }
+const COURT: Record<Etat, string> = { present: 'présents', tt: 'télétravail', absent: 'absents', parti: 'partis', non_pointe: 'pas pointé', non_prevu: 'pas prévus' }
 const ORDRE: Etat[] = ['non_pointe', 'present', 'tt', 'absent', 'parti', 'non_prevu']
 
 function etatDe(statut: string): Etat {
   if (statut === 'Télétravail') return 'tt'
   if (statut === 'Parti') return 'parti'
-  if (statut === 'Pas encore pointé') return 'non_pointe'
+  if (statut === 'Pas encore pointé' || statut === 'Télétravail prévu') return 'non_pointe'
   if (statut.startsWith('Pas prévu')) return 'non_prevu'
   if (statut === 'Présent' || statut.startsWith('En ') || statut === 'Mandat' || statut === 'Permanence VAD') return 'present'
   return 'absent' // « Absent » ou motif visible par le N+1
@@ -22,12 +23,13 @@ const classeStatut = (s: string) => ({ present: 'present', tt: 'tt', absent: 'ab
 const compter = (l: Presence[]) => l.reduce((c, p) => { c[etatDe(p.statut)]++; return c },
   { present: 0, tt: 0, absent: 0, parti: 0, non_pointe: 0, non_prevu: 0 } as Record<Etat, number>)
 
-export default function Equipe({ api, profil, compact = false, onVoirTout, onOuvrirFiche }: {
-  api: Api; profil: Profil; compact?: boolean; onVoirTout?: () => void; onOuvrirFiche?: (personneId: string) => void
+export default function Equipe({ api, profil, compact = false, onVoirTout, onOuvrirFiche, rechercheInitiale = '' }: {
+  api: Api; profil: Profil; compact?: boolean; onVoirTout?: () => void; onOuvrirFiche?: (personneId: string) => void; rechercheInitiale?: string
 }) {
   const [liste, setListe] = useState<Presence[] | null>(null)
   const [filtre, setFiltre] = useState<Etat | null>(null)
-  const [recherche, setRecherche] = useState('')
+  const [recherche, setRecherche] = useState(rechercheInitiale)
+  useEffect(() => { setRecherche(rechercheInitiale) }, [rechercheInitiale])
   const [ouverts, setOuverts] = useState<Set<string>>(new Set())
   const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
   const peutRappelerTous = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
@@ -74,8 +76,9 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
   }
 
   const total = compter(liste)
-  const q = recherche.trim().toLowerCase()
-  const filtrer = (l: Presence[]) => l.filter((p) => (!filtre || etatDe(p.statut) === filtre) && (!q || `${p.prenom} ${p.nom}`.toLowerCase().includes(q)))
+  const sansAccent = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = sansAccent(recherche.trim())
+  const filtrer = (l: Presence[]) => l.filter((p) => (!filtre || etatDe(p.statut) === filtre) && (!q || sansAccent(`${p.prenom} ${p.nom} ${p.service}`).includes(q)))
   const estOuvert = (nom: string, mien: boolean) => (q || filtre ? true : ouverts.has(nom) !== mien)   // mon service ouvert par défaut
 
   return (
@@ -84,7 +87,7 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
         <section className="carte">
           <div className="ligne entre barre-outils">
             <h2>Équipe du jour <span className="doux petit">· {liste.length} personnes</span></h2>
-            <input id="recherche-equipe" className="recherche" placeholder="Rechercher une personne…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+            <input id="recherche-equipe" className="recherche" placeholder="Rechercher une personne ou un service…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
           </div>
           <div className="filtres" role="group" aria-label="Filtrer par statut">
             <button className="puce" aria-pressed={filtre === null} onClick={() => setFiltre(null)}>Tous <b>{liste.length}</b></button>
@@ -134,7 +137,7 @@ function Compteurs({ compte }: { compte: Record<Etat, number> }) {
   return (
     <div className="mini-compteurs" aria-label="Répartition">
       {(['present', 'tt', 'absent', 'non_pointe'] as Etat[]).filter((e) => compte[e] > 0).map((e) => (
-        <span key={e} title={ETATS[e]}><span className={`point ${e === 'non_pointe' ? '' : e}`} />{compte[e]}</span>
+        <span key={e} title={ETATS[e]}><span className={`point ${e === 'non_pointe' ? '' : e}`} />{compte[e]} {COURT[e]}</span>
       ))}
     </div>
   )

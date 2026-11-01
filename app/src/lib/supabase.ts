@@ -280,6 +280,12 @@ export function apiSupabase(): Api {
       verifier(await sb.rpc('joindre_justificatif', { p_demande: d.id, p_chemin: null }))
       if (d.justificatif_chemin) await sb.storage.from('justificatifs').remove([d.justificatif_chemin])
     },
+    async teletravailDe(personneId) {
+      return verifier(await sb.rpc('teletravail_de', { p_personne: personneId })) as { jours: number[]; modifiable: boolean }
+    },
+    async definirTeletravail(personneId, jours) {
+      verifier(await sb.rpc('definir_teletravail', { p_personne: personneId, p_jours: jours }))
+    },
     async servicesSuivis() {
       return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]
     },

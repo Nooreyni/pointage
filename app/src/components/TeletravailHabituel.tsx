@@ -1,0 +1,39 @@
+import { useEffect, useState } from 'react'
+import type { Api } from '../lib/types'
+import { messageErreur } from '../lib/supabase'
+
+const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+/** Jours de télétravail habituels d'une personne : lecture pour tous, modification pour RH / admin / N+1 (serveur). */
+export default function TeletravailHabituel({ api, personneId }: { api: Api; personneId: string }) {
+  const [etat, setEtat] = useState<{ jours: number[]; modifiable: boolean } | null>(null)
+  const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
+
+  useEffect(() => {
+    setEtat(null); setMessage(null)
+    api.teletravailDe(personneId).then(setEtat).catch(() => setEtat({ jours: [], modifiable: false }))
+  }, [api, personneId])
+
+  if (!etat) return null
+  const basculer = async (j: number) => {
+    const jours = etat.jours.includes(j) ? etat.jours.filter((x) => x !== j) : [...etat.jours, j].sort()
+    setEtat({ ...etat, jours })
+    try { await api.definirTeletravail(personneId, jours); setMessage({ texte: 'Enregistré ✅' }) }
+    catch (e) { setEtat(etat); setMessage({ texte: messageErreur(e), erreur: true }) }
+  }
+
+  return (
+    <div className="teletravail" role="group" aria-label="Jours de télétravail habituels">
+      <span className="etiquette-tt">Télétravail habituel</span>
+      {etat.modifiable ? (
+        <span className="jours-tt">{JOURS.slice(0, 5).map((l, i) => (
+          <button key={l} className="puce" aria-pressed={etat.jours.includes(i + 1)} onClick={() => basculer(i + 1)}>{l}</button>
+        ))}</span>
+      ) : (
+        <strong className="petit">{etat.jours.length ? etat.jours.map((j) => JOURS[j - 1]).join(', ') : 'aucun'}</strong>
+      )}
+      {message && <span className={`petit ${message.erreur ? 'negatif' : 'doux'}`} role="status">{message.texte}</span>}
+      {!etat.modifiable && <span className="doux petit">défini par la RH ou ton responsable</span>}
+    </div>
+  )
+}

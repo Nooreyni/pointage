@@ -48,7 +48,7 @@ for (const [service, n] of REPARTITION) for (let k = 0; k < n; k++, rang++) {
 }
 // Le service IT (une personne) = le compte admin général
 PERSONNES.push({ id: 'p99', prenom: 'Admin', nom: 'IT', service: 'IT', type: 'interne', role: 'admin' } as Personne)
-const STATUTS_DEMO = ['Présent', 'Présent', 'Télétravail', 'Présent', 'Pas encore pointé', 'Présent', 'En formation', 'Absent', 'Présent',
+const STATUTS_DEMO = ['Présent', 'Présent', 'Télétravail', 'Présent', 'Pas encore pointé', 'Présent', 'Télétravail prévu', 'Absent', 'Présent',
   'Télétravail', 'Parti', 'Présent', 'Pas prévu (temps partiel)', 'Présent', 'En mission']
 
 export type Persona = 'admin' | 'employe' | 'chef' | 'rh' | 'direction'
@@ -118,7 +118,9 @@ export function calculerJournee(jour: string, pts: Pointage[], absence = 0): Jou
 
 export function apiDemo(persona: Persona = 'employe'): Api {
   const aujourdhui = jourBxl()
-  const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME }
+  // Jour de télétravail habituel : mercredi pour l'employée, vendredi pour le chef (exemples)
+  const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME,
+                 jours_teletravail: persona === 'employe' ? [3] : persona === 'chef' ? [5] : [] as number[] }
   const profil: Profil = persona === 'chef'
     ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'SAF', est_chef_service: true }
     : persona === 'admin'
@@ -292,6 +294,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   ]
 
   const suivis = new Set<string>(['s-ES / ISP'])
+  const teletravail = new Map<string, number[]>([['p2', [3]], ['p3', [2, 4]], ['p6', [1]]])
   const fichiers = new Map<string, string>()   // justificatifs déposés pendant la démo (restent dans le navigateur)
   const attendre = () => new Promise((r) => setTimeout(r, 150))
 
@@ -313,7 +316,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       const sens: Sens = dernier?.sens === 'entree' ? 'sortie' : 'entree'
       const p: Pointage = {
         id: d.client_id, horodatage: h, jour, sens,
-        type_code: d.type_code ?? (sens === 'sortie' && dernier ? dernier.type_code : 'BUREAU'),
+        type_code: d.type_code ?? (sens === 'sortie' && dernier ? dernier.type_code
+          : profil.jours_teletravail?.includes(((new Date(`${jour}T12:00:00Z`).getUTCDay() + 6) % 7) + 1) ? 'TT' : 'BUREAU'),
         source: 'web', lieu: 'reseau_cfb', remarque: d.remarque ?? null, annule: false, annule_motif: null,
         cree_le: new Date().toISOString(),
       }
@@ -602,6 +606,14 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     async retirerJustificatif(d) {
       const cible = [...demandes, ...congesEquipe].find((x) => x.id === d.id)
       if (cible) Object.assign(cible, { justificatif_joint: false, justificatif_chemin: null })
+    },
+    async teletravailDe(personneId) {
+      const jours = personneId === profil.id ? profil.jours_teletravail ?? [] : teletravail.get(personneId) ?? []
+      return { jours, modifiable: ['chef', 'rh', 'admin', 'direction'].includes(persona) && personneId !== profil.id }
+    },
+    async definirTeletravail(personneId, jours) {
+      if (!['chef', 'rh', 'admin', 'direction'].includes(persona)) throw new Error('Seuls la RH, l’admin ou le responsable peuvent définir les jours de télétravail')
+      teletravail.set(personneId, [...new Set(jours)].sort())
     },
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
