@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IcCheck } from './Icones'
 import type { Api } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 
@@ -21,7 +22,7 @@ export default function TeletravailHabituel({ api, personneId, moi, detaille }: 
   const basculer = async (j: number) => {
     const jours = etat.jours.includes(j) ? etat.jours.filter((x) => x !== j) : [...etat.jours, j].sort()
     setEtat({ ...etat, jours })
-    try { await api.definirTeletravail(personneId, jours); setMessage({ texte: moi ? 'Enregistré ✅ ton responsable est prévenu' : 'Enregistré ✅ la personne est prévenue' }) }
+    try { await api.definirTeletravail(personneId, jours); setMessage({ texte: moi ? 'Enregistré, ton responsable est prévenu' : 'Enregistré, la personne est prévenue' }) }
     catch (e) { setEtat(etat); setMessage({ texte: messageErreur(e), erreur: true }) }
   }
 
@@ -35,7 +36,7 @@ export default function TeletravailHabituel({ api, personneId, moi, detaille }: 
       ) : (
         <strong className="petit">{etat.jours.length ? etat.jours.map((j) => JOURS[j - 1]).join(', ') : 'aucun'}</strong>
       )}
-      {message && <span className={`petit ${message.erreur ? 'negatif' : 'doux'}`} role="status">{message.texte}</span>}
+      {message && <span className={`petit statut-inline ${message.erreur ? 'negatif' : 'positif'}`} role="status">{!message.erreur && <IcCheck size={14} />}{message.texte}</span>}
       {!etat.modifiable && <span className="doux petit">défini par la RH ou le responsable</span>}
       {detaille && etat.modifiable && moi && !message && (
         <p className="doux petit aide-tt">Change-les quand tu veux : ton responsable est prévenu automatiquement. Ces jours-là, ton pointage

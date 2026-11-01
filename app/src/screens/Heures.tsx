@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { IcCorrection, IcDiffere, IcEntree, IcSortie } from '../components/Icones'
 import type { Api, Demande, Journee, PersonneVisible, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { telechargerCsv } from '../lib/csv'
@@ -117,7 +118,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
                       <td className="cellule-pointages">
                         {pts.map((p) => (
                           <span key={p.id} className={`puce-pointage ${p.sens}`} title={`${p.sens === 'entree' ? 'Entrée' : 'Sortie'} · ${p.type_code}${p.differe ? ' · différé' : ''}`}>
-                            {p.sens === 'entree' ? '↘' : '↗'} {heure(p.horodatage)}{p.source === 'correction' ? ' ✎' : ''}{p.differe ? ' ⏳' : ''}
+                            {p.sens === 'entree' ? <IcEntree size={12} /> : <IcSortie size={12} />}{heure(p.horodatage)}{p.source === 'correction' && <IcCorrection />}{p.differe && <IcDiffere />}
                           </span>
                         ))}
                         {absence && <span className="pilule neutre">{absence.libelle_absence}{absence.type === 'conge_demi_jour' ? ' (½)' : ''}</span>}
@@ -133,7 +134,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
             </div>
           )}
           <p className="doux petit" style={{ marginBottom: 0 }}>
-            ✎ = correction d’oubli · ⏳ = envoyé en différé (hors ligne). La pause de midi est déduite automatiquement selon les paramètres.
+            <span className="legende-icone"><IcCorrection /> correction d’oubli</span> · <span className="legende-icone"><IcDiffere /> envoyé en différé (hors ligne)</span>. La pause de midi est déduite automatiquement selon les paramètres.
           </p>
         </section>
       </div>

@@ -12,7 +12,11 @@ export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
   const [demo, setDemo] = useState(() => import.meta.env.VITE_DEMO_SEUL === '1'
     || (new URLSearchParams(location.search).has('demo') && import.meta.env.VITE_MODE_DEMO === '1'))
-  const [persona, setPersona] = useState<Persona>('employe')
+  // ?vue=chef|rh|direction|admin ouvre la démo directement dans ce rôle (lien à partager)
+  const [persona, setPersona] = useState<Persona>(() => {
+    const v = new URLSearchParams(location.search).get('vue')
+    return (['employe', 'chef', 'rh', 'direction', 'admin'] as string[]).includes(v ?? '') ? v as Persona : 'employe'
+  })
   const [moduleDemo, setModuleDemo] = useState<ModuleDemo | null>(null)
 
   useEffect(() => {

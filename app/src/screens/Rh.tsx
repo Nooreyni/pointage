@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { IcAttention, IcCheck } from '../components/Icones'
+import Toast from '../components/Toast'
 import MotDePasseRH from '../components/MotDePasseRH'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
@@ -121,7 +123,7 @@ export default function Rh({ api }: { api: Api }) {
             </div>
           )}
           {anomalies === null && <p className="vide">Chargement…</p>}
-          {anomalies !== null && parService.length === 0 && <p className="vide">Aucune anomalie sur les 2 derniers mois 👍</p>}
+          {anomalies !== null && parService.length === 0 && <p className="vide">Aucune anomalie sur les 2 derniers mois</p>}
         </section>
 
         {visibles.map(({ nom, gens, jours }) => (
@@ -200,7 +202,7 @@ export default function Rh({ api }: { api: Api }) {
             try { await api.encoderAbsence(personneId, s); setAction(null); await toutRecharger('Absence encodée ✅') } catch (e) { erreur(e) }
           }} />
       )}
-      {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
+      <Toast message={message} />
     </main>
   )
 }
@@ -250,7 +252,7 @@ function Cloture({ mois, setMois, etat, onCloturer }: {
       {etat && !etat.deja_cloture && (
         <>
           <ul className="controle">
-            {points.map(([ok, texte]) => <li key={texte} className={ok ? 'ok' : 'ko'}><span aria-hidden="true">{ok ? '✓' : '!'}</span>{texte}</li>)}
+            {points.map(([ok, texte]) => <li key={texte} className={ok ? 'ok' : 'ko'}><span>{ok ? <IcCheck size={14} /> : <IcAttention size={14} />}</span>{texte}</li>)}
           </ul>
           {!confirmer
             ? <button className="bouton large" disabled={bloque} onClick={() => (nbAnomalies > 0 ? setConfirmer(true) : (setEnCours(true), onCloturer().finally(() => setEnCours(false))))}>

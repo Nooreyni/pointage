@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { IcCheck, IcConges, IcEquipe, IcHorloge } from '../components/Icones'
 import type { Api, Notif } from '../lib/types'
 import { dateCourte, decalerJour, heure, jourBxl } from '../lib/temps'
 import NotifAppareil from '../components/NotifAppareil'
@@ -71,7 +72,7 @@ export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
 
         {groupes.length === 0 && (
           <section className="carte vide-grand">
-            <div className="pictogramme" aria-hidden="true">✓</div>
+            <div className="pictogramme"><IcCheck size={26} /></div>
             <h3>Rien à signaler</h3>
             <p className="doux">Les rappels de pointage, les décisions sur tes congés et les demandes à traiter apparaîtront ici.</p>
           </section>
@@ -85,7 +86,7 @@ export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
                 const a = action(n), f = familleDe(n.type)
                 return (
                   <li key={n.id} className={n.lu_le ? '' : 'non-lue'}>
-                    <span className={`icone-alerte ${f}`} aria-hidden="true">{f === 'conges' ? '📅' : f === 'equipe' ? '👥' : '⏱'}</span>
+                    <span className={`icone-alerte ${f}`}>{f === 'conges' ? <IcConges /> : f === 'equipe' ? <IcEquipe size={20} /> : <IcHorloge size={20} />}</span>
                     <span className="corps-alerte">
                       <strong>{n.titre}</strong>
                       {n.corps && <span className="doux petit">{n.corps}</span>}
@@ -113,7 +114,7 @@ export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
                 <button className="lien petit" onClick={() => onAller('conges-valider')}>Valider</button></li>
             )}
           </ul>
-          {aFaire.anomalies === 0 && aFaire.aValider === 0 && <p className="doux petit" style={{ margin: 0 }}>Tout est à jour 👍</p>}
+          {aFaire.anomalies === 0 && aFaire.aValider === 0 && <p className="doux petit" style={{ margin: 0 }}>Tout est à jour.</p>}
         </section>
         <NotifAppareil api={api} />
         <section className="carte">

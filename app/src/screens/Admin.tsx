@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Toast from '../components/Toast'
 import type { Acces, AdminPersonne, AdminService, Api, Compteur, Ferie, Parametre, Profil, Regime, Reseau, Role, SaisiePersonne } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
@@ -58,7 +59,7 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
         {section === 'parametres' && <Parametres api={api} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
       </div>
-      {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
+      <Toast message={message} />
     </main>
   )
 }

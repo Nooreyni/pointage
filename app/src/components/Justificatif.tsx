@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { IcTrombone } from './Icones'
 import type { Api, Demande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 
@@ -33,8 +34,8 @@ export default function Justificatif({ api, d, peutDeposer, onChange }: {
     <span className="justificatif">
       {d.justificatif_joint
         ? (d.justificatif_chemin
-            ? <button className="lien petit" onClick={ouvrir} title="Ouvrir le justificatif">📎 Justificatif</button>
-            : <span className="pilule ok" title="Visible par la RH">📎 Joint</span>)
+            ? <button className="lien petit" onClick={ouvrir} title="Ouvrir le justificatif"><IcTrombone /> Justificatif</button>
+            : <span className="pilule ok" title="Visible par la RH"><IcTrombone /> Joint</span>)
         : d.justificatif_requis && <span className="pilule attente">Justificatif manquant</span>}
       {peutDeposer && <>
         <input ref={champ} type="file" accept={TYPES.join(',')} hidden onChange={(e) => deposer(e.target.files?.[0])}

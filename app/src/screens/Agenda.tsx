@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { IcCheck, IcPrecedent, IcSuivant } from '../components/Icones'
 import type { Api, Demande, Ferie, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateLongue, decalerJour, duree, heure, jourBxl } from '../lib/temps'
@@ -111,9 +112,9 @@ export default function Agenda({ api, profil, onDemanderConge, onVoirCompte }: {
 
           {vue === 'mois' && <>
             <div className="nav-mois">
-              <button className="bouton secondaire petit" onClick={() => aller(-1)} aria-label="Mois précédent">‹</button>
+              <button className="bouton secondaire petit" onClick={() => aller(-1)} aria-label="Mois précédent"><IcPrecedent /></button>
               <strong className="titre-mois" aria-live="polite">{MOIS.format(d12(mois))}</strong>
-              <button className="bouton secondaire petit" onClick={() => aller(1)} aria-label="Mois suivant">›</button>
+              <button className="bouton secondaire petit" onClick={() => aller(1)} aria-label="Mois suivant"><IcSuivant /></button>
               {mois !== premierDuMois(auj) && <button className="lien petit" onClick={() => { setMois(premierDuMois(auj)); setChoisi(auj) }}>Aujourd’hui</button>}
             </div>
 
@@ -216,7 +217,7 @@ function AVenir({ demandes, feries, auj, ttHabituel, onDemanderConge }: {
                   {' · '}{it.debut === auj ? 'aujourd’hui' : it.debut < auj ? 'en cours' : dans === 1 ? 'demain' : `dans ${dans} jours`}
                 </div>
               </div>
-              {it.d && <span className={`pilule ${it.d.statut === 'accordee' ? 'ok' : 'attente'}`}>{it.d.statut === 'accordee' ? 'Accordé ✓' : 'En attente'}</span>}
+              {it.d && <span className={`pilule ${it.d.statut === 'accordee' ? 'ok' : 'attente'}`}>{it.d.statut === 'accordee' ? <><IcCheck size={14} />Accordé</> : 'En attente'}</span>}
               {it.ferie && <span className="pilule neutre">Férié</span>}
             </li>
           )

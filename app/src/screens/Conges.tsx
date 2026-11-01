@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { IcCheck } from '../components/Icones'
+import Toast from '../components/Toast'
 import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, ServiceSuivi, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
@@ -127,7 +129,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
       {vue === 'valider' && (
         <div className={`${['direction', 'admin'].includes(profil.role) ? 'col-principale' : 'col-pleine'} pile`}>
           {aValider.length === 0
-            ? <section className="carte vide-grand"><div className="pictogramme" aria-hidden="true">✓</div>
+            ? <section className="carte vide-grand"><div className="pictogramme"><IcCheck size={26} /></div>
                 <h3>Aucune demande en attente</h3><p className="doux">Les demandes de ton équipe apparaîtront ici.</p></section>
             : <AValider demandes={aValider} enJours={enJours}
                         onDecider={async (ids, accorder, commentaire) => {
@@ -141,7 +143,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
 
       {vue === 'calendrier' && <div className="col-pleine pile"><Calendrier api={api} /></div>}
 
-      {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
+      <Toast message={message} />
     </main>
   )
 }
@@ -380,7 +382,7 @@ function ProchainsConges({ demandes, enJours, onVoirAgenda }: { demandes: Demand
                 <div className="doux petit">{d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
                   {' · '}{d.date_debut <= auj ? 'en cours' : n === 1 ? 'demain' : `dans ${n} jours`}</div>
               </div>
-              <span className={`pilule grande ${d.statut === 'accordee' ? 'ok' : 'attente'}`}>{d.statut === 'accordee' ? 'Accordé ✓' : 'En attente'}</span>
+              <span className={`pilule grande ${d.statut === 'accordee' ? 'ok' : 'attente'}`}>{d.statut === 'accordee' ? <><IcCheck size={14} />Accordé</> : 'En attente'}</span>
             </li>
           )
         })}

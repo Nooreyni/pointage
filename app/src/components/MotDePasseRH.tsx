@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IcCheck } from './Icones'
 import type { Api, MotDePasseGenere } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 
@@ -29,7 +30,7 @@ export default function MotDePasseRH({ api, personneId, compteLie, onFait }: {
           <code className="mdp">{resultat.mot_de_passe}</code>
           <button className="bouton secondaire petit" onClick={async () => {
             try { await navigator.clipboard.writeText(resultat.mot_de_passe); setCopie(true) } catch { setCopie(false) }
-          }}>{copie ? 'Copié ✓' : 'Copier'}</button>
+          }}>{copie ? <><IcCheck size={14} />Copié</> : 'Copier'}</button>
         </div>
         <p className="doux petit">Identifiant : <strong>{resultat.email}</strong>. Ce mot de passe <strong>ne sera plus affiché</strong> : remets-le en main propre
           ou par un canal sûr (pas sur un post-it). La personne peut le garder ou le changer dans « Mon compte ».</p>

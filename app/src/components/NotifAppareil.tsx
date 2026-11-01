@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { IcCloche } from './Icones'
 import type { Api } from '../lib/types'
 import { activerPush, desactiverPush, etatPush, type EtatPush } from '../lib/push'
 import { messageErreur } from '../lib/supabase'
@@ -33,7 +34,7 @@ export default function NotifAppareil({ api, compact = false }: { api: Api; comp
     if (etat !== 'inactif' || masque) return null
     return (
       <section className="carte bandeau-push" aria-label="Notifications">
-        <span className="pictogramme-push" aria-hidden="true">🔔</span>
+        <span className="pictogramme-push"><IcCloche size={20} /></span>
         <span className="texte-ligne"><strong>Active les rappels</strong><span className="doux petit"> pour ne plus oublier de pointer.</span></span>
         <button className="bouton petit" disabled={enCours} onClick={basculer}>Activer</button>
         <button className="lien petit" aria-label="Plus tard" onClick={() => { setMasque(true); try { localStorage.setItem('cfb.push-bandeau', 'masque') } catch { /* */ } }}>Plus tard</button>

@@ -152,7 +152,7 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
         <section className="carte">
           <h2>Pointages à régulariser</h2>
           <p className="doux petit" style={{ margin: '-6px 0 10px' }}>Jours sans pointage complet, par service. Les rappels se font depuis l’onglet RH.</p>
-          {parAnomalies.length === 0 && <p className="vide">Aucun jour à régulariser 👍</p>}
+          {parAnomalies.length === 0 && <p className="vide">Aucun jour à régulariser.</p>}
           {parAnomalies.map((x) => (
             <div key={x.service} className="repartition">
               <div className="ligne entre petit"><span>{x.service}</span><span className="num">{x.anomalies} j</span></div>

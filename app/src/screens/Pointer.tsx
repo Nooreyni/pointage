@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Toast from '../components/Toast'
 import type { Anomalie, Api, Demande, Journee, Pointage, Profil, Sens, TypePointage } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { enAttente, estErreurReseau, mettreEnAttente, synchroniser, versPointage } from '../lib/file'
 import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhmm, isoBxl, jourBxl, minutesDepuisMinuit } from '../lib/temps'
-import { IcEntree, IcSortie } from '../components/Icones'
+import { IcAttention, IcCheck, IcEntree, IcErreur, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
 import NotifAppareil from '../components/NotifAppareil'
 import { useDialogue } from '../components/useDialogue'
@@ -217,7 +218,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
                 <div><strong>{prochain.libelle_absence}</strong> · {prochain.date_debut === prochain.date_fin ? dateCourte(prochain.date_debut)
                   : `${dateCourte(prochain.date_debut)} → ${dateCourte(prochain.date_fin)}`}{prochain.demi ? ` (${prochain.demi === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
               </div>
-              <span className={`pilule grande ${prochain.statut === 'accordee' ? 'ok' : 'attente'}`}>{prochain.statut === 'accordee' ? 'Accordé ✓' : 'En attente'}</span>
+              <span className={`pilule grande ${prochain.statut === 'accordee' ? 'ok' : 'attente'}`}>{prochain.statut === 'accordee' ? <><IcCheck size={14} />Accordé</> : 'En attente'}</span>
             </div>
             {onVoirAgenda && <button className="lien petit" onClick={onVoirAgenda}>Voir mon agenda →</button>}
           </section>
@@ -226,7 +227,8 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
         {aRegler.slice(0, 3).map((a) => (
           <section key={a.jour} className="carte anomalie">
             <div className="ligne entre">
-              <div>
+              <span className="pastille-icone attention"><IcAttention /></span>
+              <div className="texte-ligne">
                 <strong>{dateCourte(a.jour)} : {a.code === 'absent' ? 'aucun pointage' : 'sortie manquante'}</strong>
                 <div className="doux petit">{a.code === 'absent' ? 'Tu étais présent ? Ajoute tes heures.' : `Tu pars d’habitude vers ${hhmm(hSortie)}.`}</div>
               </div>
@@ -236,8 +238,9 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
         ))}
         {semaines.map((a) => (
           <section key={`s-${a.jour}`} className="carte anomalie info">
-            <strong>Semaine du {dateCourte(a.jour)} : maximum hebdomadaire dépassé</strong>
-            <div className="doux petit">Signalé à ton responsable et à la RH. Rien à corriger de ton côté.</div>
+            <span className="pastille-icone info"><IcErreur /></span>
+            <div className="texte-ligne"><strong>Semaine du {dateCourte(a.jour)} : maximum hebdomadaire dépassé</strong>
+            <div className="doux petit">Signalé à ton responsable et à la RH. Rien à corriger de ton côté.</div></div>
           </section>
         ))}
         {aRegler.length > 3 && <p className="doux petit">+ {aRegler.length - 3} autre(s) jour(s) à régulariser</p>}
@@ -278,7 +281,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
                       } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
                     }} />
       )}
-      {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
+      <Toast message={message} />
     </main>
   )
 }

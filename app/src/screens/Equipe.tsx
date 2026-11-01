@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import Toast from '../components/Toast'
+import { IcChevron, IcRappel } from '../components/Icones'
 import type { Api, Presence, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { heure } from '../lib/temps'
@@ -107,7 +109,7 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
             <section key={nom} className={`carte service ${mien ? 'mien' : ''}`}>
               <div className="entete-service">
                 <button className="bascule" aria-expanded={ouvert} onClick={() => setOuverts((s) => { const n = new Set(s); if (n.has(nom)) n.delete(nom); else n.add(nom); return n })}>
-                  <span className="chevron" aria-hidden="true">{ouvert ? '▾' : '▸'}</span>
+                  <IcChevron className="chevron" />
                   <span className="nom-service">{nom}{mien && <span className="pilule ok">Mon service</span>}</span>
                   <span className="doux petit">{compte.present + compte.tt}/{membres.length} au travail</span>
                 </button>
@@ -117,18 +119,19 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
                     {nonPointes.length > 1 ? `Rappeler les ${nonPointes.length} non pointés` : 'Rappeler le non pointé'}</button>
                 )}
               </div>
-              {ouvert && (
-                <div className="grille-personnes">
+              {/* Ouverture / fermeture animée : la hauteur glisse, le contenu suit (rien ne saute) */}
+              <div className="repli" data-ouvert={ouvert || undefined} inert={!ouvert || undefined}>
+                <div className="repli-contenu"><div className="grille-personnes">
                   {visibles.sort((a, b) => ORDRE.indexOf(etatDe(a.statut)) - ORDRE.indexOf(etatDe(b.statut)) || a.nom.localeCompare(b.nom))
                     .map((p) => <Tuile key={p.personne_id} p={p} onRappeler={etatDe(p.statut) === 'non_pointe' && peutRappeler(p) ? () => rappeler([p.personne_id]) : undefined}
                                        onFiche={peutVoirFiche(p) ? () => onOuvrirFiche!(p.personne_id) : undefined} />)}
-                </div>
-              )}
+                </div></div>
+              </div>
             </section>
           )
         })}
       </div>
-      {message && <div className={`toast ${message.erreur ? 'erreur' : ''}`} role="status">{message.texte}</div>}
+      <Toast message={message} />
     </main>
   )
 }
@@ -153,7 +156,10 @@ function Tuile({ p, onRappeler, onFiche }: { p: Presence; onRappeler?: () => voi
                  : <span className="nom">{p.prenom} {p.nom}</span>}
         <span className="etat"><span className={`point ${classeStatut(p.statut)}`} />{p.statut}{p.depuis && e !== 'parti' ? ` · ${heure(p.depuis)}` : ''}</span>
       </span>
-      {onRappeler && <button className="lien petit" onClick={onRappeler}>Rappeler</button>}
+      {onRappeler && (
+        <button className="bouton-icone" onClick={onRappeler} aria-label={`Rappeler ${p.prenom} ${p.nom}`} title="Envoyer un rappel de pointage">
+          <IcRappel /></button>
+      )}
     </div>
   )
 }
