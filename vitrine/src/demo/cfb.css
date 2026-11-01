@@ -1,0 +1,124 @@
+/* CFB Pointage : la charte de l'appli (bleu foncé #223A87, vert #A3C854,
+   jaune #F7BC39, fond #F5F7FB, Fraunces pour les titres, Source Sans 3). */
+.cfb-hote { display: grid; gap: 12px; justify-items: center; }
+.cfb-hote > .cfb-demo { width: 100%; }
+
+.cfb-demo .ss-stage {
+  --g: 24px;
+  --bleu-fonce: #223A87;
+  --vert: #A3C854;
+  --jaune: #F7BC39;
+  --fond: #F5F7FB;
+  --texte: #16213E;
+  --texte-doux: #5B6683;
+  --ss-font: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ss-accent: #223A87;
+  --ss-well: #DCE3EF;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--ss-well);
+  font-family: var(--ss-font);
+  color: var(--texte);
+}
+
+/* ---------- La fenêtre de l'appli installée (PWA) : barre à la couleur de l'appli ---------- */
+.cfb-demo .cfb-fenetre {
+  position: absolute;
+  top: var(--g);
+  left: var(--g);
+  width: 560px;
+  height: 500px;
+  border-radius: 12px;
+  box-shadow: var(--ss-shadow-hero);
+}
+.cfb-demo .cfb-fenetre > .ss-window__bar { background: var(--bleu-fonce); border-bottom-color: transparent; }
+.cfb-demo .cfb-fenetre .ss-window__title { color: #fff; font-weight: 600; }
+.cfb-demo .cfb-fenetre .ss-window__body { background: #fff; }
+
+.cfb-demo .cfb-equipe { padding: 20px 20px 0; }
+.cfb-demo .cfb-titre { font-family: 'Fraunces Variable', Georgia, serif; font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.cfb-demo .cfb-compteurs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 8px 0 16px;
+  font-size: 13.5px; font-weight: 600; color: var(--texte-doux); font-variant-numeric: tabular-nums;
+}
+.cfb-demo .cfb-compteurs > span { display: inline-flex; align-items: center; gap: 6px; }
+.cfb-demo .cfb-n { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.cfb-demo .cfb-compteurs .cfb-attente { color: #7A5A00; }
+
+.cfb-demo .cfb-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cfb-demo .cfb-col { display: grid; gap: 8px; align-content: start; }
+.cfb-demo .cfb-tuile {
+  display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: var(--fond); min-width: 0;
+}
+.cfb-demo .cfb-tuile__texte { display: grid; gap: 4px; min-width: 0; }
+.cfb-demo .cfb-ini {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: #E3E8F3; color: var(--bleu-fonce); font-weight: 700; font-size: 12px; text-box: trim-both cap alphabetic;
+}
+.cfb-demo .cfb-nom { font-weight: 600; font-size: 14px; line-height: 1.3; white-space: nowrap; }
+.cfb-demo .cfb-etat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1.3; color: var(--texte-doux); white-space: nowrap; }
+.cfb-demo .cfb-etat--attente { color: #7A5A00; font-weight: 600; }
+.cfb-demo .cfb-sofia .cfb-ini { transition: background-color .3s ease, color .3s ease; }
+.cfb-demo .cfb-sofia[data-present] .cfb-ini { background: #EAF4D8; color: #3D6609; }
+
+.cfb-demo .cfb-point { width: 8px; height: 8px; border-radius: 50%; background: #B7BFD3; flex: none; }
+.cfb-demo .cfb-point.present { background: var(--vert); }
+.cfb-demo .cfb-point.tt { background: #2479BE; }
+
+/* ---------- Le téléphone de Sofia : l'écran Pointer de l'appli ---------- */
+.cfb-demo .cfb-phone {
+  position: absolute;
+  top: 72px;
+  right: var(--g);
+  box-shadow: var(--ss-shadow-satellite), 0 30px 50px -20px rgba(22, 33, 62, 0.35);
+}
+/* L'écran est en points iOS (402 de large) : tailles de l'appli mobile */
+.cfb-demo .cfb-app { position: absolute; inset: 0; background: var(--fond); font-family: var(--ss-font); color: var(--texte); }
+.cfb-demo .cfb-entete {
+  display: flex; align-items: center; gap: 10px; height: 112px; padding: 54px 18px 0; box-sizing: border-box;
+  background: var(--bleu-fonce); color: #fff;
+  font-family: 'Fraunces Variable', Georgia, serif; font-size: 21px; font-weight: 600;
+}
+.cfb-demo .cfb-entete img { border-radius: 8px; }
+.cfb-demo .cfb-pointeuse {
+  margin: 16px; padding: 28px 20px 16px; border-radius: 18px; background: #fff; text-align: center;
+  box-shadow: 0 1px 2px rgba(22, 33, 62, .06), 0 4px 16px rgba(22, 33, 62, .06);
+}
+.cfb-demo .cfb-date { font-size: 17px; color: var(--texte-doux); display: inline-flex; gap: 6px; align-items: center; }
+.cfb-demo .cfb-horloge { font-family: 'Fraunces Variable', Georgia, serif; font-size: 72px; font-weight: 600; line-height: 1.05; margin: 8px 0 6px; font-variant-numeric: tabular-nums; }
+.cfb-demo .cfb-statut { margin-bottom: 20px; font-size: 17px; font-weight: 600; }
+.cfb-demo .cfb-statut__ligne { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.cfb-demo .cfb-statut .cfb-point { width: 11px; height: 11px; }
+.cfb-demo .cfb-bouton {
+  all: unset; box-sizing: border-box; display: grid; place-items: center; width: 100%; height: 80px; border-radius: 22px;
+  background: var(--bleu-fonce); color: #fff; font-size: 22px; font-weight: 700; letter-spacing: .01em;
+  box-shadow: 0 6px 18px rgba(34, 58, 135, .32);
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease, transform .12s ease;
+  will-change: transform;
+}
+.cfb-demo .cfb-bouton[data-pressed] { transform: scale(.97); }
+.cfb-demo .cfb-bouton[data-sortie] { background: var(--jaune); color: var(--texte); box-shadow: 0 6px 18px rgba(247, 188, 57, .38); }
+.cfb-demo .cfb-bouton__lib { display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
+.cfb-demo .cfb-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; flex: none; }
+.cfb-demo .cfb-ico svg { width: 28px; height: 28px; }
+.cfb-demo .cfb-puces { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
+.cfb-demo .cfb-puce { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; background: #EEF2FA; }
+.cfb-demo .cfb-puce[data-on] { box-shadow: inset 0 0 0 1.5px #2479BE; background: #fff; }
+
+/* ---------- Étroit (colonne de téléphone) : le téléphone en héros, la vue du chef
+   en carte posée sur son bas, sur les puces de remplissage, jamais sur le bouton ---------- */
+.cfb-demo .ss-stage[data-layout='compact'] { --g: 16px; }
+.cfb-demo .ss-stage[data-layout='compact'] .cfb-phone { top: var(--g); right: var(--g); }
+.cfb-demo .cfb-carte {
+  position: absolute; left: var(--g); top: 322px; width: 256px; border-radius: 14px; background: #fff;
+  box-shadow: var(--ss-shadow-satellite), 0 18px 40px -18px rgba(22, 33, 62, 0.35);
+}
+.cfb-demo .cfb-carte .cfb-equipe { padding: 14px; }
+.cfb-demo .cfb-carte .cfb-titre { font-size: 16px; }
+.cfb-demo .cfb-carte .cfb-compteurs { margin: 6px 0 10px; font-size: 12.5px; gap: 4px 12px; }
+.cfb-demo .cfb-carte .cfb-grille { grid-template-columns: 1fr; }
+
+.cfb-rejouer {
+  font: 600 14px/1 'Source Sans 3', system-ui, sans-serif; color: #223A87; background: #EEF2FA; border: 0; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+}
+.cfb-rejouer:hover { background: #E3E8F3; }

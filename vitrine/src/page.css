@@ -1,0 +1,7 @@
+:root { color-scheme: light; }
+body { margin: 0; background: #E9EDF5; color: #16213E; font-family: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.page { max-width: 760px; margin: 0 auto; padding: 40px 16px 48px; }
+.page :where(h1, p):not(:where(.ss-stage *)) { margin: 0; }
+.sur-titre { color: #223A87; font-weight: 700; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+.page h1 { font-family: 'Fraunces Variable', Georgia, serif; font-weight: 600; font-size: clamp(26px, 5vw, 36px); line-height: 1.15; margin: 6px 0 10px !important; letter-spacing: -.01em; }
+.intro { color: #5B6683; font-size: 17px; line-height: 1.5; max-width: 600px; margin-bottom: 24px !important; }
