@@ -21,7 +21,8 @@ const CODES: CodeAbsence[] = ([
 
 // Structure réelle du CFB (services) ; noms des personnes fictifs.
 // SAF ≈ 30 personnes (le plus grand service), ES / ISP = 16 dont 14 ISP (article 60), RH = 3 RH + 1 admin RH,
-// Direction, IT (1 personne), Logistique et SIPP (services sans équipe).
+// Direction, IT (1 personne), Logistique et SIPP (services sans équipe), Compta, CEFOR, TS, Coordination.
+// Effectifs de Compta, CEFOR, TS et Coordination : estimés (total 68 = comptes Dinclock), à corriger.
 const PERSONNES: Personne[] = ([
   ['Lambert', 'Claire', 'Direction', 'direction'], ['Dupont', 'Marc', 'SAF', 'employe'],
   ['Janssens', 'Sofia', 'SAF', 'employe'], ['Peeters', 'Yanis', 'SAF', 'employe'],
@@ -38,7 +39,8 @@ const PRENOMS = ['Amine', 'Julie', 'Kevin', 'Sarah', 'Mehdi', 'Laura', 'Thomas',
 const NOMS = ['Mertens', 'Willems', 'El Amrani', 'Goossens', 'Lemaire', 'Nkosi', 'Dubois', 'Maes', 'Bakkali', 'Hermans', 'Lefèvre', 'Jacobs',
   'Mbaye', 'Vermeulen', 'Collin', 'Aydin', 'Michel', 'Desmet', 'Ouali', 'Pirlot', 'Lambrecht', 'Moreau', 'Ndiaye', 'Smets', 'Gilson', 'Rahmani']
 // SAF : 5 personnes nommées + 25 = 30 ; ES / ISP : Jordan (ISP) + Emma (encadrement) + 14 = 16, dont 14 ISP au total
-const REPARTITION: [string, number][] = [['SAF', 25], ['ES / ISP', 14], ['Logistique', 1], ['SIPP', 1]]
+const REPARTITION: [string, number][] = [['SAF', 25], ['ES / ISP', 14], ['Logistique', 1], ['SIPP', 1],
+  ['Compta', 3], ['CEFOR', 5], ['TS', 3], ['Coordination', 2]]
 let rang = 0
 for (const [service, n] of REPARTITION) for (let k = 0; k < n; k++, rang++) {
   PERSONNES.push({ id: `p${13 + rang}`, prenom: PRENOMS[(rang * 5 + 1) % PRENOMS.length], nom: NOMS[(rang * 11 + 3) % NOMS.length], service,
@@ -174,9 +176,10 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const clotures = new Set<string>(['2026-08-01'])
   // Écran Administration (démo)
   const sid = (nom: string) => `s-${nom}`
-  let services: AdminService[] = (['Direction', 'SAF', 'ES / ISP', 'Ressources humaines', 'IT', 'Logistique', 'SIPP'] as const).map((nom, i) => ({
+  let services: AdminService[] = (['Direction', 'SAF', 'ES / ISP', 'Ressources humaines', 'IT', 'Logistique', 'SIPP',
+    'Compta', 'CEFOR', 'TS', 'Coordination'] as const).map((nom, i) => ({
     id: sid(nom), nom, parent_id: i === 0 ? null : sid('Direction'),
-    couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A', '#5B6683', '#B23A33'][i],
+    couleur: ['#223A87', '#2479BE', '#A3C854', '#F7BC39', '#7A869A', '#5B6683', '#B23A33', '#2479BE', '#A3C854', '#F7BC39', '#223A87'][i],
     seuil_absence_pct: nom === 'SAF' ? 30 : 50, actif: true,
     chefs: nom === 'Direction' ? ['p0'] : nom === 'SAF' ? ['p1'] : [], effectif: 0 }))
   let regimes: Regime[] = [
@@ -469,7 +472,8 @@ export function apiDemo(persona: Persona = 'employe'): Api {
         services: (() => {
           const tous = [ligne('SAF', 30, 0.07 + (g % 3) / 100, 0.04, 0.05, 7), ligne('ES / ISP', 16, 0.06, 0.05, 0, 4),
             ligne('Direction', 1, 0.05, 0, 0.1, 0), ligne('Ressources humaines', 4, 0.06, 0.02, 0.25, 0), ligne('IT', 1, 0.05, 0, 0.4, 0),
-            ligne('Logistique', 2, 0.08, 0.05, 0, 1), ligne('SIPP', 1, 0.04, 0, 0.2, 0)]
+            ligne('Logistique', 2, 0.08, 0.05, 0, 1), ligne('SIPP', 1, 0.04, 0, 0.2, 0), ligne('Compta', 3, 0.05, 0.01, 0.3, 0),
+            ligne('CEFOR', 5, 0.06, 0.02, 0.2, 1), ligne('TS', 3, 0.07, 0.03, 0.1, 1), ligne('Coordination', 2, 0.05, 0, 0.3, 0)]
           const seuil = 3, petits = tous.filter((x) => x.effectif < seuil)
           const somme = (k: 'effectif' | 'prevues' | 'preste' | 'absence_conge' | 'absence_maladie' | 'absence_autre' | 'jours_presence' | 'jours_tt' | 'anomalies') =>
             petits.reduce((t, x) => t + x[k], 0)
