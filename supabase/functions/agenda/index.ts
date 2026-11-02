@@ -9,7 +9,7 @@ type Evt = { uid: string; debut: string; fin: string; titre: string; maj: string
 const jourIcs = (d: string) => d.replaceAll('-', '')
 const lendemain = (d: string) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + 1); return x.toISOString().slice(0, 10) }
 const horodatage = (t: string) => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
-const echapper = (t: string) => t.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+const echapper = (t: string) => t.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
 // Lignes de 75 octets maximum (RFC 5545), repliées par « CRLF + espace »
 function plier(ligne: string): string {
   const enc = new TextEncoder(); const morceaux: string[] = []; let cour = ''
