@@ -27,7 +27,7 @@ const CHEF: [string, Q[]] = ['Responsable', [
 ]]
 const RH: [string, Q[]] = ['RH et administration', [
   ['Clôturer le mois', 'Gestion › Suivi RH › Clôture du mois. Les anomalies restantes sont listées avant.'],
-  ['Une nouvelle personne arrive', 'Gestion › Réglages › Personnes › Nouvelle personne (ou Importer pour plusieurs). Puis dans sa fiche : Arrivée (mot de passe, congés, télétravail).'],
+  ['Une nouvelle personne arrive', 'Gestion › Personnes › Nouvelle personne (ou Importer pour plusieurs). La fiche reste ouverte : suis les étapes « Arrivée » (compte, congés, télétravail).'],
   ['Une personne quitte le CFB', 'Sa fiche › Départ › Préparer le départ : la date, l’impact (soldes, demandes), puis Enregistrer. Rien n’est supprimé.'],
   ['Corriger un solde', 'Sa fiche › Soldes et compteurs › Ajuster un solde (motif obligatoire, tracé).'],
   ['Changer une règle (pause, indemnité…)', 'Gestion › Réglages › Paramètres. Chaque fonction a son interrupteur ; tout est tracé dans le Journal.'],

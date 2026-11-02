@@ -1,3 +1,4 @@
+import { LienPersonne, LienReglages } from '../lib/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import type { Api, LigneCpas, LigneTeletravail, Profil, StatService, StatsDirection } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
@@ -255,7 +256,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
             </tr></thead>
             <tbody>{lignes.map((l) => (
               <tr key={l.personne_id}>
-                <td><strong>{l.nom} {l.prenom}</strong><div className="doux petit">{l.partenaire}</div></td>
+                <td><LienPersonne id={l.personne_id} nom={`${l.nom} ${l.prenom}`} vers="temps" /><div className="doux petit">{l.partenaire}</div></td>
                 <td>{l.service}</td>
                 <td className="num">{duree(l.a_prester)}</td>
                 <td className="num">{duree(l.preste)}</td>
@@ -323,7 +324,7 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
             <thead><tr><th>Personne</th><th>Service</th><th className="num">Jours TT</th>{avecIndemnite && <th className="num">Indemnité</th>}<th>Dates</th><th>Jours habituels</th></tr></thead>
             <tbody>{visibles.map((l) => (
               <tr key={l.personne_id}>
-                <td><strong>{l.nom} {l.prenom}</strong></td>
+                <td><LienPersonne id={l.personne_id} nom={`${l.nom} ${l.prenom}`} vers="temps" /></td>
                 <td>{l.service}</td>
                 <td className="num"><strong>{l.jours_tt}</strong></td>
                 {avecIndemnite && <td className="num">{l.indemnite_centimes ? eur(l.indemnite_centimes) : '—'}</td>}
@@ -335,7 +336,7 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
           </table>
         </div>
       )}
-      <p className="doux petit" style={{ marginBottom: 0 }}>Indemnité calculée selon Admin › Réglages › Télétravail (montant, par jour ou forfait, plafond) ; HT.</p>
+      <p className="doux petit" style={{ marginBottom: 0 }}>Indemnité calculée selon <LienReglages section="parametres">Réglages › Télétravail</LienReglages> (montant, par jour ou forfait, plafond) ; HT.</p>
     </section>
   )
 }

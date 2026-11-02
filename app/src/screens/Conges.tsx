@@ -1,3 +1,5 @@
+import Fenetre from '../components/Fenetre'
+import { LienPersonne } from '../lib/navigation'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { IcCheck } from '../components/Icones'
 import Toast from '../components/Toast'
@@ -123,11 +125,8 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
         <div className="col-laterale pile">{blocSoldes('pc-seulement')}</div>
       </>}
 
-      {vue === 'valider' && ['direction', 'admin'].includes(profil.role) && (
-        <div className="col-laterale pile"><PreferencesDirection api={api} /></div>
-      )}
       {vue === 'valider' && (
-        <div className={`${['direction', 'admin'].includes(profil.role) ? 'col-principale' : 'col-pleine'} pile`}>
+        <div className="col-pleine pile">
           {aValider.length === 0
             ? <section className="carte vide-grand"><div className="pictogramme"><IcCheck size={26} /></div>
                 <h3>Aucune demande en attente</h3><p className="doux">Les demandes de ton équipe apparaîtront ici.</p></section>
@@ -138,6 +137,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
                             setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger()
                           } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
                         }} />}
+          {['direction', 'admin'].includes(profil.role) && <PreferencesDirection api={api} />}
         </div>
       )}
 
@@ -448,7 +448,7 @@ function AValider({ demandes, enJours, onDecider }: {
           <li key={d.id}>
             <input type="checkbox" id={`v-${d.id}`} checked={choisies.has(d.id)} onChange={() => basculer(d.id)} />
             <label htmlFor={`v-${d.id}`} className="texte-ligne">
-              <strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+              <LienPersonne id={d.personne_id} nom={`${d.prenom} ${d.nom}`} vers="temps" /> · {d.libelle_absence}
               <div className="doux petit">{periode(d)} · {d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
                 {d.commentaire && ` · « ${d.commentaire} »`}
                 {anciennete(d) >= 3 && <span className="attention"> · en attente depuis {anciennete(d)} j</span>}</div>
@@ -480,10 +480,12 @@ function AValider({ demandes, enJours, onDecider }: {
 }
 
 // ---------------------------------------------------------------------------
-// Direction : services dont elle reçoit aussi les demandes (en plus de ses N-1 et des services dont le chef est absent)
+// Direction : services dont elle reçoit aussi les demandes (en plus de ses N-1 et des services dont le chef est absent).
+// Réglé une fois : affiché en une ligne discrète sous la liste, modifiable dans une fenêtre.
 function PreferencesDirection({ api }: { api: Api }) {
   const [liste, setListe] = useState<ServiceSuivi[] | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [ouvert, setOuvert] = useState(false)
   useEffect(() => { api.servicesSuivis().then(setListe).catch((e) => setErreur(messageErreur(e))) }, [api])
   async function basculer(s: ServiceSuivi) {
     setListe((l) => l?.map((x) => (x.service_id === s.service_id ? { ...x, suivi: !x.suivi } : x)) ?? l)
@@ -491,19 +493,29 @@ function PreferencesDirection({ api }: { api: Api }) {
       setErreur(messageErreur(e)); setListe((l) => l?.map((x) => (x.service_id === s.service_id ? { ...x, suivi: s.suivi } : x)) ?? l)
     }
   }
+  const suivis = liste?.filter((s) => s.suivi).map((s) => s.nom) ?? []
   return (
-    <section className="carte">
-      <h2>Demandes que je reçois</h2>
-      <p className="doux petit" style={{ marginTop: 0 }}>Toujours : tes N-1 directs, et un service dont le chef est absent. En plus, coche les services
-        dont tu veux recevoir toutes les demandes.</p>
-      {erreur && <p className="negatif petit">{erreur}</p>}
-      {!liste && !erreur && <p className="vide">Chargement…</p>}
-      <ul className="liste">{liste?.map((s) => (
-        <li key={s.service_id} className="ligne-param">
-          <span className="texte-ligne">{s.nom}<div className="doux petit">{s.effectif} pers.{s.chef_absent_aujourdhui ? ' · chef absent aujourd’hui (reçu d’office)' : ''}</div></span>
-          <button className="interrupteur" role="switch" aria-checked={s.suivi} aria-label={`Recevoir les demandes de ${s.nom}`} onClick={() => basculer(s)}><span /></button>
-        </li>
-      ))}</ul>
+    <section className="carte reglage-discret">
+      <div className="ligne entre">
+        <p className="petit" style={{ margin: 0 }}><span className="doux">Je reçois : mes N-1, les services dont le chef est absent</span>
+          {suivis.length > 0 && <> <span className="doux">et</span> <strong>{suivis.join(', ')}</strong></>}</p>
+        <button className="lien petit" onClick={() => setOuvert(true)}>Modifier</button>
+      </div>
+      {ouvert && (
+        <Fenetre titre="Demandes que je reçois" onFermer={() => setOuvert(false)}>
+          <p className="doux petit" style={{ marginTop: 0 }}>Toujours : tes N-1 directs, et un service dont le chef est absent. En plus, coche les services
+            dont tu veux recevoir toutes les demandes. Enregistré dès que tu coches.</p>
+          {erreur && <p className="negatif petit">{erreur}</p>}
+          {!liste && !erreur && <p className="vide">Chargement…</p>}
+          <ul className="liste">{liste?.map((s) => (
+            <li key={s.service_id} className="ligne-param">
+              <span className="texte-ligne">{s.nom}<div className="doux petit">{s.effectif} pers.{s.chef_absent_aujourdhui ? ' · chef absent aujourd’hui (reçu d’office)' : ''}</div></span>
+              <button className="interrupteur" role="switch" aria-checked={s.suivi} aria-label={`Recevoir les demandes de ${s.nom}`} onClick={() => basculer(s)}><span /></button>
+            </li>
+          ))}</ul>
+          <div className="actions"><button className="bouton" onClick={() => setOuvert(false)}>Terminé</button></div>
+        </Fenetre>
+      )}
     </section>
   )
 }

@@ -328,9 +328,9 @@ input[type='date'], input[type='time'] { min-height: 48px; }
 .liste.compacte li { padding: 6px 0; gap: 10px; flex-wrap: wrap; }
 .controle { list-style: none; padding: 0; margin: 4px 0 14px; display: grid; gap: 8px; }
 .controle li { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; }
-.controle li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
-.controle li.ok span { background: #EAF4D8; color: #3D6609; }
-.controle li.ko span { background: #FFF4D9; color: #7A5A00; }
+.controle li > span:first-child { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
+.controle li.ok > span:first-child { background: #EAF4D8; color: #3D6609; }
+.controle li.ko > span:first-child { background: #FFF4D9; color: #7A5A00; }
 .confirmation { background: #FBE9E8; border-radius: 12px; padding: 12px 14px; }
 .tableau-defilant { overflow-x: auto; margin: 8px 0 12px; }
 .tableau { width: 100%; border-collapse: collapse; font-size: 14.5px; }
@@ -782,8 +782,6 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
 .soldes-personne .liste li strong { font-variant-numeric: tabular-nums; }
 .ajustement { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--fond); }
 .ajustement .champ { margin: 8px 0; }
-.arrivee .barre { margin: 4px 0 10px; }
-.arrivee .controle li { align-items: center; }
 .detail-journal { margin-top: 6px; font-size: 13px; } .detail-journal td { white-space: normal; overflow-wrap: anywhere; }
 .faq { border-top: 1px solid var(--bord); padding: 10px 0; }
 .carte > .faq:first-of-type { border-top: 0; }
@@ -797,3 +795,75 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
 .code-mfa input { width: 130px; border: 1px solid var(--bord); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 18px; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
 .qr-mfa { display: block; background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 8px; margin: 8px 0; }
 .connexion .double-auth { text-align: left; margin-top: 12px; }
+
+/* Liens internes (personnes, réglages cités dans un texte) */
+.lien-inline { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: #1A5E97; text-decoration: underline; text-underline-offset: 3px; }
+.lien-nom { font: inherit; font-weight: 700; }
+.lien-nom { text-decoration: underline; text-decoration-color: rgba(34, 58, 135, .3); }
+
+/* ---------- Champs : bien délimités, jamais superposés (mobile) ---------- */
+.champ input, .champ select, .champ textarea { border-color: var(--bord-fort); width: 100%; min-width: 0; }
+.champ input:hover, .champ select:hover { border-color: #9AA6C0; }
+.champ input:focus, .champ select:focus, .champ textarea:focus { border-color: var(--bleu); outline: 3px solid rgba(36, 121, 190, .18); outline-offset: 0; }
+.champ > .doux { font-weight: 400; }
+.champs-ligne { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.champs-ligne > * { min-width: 0; }
+input[type='date'], input[type='time'] { -webkit-appearance: none; appearance: none; text-align: left; display: block; }
+input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-date-and-time-value { text-align: left; }
+.suggestion { margin: -6px 0 6px; padding-left: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+
+/* ---------- Personnes : liste lisible sur mobile et PC ---------- */
+.recherche.pleine { width: 100%; max-width: none; margin-top: 12px; padding: 10px 12px; border-color: var(--bord-fort); }
+.liste-personnes { list-style: none; margin: 10px 0 0; padding: 0; }
+.liste-personnes li { border-top: 1px solid var(--bord); }
+.ligne-personne { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; gap: 4px 12px; align-items: center;
+  background: none; border: 0; padding: 12px 4px; text-align: left; border-radius: 10px; }
+.ligne-personne:hover { background: var(--fond); }
+.ligne-personne .qui, .ligne-personne .ou { display: grid; min-width: 0; }
+.ligne-personne .qui > *, .ligne-personne .ou > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-personne .ou { grid-column: 1; grid-row: 2; font-size: 14px; display: flex; gap: 6px; }
+.ligne-personne .ou .doux::before { content: '· '; }
+.ligne-personne .etat { grid-column: 2; grid-row: 1 / span 2; }
+.ligne-personne svg { grid-column: 3; grid-row: 1 / span 2; color: var(--texte-doux); }
+@media (min-width: 700px) {
+  .ligne-personne { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto 16px; }
+  .ligne-personne .ou { grid-column: 2; grid-row: 1; display: grid; }
+  .ligne-personne .ou .doux::before { content: none; }
+  .ligne-personne .etat { grid-column: 3; grid-row: 1; }
+  .ligne-personne svg { grid-column: 4; grid-row: 1; }
+}
+
+/* ---------- Fiche d'une personne ---------- */
+.entete-fiche { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; }
+.onglets-fiche { margin: 4px 0 0; position: sticky; top: -20px; z-index: 2; box-shadow: 0 6px 10px -8px rgba(22, 33, 62, .25); }
+.panneau-fiche { padding-top: 6px; min-height: 240px; }
+.panneau-fiche > .titre-bloc:first-child { margin-top: 14px; }
+.titre-bloc { font-family: var(--corps); font-size: 15px; font-weight: 700; margin: 22px 0 8px; }
+.repli-delier { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--bord); }
+.arrivee { border: 1px solid var(--bord); border-radius: 14px; padding: 4px 12px; margin: 0 0 14px; background: #FBFCFE; }
+.arrivee-titre { width: 100%; display: grid; grid-template-columns: auto auto minmax(40px, 1fr) 16px; align-items: center; gap: 10px;
+  background: none; border: 0; padding: 8px 0; text-align: left; }
+.arrivee-titre .barre { margin: 0; }
+.arrivee-titre svg { color: var(--texte-doux); transition: transform .2s var(--courbe-ui); }
+.arrivee-titre[aria-expanded='true'] svg { transform: rotate(90deg); }
+.etapes { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; }
+.etapes li { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 36px; }
+.pastille-etape { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 13px; }
+.etapes li.ok .pastille-etape { background: #EAF4D8; color: #3D6609; }
+.etapes li.ko .pastille-etape { background: #FFF4D9; color: #7A5A00; }
+.etapes li.ok .texte-etape { color: var(--texte-doux); }
+.texte-etape, .lien-etape { flex: 1 1 160px; min-width: 0; font-size: 15px; }
+.lien-etape { background: none; border: 0; padding: 4px 0; text-align: left; font-weight: 600; color: #1A5E97; text-decoration: underline; text-underline-offset: 3px; }
+.outils-jours { flex-wrap: wrap; justify-content: flex-end; }
+.reglage-discret { padding: 12px 18px; background: transparent; border-style: dashed; }
+.reglage-discret p { overflow-wrap: anywhere; }
+.onglets-fiche button { flex: 1 1 0; min-width: 0; padding: 9px 2px; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.champs-ligne { align-items: end; }
+/* Tableaux : jamais de mot coupé au milieu (« Directi-on ») ; trop large → défilement horizontal */
+.tableau td, .tableau th { overflow-wrap: normal; word-break: normal; }
+@media (max-width: 599px) { .tableau td, .tableau th { min-width: 64px; } .tableau td.num, .tableau th.num { min-width: 0; } }
+/* Alertes sur mobile : le bouton passe sous le texte au lieu de l'écraser */
+@media (max-width: 599px) {
+  .liste-alertes li { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: start; }
+  .liste-alertes li > .bouton { grid-column: 2; justify-self: start; }
+}

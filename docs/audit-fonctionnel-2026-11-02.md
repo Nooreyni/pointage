@@ -37,7 +37,7 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 ## 3. Personnes et comptes
 | Besoin | État |
 |---|---|
-| Création, rôles, service, chef, accès délégués | ✅ |
+| Création, rôles, service, chef, accès délégués | ✅ · la RH crée et modifie les fiches 🆕 (sans toucher aux admins) |
 | Import en masse (reprise Dinclock) avec vérification | 🆕 |
 | Arrivée : étapes (régime, compte, congés au prorata, télétravail) | 🆕 |
 | Départ : date, impact (soldes, demandes, chef à remplacer), réversible ; accès coupé automatiquement | 🆕 |
@@ -77,3 +77,19 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 4. Anonymisation : le journal d'audit garde les noms (append-only, traçabilité) ; à valider avec le juriste.
 
 Décidé le 02/11 : anonymisation 5 ans (réglable) · tablette plus tard · double authentification en option · Outlook oui.
+
+## Retours mobile du 02/11 (corrigés)
+| Retour | Correction |
+|---|---|
+| Fiche personne brouillon, titres en double | Une seule fiche (Gestion › Personnes), en onglets : Identité · Horaire · Compte · Soldes · Départ |
+| Champs qui se chevauchent, mal délimités | Bordures plus nettes, colonnes qui passent à la ligne, dates alignées à gauche |
+| Après création, on sort de la fiche | La fiche reste ouverte sur « Compte », étapes « Arrivée » cliquables |
+| Étapes « Arrivée » illisibles (lettres empilées) | Corrigé (style des pastilles appliqué au mauvais élément) |
+| Direction : réglage des services affiché en premier | Une ligne discrète sous les demandes + « Modifier » |
+| RH ne peut pas créer de profil | Possible (Gestion › Personnes) ; garde-fou : pas d'admin RH / admin général |
+| Noms et fonctions cités non cliquables | Noms → fiche RH ou fiche de temps ; « Réglages › … » → la bonne section |
+
+Trouvé en plus : mots coupés dans les tableaux sur mobile (Services), alertes tassées, tableau vide en début de mois,
+e-mail en double à la création, homonyme signalé, adresse proposée (prénom.nom@domaine du CFB), lien « Fiche RH » depuis
+une fiche de temps, chefs cliquables dans Services, personne qui change son propre rôle (bloqué), filtres
+En poste / Sans compte / Départ prévu / Parties.

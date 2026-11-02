@@ -892,6 +892,24 @@ select count(*) as nb_nouveau from public.agenda_evenements(:'jeton2') \gset
 reset role;
 select test.ok(:nb_ancien = 0 and :nb_nouveau > 0, 'Agenda : l''ancien lien ne marche plus, le nouveau oui');
 
+-- ===================== La RH gère les fiches (création, régime) =====================
+select test.connecte('Nadia'); set role authenticated;
+select public.enregistrer_personne(null, 'Lina', 'Nouvelle', 'lina.nouvelle@cfb.test', 'a0000000-0000-0000-0000-000000000002', 'employe', 'interne',
+  null, null, pointage.aujourdhui(), null, (select id from pointage.regimes where actif order by id limit 1)) as pid_lina \gset
+select test.ok(exists (select 1 from public.admin_personnes where id = :'pid_lina'), 'RH : crée une fiche et la voit dans la liste');
+select test.erreur(format('select public.enregistrer_personne(null, %L, %L, %L, %L, %L)', 'X', 'Y', 'x.y@cfb.test', 'a0000000-0000-0000-0000-000000000002', 'admin_rh'),
+  'RH : ne nomme pas un admin RH', 'peut attribuer');
+select test.erreur(format('select public.enregistrer_personne(null, %L, %L, %L, %L)', 'Z', 'Z', 'lina.nouvelle@cfb.test', 'a0000000-0000-0000-0000-000000000002'),
+  'Fiche : e-mail déjà utilisé', 'déjà utilisée');
+select test.erreur(format('select public.enregistrer_personne(%L, %L, %L, %L, %L, %L)', test.pid('Inès'), 'Inès', 'Leroy', 'ines.leroy@cfb.test', 'a0000000-0000-0000-0000-000000000004', 'employe'),
+  'RH : ne modifie pas un admin RH', 'Seul un');
+select test.erreur(format('select public.enregistrer_personne(%L, %L, %L, %L, %L, %L)', pointage.moi(), 'Nadia', 'Benali', 'nadia.benali@cfb.test', 'a0000000-0000-0000-0000-000000000004', 'direction'),
+  'RH : ne change pas son propre rôle', 'propre rôle');
+select test.erreur(format('select public.enregistrer_depart(%L, current_date)', test.pid('Inès')), 'RH : pas le départ d''un admin RH', 'Seul un');
+select public.regime_personnalise(:'pid_lina', array[456,456,0,456,456,0,0], pointage.aujourdhui() + 30);
+select test.ok(exists (select 1 from pointage.personne_regimes where personne_id = :'pid_lina' and debut = pointage.aujourdhui() + 30), 'RH : programme un régime');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

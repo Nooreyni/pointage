@@ -9,7 +9,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
  * Jours de télétravail habituels d'une personne. Chacun modifie les siens (son responsable est prévenu) ;
  * la RH, l'admin et le N+1 peuvent aussi les modifier (la personne est prévenue). Droits vérifiés par le serveur.
  */
-export default function TeletravailHabituel({ api, personneId, moi, detaille }: { api: Api; personneId: string; moi: boolean; detaille?: boolean }) {
+export default function TeletravailHabituel({ api, personneId, moi, detaille, sansEtiquette }: { api: Api; personneId: string; moi: boolean; detaille?: boolean; sansEtiquette?: boolean }) {
   const [etat, setEtat] = useState<{ jours: number[]; modifiable: boolean } | null>(null)
   const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
 
@@ -28,7 +28,7 @@ export default function TeletravailHabituel({ api, personneId, moi, detaille }: 
 
   return (
     <div className="teletravail" role="group" aria-label="Jours de télétravail habituels">
-      <span className="etiquette-tt">Télétravail habituel</span>
+      {!sansEtiquette && <span className="etiquette-tt">Télétravail habituel</span>}
       {etat.modifiable ? (
         <span className="jours-tt">{JOURS.slice(0, 5).map((l, i) => (
           <button key={l} className="puce" aria-pressed={etat.jours.includes(i + 1)} onClick={() => basculer(i + 1)}>{l}</button>

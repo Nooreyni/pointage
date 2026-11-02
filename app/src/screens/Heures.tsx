@@ -5,6 +5,7 @@ import { messageErreur } from '../lib/supabase'
 import { telecharger, type Format } from '../lib/export'
 import Export from '../components/Export'
 import TeletravailHabituel from '../components/TeletravailHabituel'
+import { useNav } from '../lib/navigation'
 import { dateCourte, decalerJour, duree, heure, jourBxl } from '../lib/temps'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -48,6 +49,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
   }, [api, qui, choixMois])
 
   const autres = personnes.filter((p) => p.id !== profil.id)
+  const nav = useNav()
   const nomQui = qui === profil.id ? 'Mes heures' : (() => { const p = personnes.find((x) => x.id === qui); return p ? `${p.prenom} ${p.nom}` : 'Fiche de temps' })()
   const tot = (lignes ?? []).reduce((t, { j }) => ({ aPrester: t.aPrester + j.a_prester, preste: t.preste + j.preste, boni: t.boni + j.boni,
     regul: t.regul + ((j.nb_pointages === 0 && j.a_prester > 0) || (j.nb_pointages > 0 && !j.complete) ? 1 : 0),
@@ -68,7 +70,8 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
       <div className="col-pleine pile">
         <section className="carte">
           <div className="ligne entre barre-outils">
-            <h2>{nomQui} <span className="doux petit">· {nomMois(choixMois)}</span></h2>
+            <h2>{nomQui} <span className="doux petit">· {nomMois(choixMois)}</span>
+              {qui !== profil.id && nav.ficheRH && <button className="lien petit" onClick={() => nav.naviguer({ vers: 'personne', id: qui })}>Fiche RH</button>}</h2>
             <span className="ligne outils-fiche">
               {autres.length > 0 && (
                 <select id="fiche-personne" aria-label="Personne" value={qui} onChange={(e) => setQui(e.target.value)}>
@@ -96,7 +99,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
         <section className="carte">
           <div className="ligne entre barre-outils">
             <h2>Jour par jour</h2>
-            <span className="ligne">
+            <span className="ligne outils-jours">
               <label className="case-a-cocher petit" style={{ margin: 0 }}>
                 <input type="checkbox" checked={toutVoir} onChange={(e) => setToutVoir(e.target.checked)} />Week-ends et jours non prestés</label>
               <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
@@ -106,7 +109,10 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
           {erreur && <p className="negatif">{erreur}</p>}
           {!lignes && !erreur && <p className="vide">Chargement…</p>}
           {lignes?.length === 0 && <p className="vide">Aucun jour écoulé sur ce mois.</p>}
-          {lignes && lignes.length > 0 && (
+          {lignes && lignes.length > 0 && visibles.length === 0 && (
+            <p className="vide">Pas encore de jour ouvrable écoulé ce mois-ci. <button className="lien petit" onClick={() => setToutVoir(true)}>Voir tous les jours</button></p>
+          )}
+          {lignes && visibles.length > 0 && (
             <div className="tableau-defilant">
               <table className="tableau fiche">
                 <thead><tr><th>Jour</th><th className="num">Prévu</th><th>Pointages</th><th className="num">Prestées</th><th className="num">Boni</th><th>Statut</th></tr></thead>

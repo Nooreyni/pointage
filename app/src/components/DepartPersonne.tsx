@@ -3,6 +3,7 @@ import type { Api, ApercuDepart } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { dateCourte, duree, jourBxl } from '../lib/temps'
 import { IcAttention, IcCheck } from './Icones'
+import { LienReglages } from '../lib/navigation'
 
 /**
  * Départ d'une personne (offboarding) : on choisit la date, on voit l'impact, on confirme.
@@ -50,7 +51,7 @@ export default function DepartPersonne({ api, personneId, nom, dateSortie, onFai
               ? <li className="ko"><span><IcAttention size={14} /></span>Soldes à communiquer au secrétariat social : {apercu.soldes.map((s) => `${s.compteur} ${duree(s.reste_min)}`).join(' · ')}</li>
               : <li className="ok"><span><IcCheck size={14} /></span>Aucun solde restant.</li>}
             {apercu.demandes_apres > 0 && <li className="ko"><span><IcAttention size={14} /></span>{apercu.demandes_apres} demande(s) de congé après le départ : elles seront annulées.</li>}
-            {apercu.chef_de.length > 0 && <li className="ko"><span><IcAttention size={14} /></span>Chef de service ({apercu.chef_de.join(', ')}) : désigne son remplaçant dans Réglages › Services.</li>}
+            {apercu.chef_de.length > 0 && <li className="ko"><span><IcAttention size={14} /></span>Chef de service ({apercu.chef_de.join(', ')}) : désigne son remplaçant dans <LienReglages section="services">Réglages › Services</LienReglages>.</li>}
             {apercu.demandes_a_valider > 0 && <li className="ko"><span><IcAttention size={14} /></span>{apercu.demandes_a_valider} demande(s) attendent sa validation : à traiter avant son départ.</li>}
           </ul>
           <div className="actions" style={{ justifyContent: 'flex-start', marginTop: 0 }}>

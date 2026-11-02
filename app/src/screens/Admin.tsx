@@ -10,8 +10,10 @@ import DepartPersonne from '../components/DepartPersonne'
 import ArriveePersonne from '../components/ArriveePersonne'
 import ImportPersonnes from '../components/ImportPersonnes'
 import TeletravailHabituel from '../components/TeletravailHabituel'
+import { IcChevron } from '../components/Icones'
+import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
 
-export type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal'
+export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -20,9 +22,15 @@ export const ROLES: Record<Role, string> = {
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const enMin = (v: string) => { const [h, m] = (v || '0:0').split(':').map(Number); return h * 60 + (m || 0) }
 
-export default function Admin({ api, profil, sectionInitiale }: { api: Api; profil: Profil; sectionInitiale?: Section }) {
+/**
+ * Gestion : `vue="personnes"` (RH, admin RH, admin) = la liste et les fiches des personnes ;
+ * `vue="reglages"` (admin RH, admin) = services, régimes, accès, compteurs, paramètres, fériés, journal.
+ */
+export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', ficheInitiale }: {
+  api: Api; profil: Profil; sectionInitiale?: Section; vue?: 'personnes' | 'reglages'; ficheInitiale?: { id: string; onglet?: OngletFiche } | null
+}) {
   const estAdmin = profil.role === 'admin'
-  const [section, setSection] = useState<Section>(sectionInitiale ?? 'personnes')
+  const [section, setSection] = useState<Section>(sectionInitiale ?? 'services')
   useEffect(() => { if (sectionInitiale) setSection(sectionInitiale) }, [sectionInitiale])
   const [personnes, setPersonnes] = useState<AdminPersonne[] | null>(null)
   const [services, setServices] = useState<AdminService[]>([])
@@ -45,17 +53,21 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
 
   const ok = async (texte: string) => { setMessage({ texte }); await charger() }
   const sections: [Section, string][] = [
-    ['personnes', 'Personnes'], ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
+    ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
     ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'], ['journal', 'Journal'],
   ]
 
   return (
     <main className="contenu">
+      {vue === 'personnes' ? (
+        <div className="col-pleine pile">
+          <Personnes personnes={personnes} services={services} regimes={regimes} monRole={profil.role} api={api} ok={ok} erreur={erreur} ficheInitiale={ficheInitiale} />
+        </div>
+      ) : (
       <div className="col-pleine pile">
-        <div className="segments defilant" role="tablist" aria-label="Administration">
+        <div className="segments defilant" role="tablist" aria-label="Réglages">
           {sections.map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={section === id} onClick={() => setSection(id)}>{l}</button>)}
         </div>
-        {section === 'personnes' && <Personnes personnes={personnes} services={services} regimes={regimes} estAdmin={estAdmin} api={api} ok={ok} erreur={erreur} />}
         {section === 'services' && <Services services={services} personnes={personnes ?? []} api={api} ok={ok} erreur={erreur} />}
         {section === 'regimes' && <Regimes regimes={regimes} api={api} ok={ok} erreur={erreur} />}
         {section === 'acces' && <AccesServices api={api} personnes={personnes ?? []} services={services} erreur={erreur} setMessage={setMessage} />}
@@ -64,6 +76,7 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
         {section === 'journal' && <Journal api={api} erreur={erreur} />}
       </div>
+      )}
       <Toast message={message} />
     </main>
   )
@@ -73,215 +86,292 @@ type Commun = { api: Api; ok: (t: string) => Promise<void>; erreur: (e: unknown)
 
 
 // ---------------------------------------------------------------------------
-function Personnes({ personnes, services, regimes, estAdmin, api, ok, erreur }: Commun & {
-  personnes: AdminPersonne[] | null; services: AdminService[]; regimes: Regime[]; estAdmin: boolean
+type FiltrePersonnes = 'actives' | 'sans_compte' | 'depart' | 'parties'
+const peutGererRole = (moi: Role, r: Role) => moi === 'admin' || (moi === 'admin_rh' && r !== 'admin') || (moi === 'rh' && r !== 'admin' && r !== 'admin_rh')
+
+export function Personnes({ personnes, services, regimes, monRole, api, ok, erreur, ficheInitiale }: Commun & {
+  personnes: AdminPersonne[] | null; services: AdminService[]; regimes: Regime[]; monRole: Role
+  ficheInitiale?: { id: string; onglet?: OngletFiche } | null
 }) {
   const [filtre, setFiltre] = useState('')
-  const [sortis, setSortis] = useState(false)
-  const [fiche, setFiche] = useState<AdminPersonne | 'nouvelle' | null>(null)
+  const [vue, setVue] = useState<FiltrePersonnes>('actives')
+  const [fiche, setFiche] = useState<{ id: string | null; onglet?: OngletFiche } | null>(null)
   const [importer, setImport] = useState(false)
   const auj = jourBxl()
-  const liste = (personnes ?? []).filter((p) => (sortis || !p.date_sortie || p.date_sortie >= auj)
-    && `${p.prenom} ${p.nom} ${p.email} ${p.service} ${ROLES[p.role]}`.toLowerCase().includes(filtre.toLowerCase()))
+  // Fiche demandée depuis un autre écran (nom cliqué, recherche)
+  useEffect(() => { if (ficheInitiale) setFiche(ficheInitiale) }, [ficheInitiale])
+
+  const tous = personnes ?? []
+  const partie = (p: AdminPersonne) => !!p.date_sortie && p.date_sortie < auj
+  const groupes: Record<FiltrePersonnes, AdminPersonne[]> = {
+    actives: tous.filter((p) => !partie(p)),
+    sans_compte: tous.filter((p) => !partie(p) && !p.compte_lie),
+    depart: tous.filter((p) => !!p.date_sortie && p.date_sortie >= auj),
+    parties: tous.filter(partie),
+  }
+  const q = sansAccent(filtre)
+  const liste = groupes[vue].filter((p) => sansAccent(`${p.prenom} ${p.nom} ${p.email} ${p.service} ${ROLES[p.role]}`).includes(q))
+  const ouverte = fiche?.id ? tous.find((p) => p.id === fiche.id) ?? null : null
 
   return (
     <section className="carte">
       <div className="ligne entre barre-outils">
-        <h2>Personnes <span className="doux petit">({liste.length})</span></h2>
+        <h2>Personnes <span className="doux petit">({groupes.actives.length})</span></h2>
         <span className="ligne">
-          <input id="filtre-personnes" className="recherche" placeholder="Rechercher…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
           <button className="bouton secondaire petit" onClick={() => setImport(true)}>Importer</button>
-          <button className="bouton petit" onClick={() => setFiche('nouvelle')}>Nouvelle personne</button>
+          <button className="bouton petit" onClick={() => setFiche({ id: null })}>Nouvelle personne</button>
         </span>
       </div>
-      <label className="ligne petit doux" style={{ margin: '8px 0' }}>
-        <input type="checkbox" id="voir-sortis" checked={sortis} onChange={(e) => setSortis(e.target.checked)} /> Afficher les personnes parties
-      </label>
-      {importer && <ImportPersonnes api={api} services={services} regimes={regimes} existants={(personnes ?? []).map((p) => p.email.toLowerCase())}
+      <input id="filtre-personnes" type="search" className="recherche pleine" placeholder="Rechercher un nom, un service, un rôle…" aria-label="Rechercher"
+             value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+      <div className="filtres" role="group" aria-label="Filtrer">
+        {([['actives', 'En poste'], ['sans_compte', 'Sans compte'], ['depart', 'Départ prévu'], ['parties', 'Parties']] as [FiltrePersonnes, string][])
+          .filter(([id]) => id === 'actives' || groupes[id].length > 0)
+          .map(([id, l]) => <button key={id} className="puce" aria-pressed={vue === id} onClick={() => setVue(id)}>{l} <b>{groupes[id].length}</b></button>)}
+      </div>
+      {importer && <ImportPersonnes api={api} services={services} regimes={regimes} existants={tous.map((p) => p.email.toLowerCase())}
                                     onFermer={() => setImport(false)} onFait={(n) => { if (n) ok(`${n} personne(s) importée(s)`) }} />}
       {!personnes && <p className="vide">Chargement…</p>}
-      <div className="tableau-defilant">
-        <table className="tableau cliquable">
-          <thead><tr><th>Nom</th><th>Service</th><th>Rôle</th><th className="masque-mobile">Régime</th><th className="masque-mobile">Compte</th></tr></thead>
-          <tbody>{liste.map((p) => (
-            <tr key={p.id} onClick={() => setFiche(p)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setFiche(p)}>
-              <td><strong>{p.nom} {p.prenom}</strong>{p.type === 'isp' && <span className="pilule neutre" style={{ marginLeft: 6 }}>ISP</span>}
-                <div className="doux petit">{p.email}</div></td>
-              <td>{p.service}</td>
-              <td>{p.role === 'employe' ? <span className="doux">{ROLES[p.role]}</span> : <strong>{ROLES[p.role]}</strong>}</td>
-              <td className="doux masque-mobile">{p.regime ?? '—'}</td>
-              <td className="masque-mobile">{p.date_sortie && p.date_sortie < auj ? <span className="pilule neutre">Parti le {dateCourte(p.date_sortie)}</span>
-                : p.compte_lie ? <span className="pilule ok">Connecté</span> : <span className="pilule attente">Jamais connecté</span>}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
-      {fiche && <FichePersonne personne={fiche === 'nouvelle' ? null : fiche} services={services} regimes={regimes} estAdmin={estAdmin}
-                               api={api} onFermer={() => setFiche(null)} ok={async (t) => { setFiche(null); await ok(t) }} erreur={erreur} />}
+      {personnes && liste.length === 0 && <p className="vide">Personne ne correspond.</p>}
+      <ul className="liste-personnes">{liste.map((p) => (
+        <li key={p.id}>
+          <button className="ligne-personne" onClick={() => setFiche({ id: p.id })}>
+            <span className="qui"><strong>{p.nom} {p.prenom}</strong><span className="doux petit">{p.email}</span></span>
+            <span className="ou">{p.service}<span className="doux petit">{ROLES[p.role]}{p.type === 'isp' ? ' · ISP' : ''}</span></span>
+            <span className="etat">{partie(p) ? <span className="pilule neutre">Partie le {dateCourte(p.date_sortie!)}</span>
+              : p.date_sortie ? <span className="pilule attente">Départ {dateCourte(p.date_sortie)}</span>
+              : p.compte_lie ? <span className="pilule ok">Compte actif</span> : <span className="pilule attente">Sans compte</span>}</span>
+            <IcChevron size={16} />
+          </button>
+        </li>
+      ))}</ul>
+      {fiche && (fiche.id === null || ouverte) && (
+        <FichePersonne key={fiche.id ?? 'nouvelle'} personne={ouverte} ongletInitial={fiche.onglet} tous={tous} services={services} regimes={regimes}
+                       monRole={monRole} api={api} onFermer={() => setFiche(null)} erreur={erreur}
+                       onEnregistre={async (texte, id) => { await ok(texte); setFiche({ id, onglet: fiche.id === null ? 'compte' : fiche.onglet }) }} />
+      )}
     </section>
   )
 }
 
-function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, ok, erreur }: Commun & {
-  personne: AdminPersonne | null; services: AdminService[]; regimes: Regime[]; estAdmin: boolean; onFermer: () => void
+
+function FichePersonne({ personne, ongletInitial, tous, services, regimes, monRole, api, onFermer, onEnregistre, erreur }: {
+  personne: AdminPersonne | null; ongletInitial?: OngletFiche; tous: AdminPersonne[]; services: AdminService[]; regimes: Regime[]; monRole: Role
+  api: Api; onFermer: () => void; onEnregistre: (texte: string, id: string) => Promise<void>; erreur: (e: unknown) => void
+}) {
+  const [onglet, setOnglet] = useState<OngletFiche>(ongletInitial ?? 'identite')
+  const [version, setVersion] = useState(0)   // recharge les encarts (arrivée) après une action
+  // Message dans la fiche (sans la fermer)
+  const [note, setNote] = useState<MessageToast>(null)
+  const noter = (texte: string, e?: boolean) => { setNote({ texte, erreur: e }); setTimeout(() => setNote(null), e ? 6000 : 3500); if (!e) setVersion((v) => v + 1) }
+  const verrouille = !!personne && !peutGererRole(monRole, personne.role)
+  const auj = jourBxl()
+  const enArrivee = !!personne && !personne.date_sortie && (!personne.compte_lie || personne.date_entree >= decalerJour(auj, -60))
+  const recharger = async (texte: string) => { await onEnregistre(texte, personne!.id) }
+
+  if (!personne) {
+    return (
+      <Fenetre titre="Nouvelle personne" onFermer={onFermer} large>
+        <p className="doux petit" style={{ marginTop: 0 }}>Étape 1 sur 2 : l’identité. Ensuite, la fiche reste ouverte pour créer son compte et régler le reste.</p>
+        <Identite personne={null} tous={tous} services={services} regimes={regimes} monRole={monRole} api={api} erreur={erreur}
+                  onEnregistre={(id) => onEnregistre('Personne créée ✅', id)} onAnnuler={onFermer} />
+      </Fenetre>
+    )
+  }
+
+  const onglets: [OngletFiche, string][] = [['identite', 'Identité'], ['travail', 'Horaire'], ['compte', 'Compte'], ['soldes', 'Soldes'], ['depart', 'Départ']]
+  return (
+    <Fenetre titre={`${personne.prenom} ${personne.nom}`} onFermer={onFermer} large>
+      <p className="entete-fiche doux petit">
+        {personne.service} · {ROLES[personne.role]}{personne.type === 'isp' ? ' · ISP' : ''}
+        {personne.date_sortie ? <span className="pilule attente">{personne.date_sortie < auj ? 'Partie' : 'Départ'} le {dateCourte(personne.date_sortie)}</span>
+          : personne.compte_lie ? <span className="pilule ok">Compte actif</span> : <span className="pilule attente">Sans compte</span>}
+      </p>
+      {verrouille && <p className="attention petit">Seul un {personne.role === 'admin' ? 'admin général' : 'admin RH ou admin général'} peut modifier cette fiche.</p>}
+      {enArrivee && !verrouille && <ArriveePersonne key={version} api={api} personne={personne} onFait={noter} onAller={setOnglet} />}
+
+      <div className="segments onglets-fiche" role="tablist" aria-label="Sections de la fiche">
+        {onglets.map(([id, l]) => <button key={id} type="button" role="tab" aria-selected={onglet === id} onClick={() => setOnglet(id)}>{l}</button>)}
+      </div>
+
+      <div className="panneau-fiche" role="tabpanel">
+        {onglet === 'identite' && (
+          <Identite personne={personne} tous={tous} services={services} regimes={regimes} monRole={monRole} api={api} erreur={erreur}
+                    verrouille={verrouille} onEnregistre={() => recharger('Fiche mise à jour ✅')} />
+        )}
+        {onglet === 'travail' && <>
+          <h3 className="titre-bloc">Régime de travail</h3>
+          <RegimePersonne personne={personne} regimes={regimes} api={api} verrouille={verrouille} erreur={erreur}
+                          onFait={(t) => recharger(t)} />
+          <h3 className="titre-bloc">Télétravail habituel</h3>
+          <TeletravailHabituel api={api} personneId={personne.id} moi={false} sansEtiquette />
+        </>}
+        {onglet === 'compte' && <>
+          <h3 className="titre-bloc">Compte de connexion</h3>
+          {verrouille ? <p className="doux petit">Géré par un admin.</p> : <>
+            <MotDePasseRH api={api} personneId={personne.id} compteLie={personne.compte_lie} onFait={() => setVersion((v) => v + 1)} />
+            {personne.compte_lie && ['admin', 'admin_rh'].includes(monRole) && <DelierCompte personne={personne} api={api} erreur={erreur} onFait={() => recharger('Compte délié')} />}
+          </>}
+        </>}
+        {onglet === 'soldes' && <>
+          <h3 className="titre-bloc">Soldes et compteurs</h3>
+          <SoldesPersonne api={api} personneId={personne.id} onMessage={noter} />
+        </>}
+        {onglet === 'depart' && <>
+          <h3 className="titre-bloc">Départ</h3>
+          {verrouille ? <p className="doux petit">Géré par un admin.</p>
+            : <DepartPersonne api={api} personneId={personne.id} nom={`${personne.prenom} ${personne.nom}`} dateSortie={personne.date_sortie}
+                              onFait={(t, e) => (e ? noter(t, true) : recharger(t))} />}
+        </>}
+      </div>
+      <Toast message={note} />
+    </Fenetre>
+  )
+}
+
+/** Identité : prénom, nom, e-mail, service, rôle, contrat, entrée (+ régime à la création). Le départ a son propre onglet. */
+function Identite({ personne, tous, services, regimes, monRole, api, erreur, verrouille, onEnregistre, onAnnuler }: {
+  personne: AdminPersonne | null; tous: AdminPersonne[]; services: AdminService[]; regimes: Regime[]; monRole: Role; api: Api
+  erreur: (e: unknown) => void; verrouille?: boolean; onEnregistre: (id: string) => Promise<void>; onAnnuler?: () => void
 }) {
   const [f, setF] = useState<SaisiePersonne>(() => personne
     ? { id: personne.id, prenom: personne.prenom, nom: personne.nom, email: personne.email, service_id: personne.service_id, role: personne.role,
         type: personne.type, partenaire_isp: personne.partenaire_isp, matricule: personne.matricule, date_entree: personne.date_entree,
         date_sortie: personne.date_sortie, regime_id: personne.regime_id }
-    : { id: null, prenom: '', nom: '', email: '', service_id: services[0]?.id ?? '', role: 'employe', type: 'interne', partenaire_isp: null,
+    : { id: null, prenom: '', nom: '', email: '', service_id: '', role: 'employe', type: 'interne', partenaire_isp: null,
         matricule: null, date_entree: jourBxl(), date_sortie: null, regime_id: regimes.find((r) => r.actif)?.id ?? null })
-  const [nouveauRegime, setNouveauRegime] = useState<number>(personne?.regime_id ?? regimes[0]?.id ?? 0)
-  const [dateRegime, setDateRegime] = useState(`${Number(jourBxl().slice(0, 4)) + 1}-01-01`)
   const [enCours, setEnCours] = useState(false)
-  const [confirmerDelier, setConfirmerDelier] = useState(false)
-  // Message dans la fiche (sans la fermer) : soldes, arrivée
-  const [note, setNote] = useState<MessageToast>(null)
-  const noter = (texte: string, e?: boolean) => { setNote({ texte, erreur: e }); setTimeout(() => setNote(null), e ? 6000 : 3500) }
-  const regimeActuel = regimes.find((r) => r.id === personne?.regime_id)
-  const [joursAuChoix, setJoursAuChoix] = useState(false)
-  const [jours, setJours] = useState<boolean[]>(() => (regimeActuel?.minutes_jour ?? [1, 1, 1, 1, 1, 0, 0]).map((m) => m > 0))
-  const [heuresJour, setHeuresJour] = useState(() => hhmm(Math.max(...(regimeActuel?.minutes_jour ?? [456])) || 456))
   const maj = <K extends keyof SaisiePersonne>(k: K, v: SaisiePersonne[K]) => setF((x) => ({ ...x, [k]: v }))
-  const verrouille = personne?.role === 'admin' && !estAdmin
+  // Adresse proposée : prénom.nom@ le domaine le plus courant du CFB
+  const domaine = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const p of tous) { const d = p.email.split('@')[1]; if (d && !d.includes('invalide')) n.set(d, (n.get(d) ?? 0) + 1) }
+    return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  }, [tous])
+  const normal = (t: string) => sansAccent(t).trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  const proposee = !personne && domaine && f.prenom.trim() && f.nom.trim() ? `${normal(f.prenom)}.${normal(f.nom)}@${domaine}` : null
+  const homonyme = !personne && f.prenom.trim() && f.nom.trim()
+    ? tous.find((p) => sansAccent(p.prenom) === sansAccent(f.prenom.trim()) && sansAccent(p.nom) === sansAccent(f.nom.trim())) : undefined
+  const emailPris = tous.find((p) => p.id !== personne?.id && p.email.toLowerCase() === f.email.trim().toLowerCase())
 
   return (
-    <Fenetre titre={personne ? `${personne.prenom} ${personne.nom}` : 'Nouvelle personne'} onFermer={onFermer}>
-      <form onSubmit={async (e) => {
-        e.preventDefault(); setEnCours(true)
-        try { await api.enregistrerPersonne(f); await ok(personne ? 'Fiche mise à jour ✅' : 'Personne créée ✅ — ouvre sa fiche pour créer son mot de passe') }
-        catch (err) { erreur(err) } finally { setEnCours(false) }
-      }}>
-        {verrouille && <p className="attention petit">Seul un admin général peut modifier un admin général.</p>}
-        <fieldset disabled={verrouille} className="sans-cadre">
-          <div className="champs-ligne">
-            <label className="champ">Prénom<input id="p-prenom" value={f.prenom} required onChange={(e) => maj('prenom', e.target.value)} /></label>
-            <label className="champ">Nom<input id="p-nom" value={f.nom} required onChange={(e) => maj('nom', e.target.value)} /></label>
-          </div>
-          <label className="champ">E-mail professionnel (identifiant de connexion)
-            <input id="p-email" type="email" value={f.email} required onChange={(e) => maj('email', e.target.value)} placeholder="prenom.nom@…" /></label>
-          <div className="champs-ligne">
-            <label className="champ">Service
-              <select id="p-service" value={f.service_id} onChange={(e) => maj('service_id', e.target.value)}>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}</select></label>
-            <label className="champ">Rôle
-              <select id="p-role" value={f.role} onChange={(e) => maj('role', e.target.value as Role)}>
-                {(Object.keys(ROLES) as Role[]).map((r) => <option key={r} value={r} disabled={r === 'admin' && !estAdmin}>{ROLES[r]}</option>)}</select></label>
-          </div>
-          <div className="champs-ligne">
-            <label className="champ">Contrat
-              <select id="p-type" value={f.type} onChange={(e) => maj('type', e.target.value as 'interne' | 'isp')}>
-                <option value="interne">Personnel CFB</option><option value="isp">ISP (article 60, CPAS)</option></select></label>
-            {f.type === 'isp'
-              ? <label className="champ">Partenaire<input id="p-partenaire" value={f.partenaire_isp ?? ''} required placeholder="CPAS de …"
-                                                         onChange={(e) => maj('partenaire_isp', e.target.value)} /></label>
-              : <label className="champ">Matricule Partena<input id="p-matricule" value={f.matricule ?? ''} onChange={(e) => maj('matricule', e.target.value)} /></label>}
-          </div>
-          <div className="champs-ligne">
-            <label className="champ">Date d’entrée<input id="p-entree" type="date" value={f.date_entree} required onChange={(e) => maj('date_entree', e.target.value)} /></label>
-            <label className="champ">Date de départ<input id="p-sortie" type="date" value={f.date_sortie ?? ''} min={f.date_entree}
-                                                          onChange={(e) => maj('date_sortie', e.target.value || null)} /></label>
-          </div>
+    <form onSubmit={async (e) => {
+      e.preventDefault(); setEnCours(true)
+      try { const id = await api.enregistrerPersonne({ ...f, email: f.email.trim() }); await onEnregistre(id) }
+      catch (err) { erreur(err) } finally { setEnCours(false) }
+    }}>
+      <fieldset disabled={verrouille} className="sans-cadre">
+        <div className="champs-ligne">
+          <label className="champ">Prénom<input id="p-prenom" value={f.prenom} required autoComplete="off" onChange={(e) => maj('prenom', e.target.value)} /></label>
+          <label className="champ">Nom<input id="p-nom" value={f.nom} required autoComplete="off" onChange={(e) => maj('nom', e.target.value)} /></label>
+        </div>
+        {homonyme && <p className="attention petit">Une fiche existe déjà à ce nom ({homonyme.service}{homonyme.date_sortie ? ', partie' : ''}) : vérifie qu’il ne s’agit pas de la même personne.</p>}
+        <label className="champ"><span>E-mail professionnel <span className="doux">(identifiant de connexion)</span></span>
+          <input id="p-email" type="email" value={f.email} required autoComplete="off" inputMode="email" onChange={(e) => maj('email', e.target.value)}
+                 placeholder={proposee ?? 'prenom.nom@…'} /></label>
+        {proposee && !f.email && <button type="button" className="lien petit suggestion" onClick={() => maj('email', proposee)}>Utiliser {proposee}</button>}
+        {emailPris && <p className="negatif petit">Adresse déjà utilisée par {emailPris.prenom} {emailPris.nom}.</p>}
+        <div className="champs-ligne">
+          <label className="champ">Service
+            <select id="p-service" value={f.service_id} required onChange={(e) => maj('service_id', e.target.value)}>
+              {!f.service_id && <option value="" disabled>Choisir…</option>}
+              {services.filter((s) => s.actif || s.id === f.service_id).map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}</select></label>
+          <label className="champ">Rôle
+            <select id="p-role" value={f.role} onChange={(e) => maj('role', e.target.value as Role)}>
+              {(Object.keys(ROLES) as Role[]).filter((r) => peutGererRole(monRole, r) || r === f.role)
+                .map((r) => <option key={r} value={r} disabled={!peutGererRole(monRole, r)}>{ROLES[r]}</option>)}</select></label>
+        </div>
+        <div className="champs-ligne">
+          <label className="champ">Contrat
+            <select id="p-type" value={f.type} onChange={(e) => maj('type', e.target.value as 'interne' | 'isp')}>
+              <option value="interne">Personnel CFB</option><option value="isp">ISP (article 60, CPAS)</option></select></label>
+          {f.type === 'isp'
+            ? <label className="champ">Partenaire<input id="p-partenaire" value={f.partenaire_isp ?? ''} required placeholder="CPAS de …"
+                                                       onChange={(e) => maj('partenaire_isp', e.target.value)} /></label>
+            : <label className="champ"><span>Matricule Partena <span className="doux">(facultatif)</span></span>
+                <input id="p-matricule" value={f.matricule ?? ''} inputMode="numeric" onChange={(e) => maj('matricule', e.target.value)} /></label>}
+        </div>
+        <div className="champs-ligne">
+          <label className="champ">Date d’entrée<input id="p-entree" type="date" value={f.date_entree} required onChange={(e) => maj('date_entree', e.target.value)} /></label>
           {!personne && (
             <label className="champ">Régime de travail
               <select id="p-regime" value={f.regime_id ?? ''} required onChange={(e) => maj('regime_id', Number(e.target.value))}>
                 {regimes.filter((r) => r.actif).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}</select></label>
           )}
-          <p className="doux petit">Chef de service : se règle dans l’onglet Services. Après le départ, la personne ne peut plus se connecter ; son historique est conservé.</p>
-          <div className="actions">
-            <button type="button" className="bouton secondaire" onClick={onFermer}>Fermer</button>
-            <button className="bouton" disabled={enCours}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</button>
-          </div>
-        </fieldset>
-      </form>
+        </div>
+        <p className="doux petit">Chef de service : se règle dans <LienReglages section="services">Réglages › Services</LienReglages>.
+          {personne && ' Départ : onglet « Départ ».'}</p>
+        <div className="actions">
+          {onAnnuler && <button type="button" className="bouton secondaire" onClick={onAnnuler}>Annuler</button>}
+          <button className="bouton" disabled={enCours || !!emailPris}>{enCours ? 'Enregistrement…' : personne ? 'Enregistrer' : 'Créer la fiche'}</button>
+        </div>
+      </fieldset>
+    </form>
+  )
+}
 
-      {personne && !verrouille && !personne.date_sortie && (!personne.compte_lie || personne.date_entree >= decalerJour(jourBxl(), -60)) && (
-        <div className="encart">
-          <h3>Arrivée</h3>
-          <ArriveePersonne api={api} personne={personne} onFait={(t, e) => noter(t, e)} />
+function RegimePersonne({ personne, regimes, api, verrouille, erreur, onFait }: {
+  personne: AdminPersonne; regimes: Regime[]; api: Api; verrouille: boolean; erreur: (e: unknown) => void; onFait: (t: string) => Promise<void>
+}) {
+  const regimeActuel = regimes.find((r) => r.id === personne.regime_id)
+  const [joursAuChoix, setJoursAuChoix] = useState(false)
+  const [nouveauRegime, setNouveauRegime] = useState<number>(personne.regime_id ?? regimes[0]?.id ?? 0)
+  const [dateRegime, setDateRegime] = useState(() => (personne.date_entree > jourBxl() ? personne.date_entree : `${Number(jourBxl().slice(0, 4)) + 1}-01-01`))
+  const [jours, setJours] = useState<boolean[]>(() => (regimeActuel?.minutes_jour ?? [1, 1, 1, 1, 1, 0, 0]).map((m) => m > 0))
+  const [heuresJour, setHeuresJour] = useState(() => hhmm(Math.max(...(regimeActuel?.minutes_jour ?? [456])) || 456))
+  return (
+    <div>
+      <p className="petit" style={{ marginTop: 0 }}>Actuel : <strong>{personne.regime ?? '—'}</strong>{personne.regime_depuis && ` depuis le ${dateCourte(personne.regime_depuis)}`}</p>
+      {!verrouille && <>
+        <div className="segments compact" role="radiogroup" aria-label="Type de régime" style={{ marginBottom: 10 }}>
+          <button type="button" role="radio" aria-checked={!joursAuChoix} onClick={() => setJoursAuChoix(false)}>Régime existant</button>
+          <button type="button" role="radio" aria-checked={joursAuChoix} onClick={() => setJoursAuChoix(true)}>Jours au choix</button>
         </div>
-      )}
+        {joursAuChoix ? (
+          <>
+            <div className="jours-tt" role="group" aria-label="Jours travaillés">
+              {JOURS.map((j, i) => (
+                <button key={j} type="button" className="puce" aria-pressed={jours[i]} onClick={() => setJours(jours.map((x, k) => (k === i ? !x : x)))}>{j}</button>
+              ))}
+            </div>
+            <div className="champs-ligne">
+              <label className="champ">Heures par jour<input id="p-heures-jour" type="time" value={heuresJour} onChange={(e) => setHeuresJour(e.target.value)} /></label>
+              <label className="champ">À partir du<input id="p-date-regime-jours" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
+            </div>
+            <p className="doux petit" style={{ marginTop: 0 }}>{jours.filter(Boolean).length} jour(s) · {duree(jours.filter(Boolean).length * enMin(heuresJour))} par semaine (4/5, 3/5…).</p>
+            <button className="bouton secondaire" onClick={async () => {
+              try { await api.regimePersonnalise(personne.id, jours.map((x) => (x ? enMin(heuresJour) : 0)), dateRegime); await onFait('Jours de travail enregistrés ✅') } catch (e) { erreur(e) }
+            }}>Programmer ces jours</button>
+          </>
+        ) : (
+          <>
+            <div className="champs-ligne">
+              <label className="champ">Nouveau régime
+                <select id="p-nouveau-regime" value={nouveauRegime} onChange={(e) => setNouveauRegime(Number(e.target.value))}>
+                  {regimes.filter((r) => r.actif).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}</select></label>
+              <label className="champ">À partir du<input id="p-date-regime" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
+            </div>
+            <button className="bouton secondaire" onClick={async () => {
+              try { await api.changerRegime(personne.id, nouveauRegime, dateRegime); await onFait('Changement de régime enregistré ✅') } catch (e) { erreur(e) }
+            }}>Programmer le changement</button>
+          </>
+        )}
+      </>}
+    </div>
+  )
+}
 
-      {personne && !verrouille && (
-        <div className="encart">
-          <h3>Compte de connexion</h3>
-          <MotDePasseRH api={api} personneId={personne.id} compteLie={personne.compte_lie} />
-          {personne.compte_lie && <>
-            <p className="petit">Lié au compte <strong>{personne.email}</strong>. Délier seulement si un mauvais compte a été associé.</p>
-            {confirmerDelier
-              ? <div className="actions" style={{ justifyContent: 'flex-start' }}>
-                  <button className="bouton danger" onClick={async () => {
-                    try { await api.delierCompte(personne.id); await ok('Compte délié') } catch (e) { erreur(e) } finally { setConfirmerDelier(false) }
-                  }}>Confirmer</button>
-                  <button className="bouton secondaire" onClick={() => setConfirmerDelier(false)}>Annuler</button></div>
-              : <button className="lien petit" onClick={() => setConfirmerDelier(true)}>Délier le compte</button>}
-          </>}
-        </div>
-      )}
-
-      {personne && (
-        <div className="encart">
-          <h3>Télétravail habituel</h3>
-          <TeletravailHabituel api={api} personneId={personne.id} moi={false} />
-        </div>
-      )}
-
-      {personne && !verrouille && (
-        <div className="encart">
-          <h3>Soldes et compteurs</h3>
-          <SoldesPersonne api={api} personneId={personne.id} onMessage={(t, e) => noter(t, e)} />
-        </div>
-      )}
-
-      {personne && !verrouille && (
-        <div className="encart">
-          <h3>Régime de travail</h3>
-          <p className="petit">Actuel : <strong>{personne.regime ?? '—'}</strong>{personne.regime_depuis && ` depuis le ${dateCourte(personne.regime_depuis)}`}</p>
-          <div className="segments compact" role="radiogroup" aria-label="Type de régime" style={{ marginBottom: 10 }}>
-            <button type="button" role="radio" aria-checked={!joursAuChoix} onClick={() => setJoursAuChoix(false)}>Régime existant</button>
-            <button type="button" role="radio" aria-checked={joursAuChoix} onClick={() => setJoursAuChoix(true)}>Jours au choix (4/5, 3/5…)</button>
-          </div>
-          {joursAuChoix ? (
-            <>
-              <div className="jours-tt" role="group" aria-label="Jours travaillés">
-                {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((j, i) => (
-                  <button key={j} type="button" className="puce" aria-pressed={jours[i]} onClick={() => setJours(jours.map((x, k) => (k === i ? !x : x)))}>{j}</button>
-                ))}
-              </div>
-              <div className="champs-ligne">
-                <label className="champ">Heures par jour travaillé<input id="p-heures-jour" type="time" value={heuresJour} onChange={(e) => setHeuresJour(e.target.value)} /></label>
-                <label className="champ">À partir du<input id="p-date-regime-jours" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
-              </div>
-              <p className="doux petit" style={{ marginTop: 0 }}>{jours.filter(Boolean).length} jour(s) · {duree(jours.filter(Boolean).length * enMin(heuresJour))} par semaine.
-                Un régime identique est réutilisé, sinon il est créé (visible dans Régimes).</p>
-              <button className="bouton secondaire large" onClick={async () => {
-                try { await api.regimePersonnalise(personne.id, jours.map((x) => (x ? enMin(heuresJour) : 0)), dateRegime); await ok('Jours de travail enregistrés ✅') } catch (e) { erreur(e) }
-              }}>Programmer ces jours</button>
-            </>
-          ) : (
-            <>
-              <div className="champs-ligne">
-                <label className="champ">Nouveau régime
-                  <select id="p-nouveau-regime" value={nouveauRegime} onChange={(e) => setNouveauRegime(Number(e.target.value))}>
-                    {regimes.filter((r) => r.actif).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}</select></label>
-                <label className="champ">À partir du<input id="p-date-regime" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
-              </div>
-              <button className="bouton secondaire large" onClick={async () => {
-                try { await api.changerRegime(personne.id, nouveauRegime, dateRegime); await ok('Changement de régime enregistré ✅') } catch (e) { erreur(e) }
-              }}>Programmer le changement</button>
-            </>
-          )}
-        </div>
-      )}
-      {personne && !verrouille && (
-        <div className="encart">
-          <h3>Départ</h3>
-          <DepartPersonne api={api} personneId={personne.id} nom={`${personne.prenom} ${personne.nom}`} dateSortie={personne.date_sortie}
-                          onFait={(t, e) => (e ? erreur(new Error(t)) : ok(t))} />
-        </div>
-      )}
-      <Toast message={note} />
-    </Fenetre>
+function DelierCompte({ personne, api, erreur, onFait }: { personne: AdminPersonne; api: Api; erreur: (e: unknown) => void; onFait: () => Promise<void> }) {
+  const [confirmer, setConfirmer] = useState(false)
+  return (
+    <div className="repli-delier">
+      <p className="doux petit">Lié au compte <strong>{personne.email}</strong>. Délier seulement si un mauvais compte a été associé.</p>
+      {confirmer
+        ? <div className="actions" style={{ justifyContent: 'flex-start' }}>
+            <button className="bouton danger" onClick={async () => { try { await api.delierCompte(personne.id); await onFait() } catch (e) { erreur(e) } finally { setConfirmer(false) } }}>Confirmer</button>
+            <button className="bouton secondaire" onClick={() => setConfirmer(false)}>Annuler</button></div>
+        : <button className="lien petit" onClick={() => setConfirmer(true)}>Délier le compte</button>}
+    </div>
   )
 }
 
@@ -303,7 +393,7 @@ function Services({ services, personnes, api, ok, erreur }: Commun & { services:
               <td><span className="pastille-service" style={{ background: s.couleur ?? '#B7BFD3' }} /><strong>{s.nom}</strong>
                 {!s.actif && <span className="pilule neutre" style={{ marginLeft: 6 }}>inactif</span>}</td>
               <td className="doux">{services.find((x) => x.id === s.parent_id)?.nom ?? '—'}</td>
-              <td>{s.chefs.length ? s.chefs.map(nomDe).join(', ') : <span className="doux">aucun → direction</span>}</td>
+              <td>{s.chefs.length ? s.chefs.map((c, i) => <span key={c}>{i > 0 && ', '}<LienPersonne id={c} nom={nomDe(c)} /></span>) : <span className="doux">aucun → direction</span>}</td>
               <td className="num">{s.effectif}</td>
               <td className="num">{s.seuil_absence_pct} %</td>
             </tr>
@@ -446,7 +536,7 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
       {liste.length === 0 ? <p className="vide">Aucun accès particulier.</p> : (
         <ul className="liste">{liste.map((a) => (
           <li key={a.personne_id + a.service_id}>
-            <span className="texte-ligne"><strong>{a.prenom} {a.nom}</strong> → {a.service}</span>
+            <span className="texte-ligne"><LienPersonne id={a.personne_id} nom={`${a.prenom} ${a.nom}`} /> → {a.service}</span>
             <span className={`pilule ${a.peut_valider ? 'ok' : 'neutre'}`}>{a.peut_valider ? 'Lecture + validation' : 'Lecture'}</span>
             <button className="lien petit" onClick={async () => {
               try { await api.retirerAcces(a.personne_id, a.service_id); setMessage({ texte: 'Accès retiré' }); charger() } catch (e) { erreur(e) }

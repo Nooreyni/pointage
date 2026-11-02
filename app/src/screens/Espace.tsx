@@ -8,6 +8,7 @@ import { IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, I
 import Recherche, { type Cible } from '../components/Recherche'
 import { ReglagesContext } from '../lib/reglages'
 import DoubleAuth from '../components/DoubleAuth'
+import { NavContext, type CibleNav, type OngletFiche } from '../lib/navigation'
 import type { Section } from './Admin'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
@@ -26,7 +27,7 @@ const Aide = lazy(() => import('./Aide'))
 import { useDialogue } from '../components/useDialogue'
 import { useInactivite } from '../components/useInactivite'
 
-type Onglet = 'pointer' | 'bilan' | 'aide' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
+type Onglet = 'pointer' | 'bilan' | 'aide' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'personnes' | 'rapports' | 'admin' | 'alertes' | 'compte'
 
 const VUES_DEMO: [Persona, string, string][] = [
   ['employe', 'Employée', 'Pointe, demande ses congés'],
@@ -46,7 +47,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>(() => {
     const demande = new URLSearchParams(location.search).get('onglet')
-    return (['pointer', 'bilan', 'aide', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+    return (['pointer', 'bilan', 'aide', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'personnes', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
   })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
@@ -59,6 +60,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [rechercheOuverte, setRechercheOuverte] = useState(false)
   const [rechercheEquipe, setRechercheEquipe] = useState('')
   const [sectionAdmin, setSectionAdmin] = useState<Section | undefined>(undefined)
+  const [ficheCible, setFicheCible] = useState<{ id: string; onglet?: OngletFiche } | null>(null)
   const [inactiviteMin, setInactiviteMin] = useState(0)
   const [dernieres, setDernieres] = useState<Record<string, Onglet>>({})
   const [reglages, setReglages] = useState<Record<string, number>>({})
@@ -151,7 +153,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   }
   const aller = (o: Onglet, vc: VueConges = 'mes') => {
     setVueConges(vc); setOnglet(o); window.scrollTo({ top: 0 })
-    const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'rapports' || o === 'admin' ? 'gestion' : o === 'equipe' || o === 'bilan' ? 'equipe' : null
+    const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'personnes' || o === 'rapports' || o === 'admin' ? 'gestion' : o === 'equipe' || o === 'bilan' ? 'equipe' : null
     if (g) setDernieres((d) => ({ ...d, [g]: o }))
   }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider') : aller(d))
@@ -165,13 +167,13 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const vues: [Onglet, string][] = [
     ['pointer', 'Pointer'], ['agenda', 'Calendrier'], ['heures', 'Heures'], ['conges', 'Congés'],
     ...(voitEquipe ? [['equipe', 'Équipe'] as [Onglet, string], ['bilan', 'Récap du mois'] as [Onglet, string]] : []),
-    ...(gere ? [['rh', 'Suivi RH'] as [Onglet, string]] : []),
+    ...(gere ? [['rh', 'Suivi RH'] as [Onglet, string], ['personnes', 'Personnes'] as [Onglet, string]] : []),
     ...(voitRapports ? [['rapports', 'Rapports'] as [Onglet, string]] : []),
     ...(estAdmin ? [['admin', 'Réglages'] as [Onglet, string]] : []),
     ['alertes', 'Alertes'], ['compte', 'Mon compte'], ['aide', 'Aide'],
   ]
   // … regroupées en 3 à 5 onglets : le reste passe par des sous-onglets, la cloche et l'avatar
-  const gestion = vues.filter(([id]) => id === 'rh' || id === 'rapports' || id === 'admin')
+  const gestion = vues.filter(([id]) => id === 'rh' || id === 'personnes' || id === 'rapports' || id === 'admin')
   const groupes: { id: string; libelle: string; Icone: (p?: { size?: number }) => React.JSX.Element; vues: [Onglet, string][]; compte: number }[] = [
     { id: 'pointer', libelle: 'Pointer', Icone: IcHorloge, vues: [['pointer', 'Pointer']], compte: 0 },
     { id: 'mois', libelle: 'Mon mois', Icone: IcAgenda, vues: [['agenda', 'Calendrier'], ['heures', 'Heures']], compte: 0 },
@@ -183,9 +185,18 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const actif: Onglet = vues.some(([id]) => id === onglet) ? onglet : 'pointer'
   const groupeActif = groupes.find((g) => g.vues.some(([id]) => id === actif))
   const derniere = (g: (typeof groupes)[number]) => g.vues.find(([id]) => id === dernieres[g.id])?.[0] ?? g.vues[0][0]
+  // Liens internes : un nom ou une fonction cité quelque part mène directement au bon endroit
+  const naviguer = (c: CibleNav) => {
+    if (c.vers === 'personne' && gere) { setFicheCible({ id: c.id, onglet: c.onglet }); aller('personnes') }
+    else if (c.vers === 'personne' || c.vers === 'temps') { setFicheDe(c.id); aller('heures') }
+    else if (c.vers === 'reglages') { setSectionAdmin(c.section); aller('admin') }
+    else aller(c.onglet as Onglet)
+  }
+  const nav = { naviguer, ficheRH: gere, ficheTemps: voitEquipe, reglages: estAdmin }
 
   return (
     <ReglagesContext.Provider value={reglages}>
+    <NavContext.Provider value={nav}>
     <div className="app">
       <header className="entete">
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
@@ -225,7 +236,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
 
       <nav className="nav" aria-label="Navigation principale">
         {groupes.map((g) => (
-          <button key={g.id} aria-current={groupeActif?.id === g.id ? 'page' : undefined} onClick={() => { setRechercheEquipe(''); setSectionAdmin(undefined); aller(derniere(g)) }}>
+          <button key={g.id} aria-current={groupeActif?.id === g.id ? 'page' : undefined} onClick={() => { setRechercheEquipe(''); setSectionAdmin(undefined); setFicheCible(null); aller(derniere(g)) }}>
             <span className="icone-nav"><g.Icone />{g.compte > 0 && <span className="pastille-nav">{g.compte}</span>}</span>{g.libelle}
           </button>
         ))}
@@ -233,7 +244,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {groupeActif && groupeActif.vues.length > 1 && (
         <div className="sous-nav" role="tablist" aria-label={groupeActif.libelle}>
           {groupeActif.vues.map(([id, libelle]) => (
-            <button key={id} role="tab" aria-selected={actif === id} onClick={() => { setSectionAdmin(undefined); aller(id) }}>{libelle}</button>
+            <button key={id} role="tab" aria-selected={actif === id} onClick={() => { setSectionAdmin(undefined); setFicheCible(null); aller(id) }}>{libelle}</button>
           ))}
         </div>
       )}
@@ -243,6 +254,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
         <Recherche api={api} profil={profil} onglets={vues} onFermer={() => setRechercheOuverte(false)}
                    onChoisir={(c: Cible) => {
                      if (c.type === 'onglet') aller(c.onglet as Onglet)
+                     else if (c.type === 'personne' && gere) naviguer({ vers: 'personne', id: c.id })
                      else if (c.type === 'personne' && c.fiche) { setFicheDe(c.id); aller('heures') }
                      else if (c.type === 'personne') { setRechercheEquipe(c.nom); aller('equipe') }
                      else if (c.type === 'service') { setRechercheEquipe(c.nom); aller('equipe') }
@@ -261,11 +273,13 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}
       {actif === 'admin' && <Admin api={api} profil={profil} sectionInitiale={sectionAdmin} />}
+      {actif === 'personnes' && <Admin api={api} profil={profil} vue="personnes" ficheInitiale={ficheCible} />}
       {actif === 'heures' && <Heures api={api} profil={profil} personneInitiale={ficheDe} />}
       {actif === 'equipe' && <Equipe api={api} profil={profil} rechercheInitiale={rechercheEquipe} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
       </Suspense>
     </div>
+    </NavContext.Provider>
     </ReglagesContext.Provider>
   )
 }

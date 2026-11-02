@@ -280,6 +280,9 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   const exigerAdmin = (rh = true) => {
     if (!(profil.role === 'admin' || (rh && profil.role === 'admin_rh'))) throw new Error('Action réservée à l’admin général')
   }
+  // Fiches des personnes : admin, admin RH et RH (la RH ne gère pas les admins)
+  const exigerGestion = () => { if (!['admin', 'admin_rh', 'rh'].includes(profil.role)) throw new Error('Action réservée à la RH') }
+  const peutGererRole = (r: string) => profil.role === 'admin' || (profil.role === 'admin_rh' && r !== 'admin') || (profil.role === 'rh' && !['admin', 'admin_rh'].includes(r))
 
   const compteurDe = (code: string) => CODES.find((c) => c.code === code)?.compteur_code ?? null
   const solde = (compteur: string, avecAttente: boolean) => (ouverture[compteur] ?? 0) - demandes
@@ -653,7 +656,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       if (actuel === nouveau) throw new Error('Le nouveau mot de passe doit être différent de l’actuel')
     },
     async adminPersonnes() {
-      exigerAdmin()
+      exigerGestion()
       return [...adminP].sort((a, b) => a.nom.localeCompare(b.nom))
     },
     async delierCompte(id) {
@@ -662,10 +665,12 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       adminP = adminP.map((x) => (x.id === id ? { ...x, compte_lie: false } : x))
     },
     async enregistrerPersonne(s) {
-      exigerAdmin(); await attendre()
+      exigerGestion(); await attendre()
       if (!s.prenom.trim() || !s.nom.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.email)) throw new Error('Prénom, nom et e-mail valide obligatoires')
-      if (s.role === 'admin' && profil.role !== 'admin') throw new Error('Seul un admin général peut nommer un admin général')
       const ancien = adminP.find((p) => p.id === s.id)
+      if (ancien && !peutGererRole(ancien.role)) throw new Error(`Seul un ${ancien.role === 'admin' ? 'admin général' : 'admin RH ou admin général'} peut modifier cette personne`)
+      if (!peutGererRole(s.role)) throw new Error(`Seul un ${s.role === 'admin' ? 'admin général' : 'admin RH ou admin général'} peut attribuer ce rôle`)
+      if (!ancien && adminP.some((p) => p.email === s.email.trim().toLowerCase())) throw new Error('Cette adresse e-mail est déjà utilisée par une autre fiche')
       if (ancien?.role === 'admin' && (s.role !== 'admin' || s.date_sortie) && adminP.filter((p) => p.role === 'admin' && !p.date_sortie).length <= 1)
         throw new Error('Impossible : c’est le dernier admin général. Nomme d’abord un autre admin.')
       const service = services.find((x) => x.id === s.service_id)!.nom
@@ -677,7 +682,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return id
     },
     async regimePersonnalise(personneId, minutesJour, debut) {
-      exigerAdmin()
+      exigerGestion()
       if (!minutesJour.some((m) => m > 0)) throw new Error('Choisis au moins un jour travaillé')
       let r = regimes.find((x) => x.actif && x.minutes_jour.join() === minutesJour.join())
       if (!r) {
@@ -691,7 +696,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return r.id
     },
     async changerRegime(personneId, regimeId, debut) {
-      exigerAdmin(); await attendre()
+      exigerGestion(); await attendre()
       const p = adminP.find((x) => x.id === personneId)!
       if (debut <= aujourdhui) { p.regime_id = regimeId; p.regime = regimes.find((r) => r.id === regimeId)!.libelle; p.regime_depuis = debut }
     },

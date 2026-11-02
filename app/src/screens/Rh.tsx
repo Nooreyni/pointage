@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IcAttention, IcCheck } from '../components/Icones'
 import Toast from '../components/Toast'
-import MotDePasseRH from '../components/MotDePasseRH'
-import SoldesPersonne from '../components/SoldesPersonne'
-import DepartPersonne from '../components/DepartPersonne'
-import TeletravailHabituel from '../components/TeletravailHabituel'
+import { LienPersonne } from '../lib/navigation'
 import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
@@ -98,7 +95,7 @@ export default function Rh({ api }: { api: Api }) {
             <ul className="liste">
               {heures.map((h) => (
                 <li key={h.personne_id + h.jour}>
-                  <span className="texte-ligne"><strong>{h.prenom} {h.nom}</strong> · {dateCourte(h.jour)} · +{duree(h.minutes)}</span>
+                  <span className="texte-ligne"><LienPersonne id={h.personne_id} nom={`${h.prenom} ${h.nom}`} vers="temps" /> · {dateCourte(h.jour)} · +{duree(h.minutes)}</span>
                   <button className="bouton secondaire petit" onClick={async () => {
                     try { await api.deciderHeures(h.personne_id, h.jour, false, 'Non autorisé'); await toutRecharger('Heures refusées') } catch (e) { erreur(e) }
                   }}>Refuser</button>
@@ -138,7 +135,7 @@ export default function Rh({ api }: { api: Api }) {
             {gens.map(({ personne, liste }) => (
               <div key={personne.id} className="groupe-anomalies">
                 <div className="ligne entre">
-                  <span className="nom-personne"><strong>{personne.prenom} {personne.nom}</strong>
+                  <span className="nom-personne"><LienPersonne id={personne.id} nom={`${personne.prenom} ${personne.nom}`} vers="temps" />
                     {personne.type === 'isp' && <span className="pilule neutre">ISP</span>}</span>
                   <span className="ligne">
                     <span className="pilule attente">{liste.length} j</span>
@@ -175,8 +172,6 @@ export default function Rh({ api }: { api: Api }) {
               + (r.boni_hors_limites ? ` · ${r.boni_hors_limites} boni hors limites à vérifier` : ''))
           } catch (e) { erreur(e) }
         }} />
-
-        <FichePersonne api={api} personnes={personnes} onMessage={(texte, e) => setMessage({ texte, erreur: e })} />
 
         <section className="carte">
           <h2>Encoder une absence</h2>
@@ -286,7 +281,7 @@ function Constat({ api, demandes, onConstater, onMessage }: {
       <ul className="liste compacte">
         {demandes.map((d) => (
           <li key={d.id}>
-            <span className="texte-ligne"><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+            <span className="texte-ligne"><LienPersonne id={d.personne_id} nom={`${d.prenom} ${d.nom}`} /> · {d.libelle_absence}
               <span className="doux"> · {d.date_debut === d.date_fin ? dateCourte(d.date_debut) : `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`}
               {d.demi ? (d.demi === 'matin' ? ' matin' : ' après-midi') : ''}</span></span>
             <span className="doux petit">{duree(d.minutes_decomptees)}</span>
@@ -317,7 +312,7 @@ function CongesAnnuels({ api, onFait, onErreur }: { api: Api; onFait: (n: number
               <table className="tableau">
                 <thead><tr><th>Personne</th><th>Régime</th><th className="num">Mois</th><th className="num">Heures</th><th className="num">≈ Jours</th></tr></thead>
                 <tbody>{liste.map((p) => (
-                  <tr key={p.personne_id}><td>{p.prenom} {p.nom}</td><td className="doux">{p.regime}</td><td className="num">{p.mois_presence}</td>
+                  <tr key={p.personne_id}><td><LienPersonne id={p.personne_id} nom={`${p.prenom} ${p.nom}`} /></td><td className="doux">{p.regime}</td><td className="num">{p.mois_presence}</td>
                     <td className="num">{duree(p.minutes)}</td><td className="num">{String(Math.round((p.minutes / JOUR_RH) * 10) / 10).replace('.', ',')}</td></tr>
                 ))}</tbody>
               </table>
@@ -442,7 +437,7 @@ function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur
       <div className="ligne entre"><h2>Justificatifs manquants</h2><span className="pilule attente">{liste.length}</span></div>
       <ul className="liste compacte">{liste.map((d) => (
         <li key={d.id}>
-          <span className="texte-ligne"><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+          <span className="texte-ligne"><LienPersonne id={d.personne_id} nom={`${d.prenom} ${d.nom}`} /> · {d.libelle_absence}
             <span className="doux"> · {d.date_debut === d.date_fin ? dateCourte(d.date_debut) : `${dateCourte(d.date_debut)} → ${dateCourte(d.date_fin)}`}</span></span>
           <Justificatif api={api} d={d} peutDeposer onChange={(t, e) => { onMessage(t, e); if (!e) charger() }} />
           <button className="lien petit" onClick={async () => {
@@ -453,33 +448,6 @@ function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur
           }}>Rappeler</button>
         </li>
       ))}</ul>
-    </section>
-  )
-}
-
-// ---------------------------------------------------------------------------
-/** Fiche rapide d'une personne : jours de télétravail habituels et mot de passe (création / oubli). */
-function FichePersonne({ api, personnes, onMessage }: { api: Api; personnes: Personne[]; onMessage: (t: string, erreur?: boolean) => void }) {
-  const nomDe = (pid: string) => { const p = personnes.find((x) => x.id === pid); return p ? `${p.prenom} ${p.nom}` : '' }
-  const [id, setId] = useState('')
-  const tri = useMemo(() => [...personnes].sort((a, b) => a.nom.localeCompare(b.nom)), [personnes])
-  return (
-    <section className="carte">
-      <h2>Fiche d’une personne</h2>
-      <p className="doux petit">Jours de télétravail habituels et mot de passe (nouveau compte, oubli).</p>
-      <label className="champ">Personne
-        <select id="rh-fiche-personne" value={id} onChange={(e) => setId(e.target.value)}>
-          <option value="">Choisir…</option>
-          {[...new Set(tri.map((p) => p.service))].sort().map((s) => (
-            <optgroup key={s} label={s}>{tri.filter((p) => p.service === s).map((p) => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}</optgroup>
-          ))}
-        </select></label>
-      {id && <div key={id} className="pile" style={{ gap: 12 }}>
-        <div><h3 className="sous-titre">Télétravail habituel</h3><TeletravailHabituel api={api} personneId={id} moi={false} /></div>
-        <div><h3 className="sous-titre">Mot de passe</h3><MotDePasseRH api={api} personneId={id} /></div>
-        <div><h3 className="sous-titre">Soldes et compteurs</h3><SoldesPersonne api={api} personneId={id} onMessage={onMessage} /></div>
-        <div><h3 className="sous-titre">Départ</h3><DepartPersonne api={api} personneId={id} nom={nomDe(id)} dateSortie={null} onFait={onMessage} /></div>
-      </div>}
     </section>
   )
 }
