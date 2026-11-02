@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Toast from '../components/Toast'
+import Toast, { type MessageToast } from '../components/Toast'
 import type { Acces, AdminPersonne, AdminService, Api, Compteur, Ferie, Parametre, Profil, Regime, Reseau, Role, SaisiePersonne } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { dateCourte, duree, hhmm, jourBxl } from '../lib/temps'
+import { dateCourte, decalerJour, duree, hhmm, jourBxl } from '../lib/temps'
 import Fenetre from '../components/Fenetre'
 import MotDePasseRH from '../components/MotDePasseRH'
+import SoldesPersonne from '../components/SoldesPersonne'
+import DepartPersonne from '../components/DepartPersonne'
+import ArriveePersonne from '../components/ArriveePersonne'
+import ImportPersonnes from '../components/ImportPersonnes'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 
-export type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau'
+export type Section = 'personnes' | 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -42,7 +46,7 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
   const ok = async (texte: string) => { setMessage({ texte }); await charger() }
   const sections: [Section, string][] = [
     ['personnes', 'Personnes'], ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
-    ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'],
+    ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'], ['journal', 'Journal'],
   ]
 
   return (
@@ -58,6 +62,7 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
+        {section === 'journal' && <Journal api={api} erreur={erreur} />}
       </div>
       <Toast message={message} />
     </main>
@@ -74,6 +79,7 @@ function Personnes({ personnes, services, regimes, estAdmin, api, ok, erreur }: 
   const [filtre, setFiltre] = useState('')
   const [sortis, setSortis] = useState(false)
   const [fiche, setFiche] = useState<AdminPersonne | 'nouvelle' | null>(null)
+  const [importer, setImport] = useState(false)
   const auj = jourBxl()
   const liste = (personnes ?? []).filter((p) => (sortis || !p.date_sortie || p.date_sortie >= auj)
     && `${p.prenom} ${p.nom} ${p.email} ${p.service} ${ROLES[p.role]}`.toLowerCase().includes(filtre.toLowerCase()))
@@ -84,12 +90,15 @@ function Personnes({ personnes, services, regimes, estAdmin, api, ok, erreur }: 
         <h2>Personnes <span className="doux petit">({liste.length})</span></h2>
         <span className="ligne">
           <input id="filtre-personnes" className="recherche" placeholder="Rechercher…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+          <button className="bouton secondaire petit" onClick={() => setImport(true)}>Importer</button>
           <button className="bouton petit" onClick={() => setFiche('nouvelle')}>Nouvelle personne</button>
         </span>
       </div>
       <label className="ligne petit doux" style={{ margin: '8px 0' }}>
         <input type="checkbox" id="voir-sortis" checked={sortis} onChange={(e) => setSortis(e.target.checked)} /> Afficher les personnes parties
       </label>
+      {importer && <ImportPersonnes api={api} services={services} regimes={regimes} existants={(personnes ?? []).map((p) => p.email.toLowerCase())}
+                                    onFermer={() => setImport(false)} onFait={(n) => { if (n) ok(`${n} personne(s) importée(s)`) }} />}
       {!personnes && <p className="vide">Chargement…</p>}
       <div className="tableau-defilant">
         <table className="tableau cliquable">
@@ -126,6 +135,9 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
   const [dateRegime, setDateRegime] = useState(`${Number(jourBxl().slice(0, 4)) + 1}-01-01`)
   const [enCours, setEnCours] = useState(false)
   const [confirmerDelier, setConfirmerDelier] = useState(false)
+  // Message dans la fiche (sans la fermer) : soldes, arrivée
+  const [note, setNote] = useState<MessageToast>(null)
+  const noter = (texte: string, e?: boolean) => { setNote({ texte, erreur: e }); setTimeout(() => setNote(null), e ? 6000 : 3500) }
   const regimeActuel = regimes.find((r) => r.id === personne?.regime_id)
   const [joursAuChoix, setJoursAuChoix] = useState(false)
   const [jours, setJours] = useState<boolean[]>(() => (regimeActuel?.minutes_jour ?? [1, 1, 1, 1, 1, 0, 0]).map((m) => m > 0))
@@ -183,6 +195,13 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
         </fieldset>
       </form>
 
+      {personne && !verrouille && !personne.date_sortie && (!personne.compte_lie || personne.date_entree >= decalerJour(jourBxl(), -60)) && (
+        <div className="encart">
+          <h3>Arrivée</h3>
+          <ArriveePersonne api={api} personne={personne} onFait={(t, e) => noter(t, e)} />
+        </div>
+      )}
+
       {personne && !verrouille && (
         <div className="encart">
           <h3>Compte de connexion</h3>
@@ -204,6 +223,13 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
         <div className="encart">
           <h3>Télétravail habituel</h3>
           <TeletravailHabituel api={api} personneId={personne.id} moi={false} />
+        </div>
+      )}
+
+      {personne && !verrouille && (
+        <div className="encart">
+          <h3>Soldes et compteurs</h3>
+          <SoldesPersonne api={api} personneId={personne.id} onMessage={(t, e) => noter(t, e)} />
         </div>
       )}
 
@@ -247,6 +273,14 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
           )}
         </div>
       )}
+      {personne && !verrouille && (
+        <div className="encart">
+          <h3>Départ</h3>
+          <DepartPersonne api={api} personneId={personne.id} nom={`${personne.prenom} ${personne.nom}`} dateSortie={personne.date_sortie}
+                          onFait={(t, e) => (e ? erreur(new Error(t)) : ok(t))} />
+        </div>
+      )}
+      <Toast message={note} />
     </Fenetre>
   )
 }
@@ -667,5 +701,52 @@ function ReseauFeries({ api, estAdmin, erreur, setMessage }: { api: Api; estAdmi
         </form>
       </section>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+const OBJETS: Record<string, string> = {
+  personnes: 'Personne', demandes: 'Demande de congé', pointages: 'Pointage', parametres: 'Réglage', mouvements_compteur: 'Solde',
+  comptes: 'Compte / mot de passe', regimes: 'Régime', personne_regimes: 'Régime d’une personne', services: 'Service', responsables_service: 'Chef de service',
+  acces_services: 'Accès délégué', teletravail_prevu: 'Télétravail habituel', clotures: 'Clôture du mois', decisions_hs: 'Heures au-delà du max',
+  jours_feries: 'Jour férié', compteurs: 'Compteur',
+}
+const ACTIONS: Record<string, string> = { INSERT: 'Ajout', UPDATE: 'Modification', DELETE: 'Suppression' }
+
+/** Journal : qui a changé quoi et quand (règles, personnes, soldes, congés, pointages…). Lecture seule, rien ne s'efface. */
+function Journal({ api, erreur }: { api: Api; erreur: (e: unknown) => void }) {
+  const [objet, setObjet] = useState<string>('')
+  const [liste, setListe] = useState<import('../lib/types').Modification[] | null>(null)
+  const [ouvert, setOuvert] = useState<number | null>(null)
+  useEffect(() => { setListe(null); api.journal(300, objet || null).then(setListe).catch((e) => { setListe([]); erreur(e) }) }, [api, objet, erreur])
+  const resume = (v: Record<string, unknown> | null) => (v ? (v.prenom && v.nom ? `${v.prenom} ${v.nom}` : (v.cle ?? v.libelle ?? v.nom ?? '') as string) : '')
+  return (
+    <section className="carte">
+      <div className="ligne entre barre-outils">
+        <h2>Journal des modifications</h2>
+        <select id="journal-objet" aria-label="Type d’élément" value={objet} onChange={(e) => setObjet(e.target.value)}>
+          <option value="">Tout</option>
+          {Object.entries(OBJETS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <p className="doux petit">Chaque changement est enregistré avec son auteur et ne peut pas être effacé. Les 300 plus récents.</p>
+      {!liste && <p className="vide">Chargement…</p>}
+      {liste?.length === 0 && <p className="vide">Aucune modification.</p>}
+      <ul className="liste">{liste?.map((m) => (
+        <li key={m.id} className="ligne-journal">
+          <span className="texte-ligne">
+            <strong>{ACTIONS[m.action]} · {OBJETS[m.objet] ?? m.objet}</strong> {resume(m.apres ?? m.avant) && <span>{resume(m.apres ?? m.avant)}</span>}
+            <div className="doux petit">{m.qui} · {new Date(m.quand).toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' })}
+              {m.action === 'UPDATE' && m.champs.length > 0 && <> · {m.champs.filter((c) => !['modifie_le', 'cree_le'].includes(c)).slice(0, 4).join(', ')}</>}</div>
+            {ouvert === m.id && m.action === 'UPDATE' && (
+              <table className="tableau detail-journal"><tbody>{m.champs.map((c) => (
+                <tr key={c}><td>{c}</td><td className="doux">{JSON.stringify(m.avant?.[c] ?? null)}</td><td>→ {JSON.stringify(m.apres?.[c] ?? null)}</td></tr>
+              ))}</tbody></table>
+            )}
+          </span>
+          {m.action === 'UPDATE' && m.avant && <button className="lien petit" aria-expanded={ouvert === m.id} onClick={() => setOuvert(ouvert === m.id ? null : m.id)}>{ouvert === m.id ? 'Masquer' : 'Détail'}</button>}
+        </li>
+      ))}</ul>
+    </section>
   )
 }

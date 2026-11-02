@@ -2,7 +2,7 @@
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
 import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
-  LigneCpas, LigneMensuelle, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
+  ApercuDepart, LigneCpas, LigneMensuelle, Modification, MouvementCompteur, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
 
 const REGIME = [456, 456, 456, 456, 456, 0, 0]
@@ -237,6 +237,29 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     return param('indemnite_tt_plafond') > 0 ? Math.min(brut, param('indemnite_tt_plafond')) : brut
   }
   // Justificatifs coupés : rien n'est « requis »
+  // Compteurs par personne (démo) : ouverture de l'année + ajustements
+  const ILYA = (j: number) => decalerJour(aujourdhui, -j)
+  const mouvements = new Map<string, MouvementCompteur[]>()
+  let idMvt = 1
+  const mvts = (personneId: string): MouvementCompteur[] => {
+    if (!mouvements.has(personneId)) {
+      const an = aujourdhui.slice(0, 4)
+      mouvements.set(personneId, [
+        { id: idMvt++, compteur_code: 'CONGE_LEGAL', compteur: 'Congés annuels', date_effet: `${an}-01-01`, type: 'attribution', minutes: 9120, motif: `Congés annuels ${an}`, par: 'Nadia Benali', cree_le: `${an}-01-02T09:00:00Z` },
+        { id: idMvt++, compteur_code: 'CONGE_LEGAL', compteur: 'Congés annuels', date_effet: ILYA(60), type: 'prise', minutes: -2280, motif: 'Congés payés (5 j)', par: 'Calcul automatique', cree_le: `${ILYA(60)}T10:00:00Z` },
+        { id: idMvt++, compteur_code: 'EXTRA_LEGAL', compteur: 'Congés extra-légaux', date_effet: `${an}-01-01`, type: 'attribution', minutes: 912, motif: `Extra-légaux ${an}`, par: 'Nadia Benali', cree_le: `${an}-01-02T09:00:00Z` },
+        { id: idMvt++, compteur_code: 'RECUP', compteur: 'Récup HS', date_effet: ILYA(20), type: 'hs_validees', minutes: 220, motif: 'Heures accordées en récup', par: 'Marc Dupont', cree_le: `${ILYA(20)}T15:00:00Z` },
+      ])
+    }
+    return mouvements.get(personneId)!
+  }
+  const journalDemo: Modification[] = [
+    { id: 3, quand: new Date(Date.now() - 3600e3).toISOString(), qui: 'Inès Leroy', objet: 'parametres', action: 'UPDATE', champs: ['provisoire', 'source', 'valeur'], avant: { cle: 'pause_seuil_min', valeur: 360 }, apres: { cle: 'pause_seuil_min', valeur: 360, provisoire: false } },
+    { id: 2, quand: new Date(Date.now() - 26 * 3600e3).toISOString(), qui: 'Admin IT', objet: 'personnes', action: 'INSERT', champs: ['nom', 'prenom', 'email', 'service_id'], avant: null, apres: { prenom: 'Laura', nom: 'Nkosi' } },
+    { id: 1, quand: new Date(Date.now() - 50 * 3600e3).toISOString(), qui: 'Marc Dupont', objet: 'demandes', action: 'UPDATE', champs: ['statut', 'decide_le', 'decide_par'], avant: { statut: 'en_attente' }, apres: { statut: 'accordee' } },
+  ]
+  const journaliser = (objet: string, action: Modification['action'], champs: string[], apres: Record<string, unknown> | null = null) =>
+    journalDemo.unshift({ id: journalDemo.length + 1, quand: new Date().toISOString(), qui: `${profil.prenom} ${profil.nom}`, objet, action, champs, avant: null, apres })
   const justif = (d: Demande): Demande => ({ ...d, justificatif_requis: !!d.justificatif_requis && param('justificatifs_actifs') === 1 })
   let compteurs: Compteur[] = ([
     ['CONGE_LEGAL', 'Congés annuels', 'annuelle', 'total', 'CONGE_N1'], ['CONGE_N1', 'Congés année passée', 'annuelle', 'total', 'CONGE_N2'],
@@ -461,7 +484,45 @@ export function apiDemo(persona: Persona = 'employe'): Api {
                  regime: semaine === 2280 ? 'Temps plein 38h' : semaine === 2250 ? 'Temps plein 37h30' : `Temps partiel ${semaine / 60}h` }
       }).filter(() => annee > 0)
     },
-    async attribuerConges() { await attendre(); return PERSONNES.length },
+    async attribuerConges(_annee, personnes) { await attendre(); return personnes?.length ?? PERSONNES.length },
+    async soldesPersonne(personneId) {
+      const par = new Map<string, { libelle: string; attribue: number; pris: number; reste: number }>()
+      for (const m of mvts(personneId)) {
+        const x = par.get(m.compteur_code) ?? { libelle: m.compteur, attribue: 0, pris: 0, reste: 0 }
+        if (m.minutes >= 0 && m.type !== 'prise') x.attribue += m.minutes; else x.pris -= m.minutes
+        x.reste += m.minutes; par.set(m.compteur_code, x)
+      }
+      return [...par].map(([code, x], i) => ({ compteur_code: code, libelle: x.libelle, ordre: i, periode_debut: `${aujourdhui.slice(0, 4)}-01-01`, attribue_min: x.attribue, pris_min: x.pris, reste_min: x.reste }))
+    },
+    async mouvementsPersonne(personneId) { return [...mvts(personneId)].sort((a, b) => b.date_effet.localeCompare(a.date_effet) || b.id - a.id) },
+    async ajusterSolde(personneId, compteur, minutes, motif) {
+      if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
+      if (!motif.trim()) throw new Error('Un ajustement doit être motivé')
+      const libelle = mvts(personneId).find((m) => m.compteur_code === compteur)?.compteur ?? compteur
+      mvts(personneId).push({ id: idMvt++, compteur_code: compteur, compteur: libelle, date_effet: aujourdhui, type: 'ajustement', minutes, motif, par: `${profil.prenom} ${profil.nom}`, cree_le: new Date().toISOString() })
+      journaliser('mouvements_compteur', 'INSERT', ['compteur_code', 'minutes', 'motif'])
+    },
+    async preparerDepart(personneId): Promise<ApercuDepart> {
+      const soldes = await this.soldesPersonne(personneId)
+      const x = adminP.find((a) => a.id === personneId)
+      return { soldes: soldes.filter((s) => s.reste_min !== 0).map((s) => ({ compteur: s.libelle, reste_min: s.reste_min })),
+               demandes_apres: demandes.filter((d) => d.prenom === x?.prenom && ['en_attente', 'accordee'].includes(d.statut) && d.date_debut > aujourdhui).length,
+               chef_de: x?.prenom === 'Marc' ? ['SAF'] : [], acces_delegues: 0, demandes_a_valider: x?.prenom === 'Marc' ? 3 : 0 }
+    },
+    async enregistrerDepart(personneId, date) {
+      exigerAdmin(); await attendre()
+      adminP = adminP.map((a) => (a.id === personneId ? { ...a, date_sortie: date } : a))
+      journaliser('personnes', 'UPDATE', ['date_sortie'], { date_sortie: date })
+      return { demandes_annulees: 0 }
+    },
+    async annulerDepart(personneId) {
+      exigerAdmin(); adminP = adminP.map((a) => (a.id === personneId ? { ...a, date_sortie: null } : a))
+      journaliser('personnes', 'UPDATE', ['date_sortie'], { date_sortie: null })
+    },
+    async journal(limite = 200, objet = null) {
+      exigerAdmin()
+      return journalDemo.filter((j) => !objet || j.objet === objet).slice(0, limite)
+    },
     async etatCloture(mois): Promise<EtatCloture> {
       const debut = mois.slice(0, 8) + '01'
       const parPersonne = new Map<string, number>()
@@ -661,6 +722,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       exigerAdmin()
       if (!source.trim()) throw new Error('Indique la source (ex. règlement de travail art. X)')
       parametres = parametres.map((p) => (p.cle === cle ? { ...p, valeur, source, provisoire: false } : p))
+      journaliser('parametres', 'UPDATE', ['valeur', 'provisoire', 'source'], { cle, valeur })
     },
     async feries() { return feries },
     async enregistrerFerie(jour, libelle, supprimer) {

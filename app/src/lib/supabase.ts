@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ApercuDepart, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -176,8 +176,29 @@ export function apiSupabase(): Api {
       return verifier(await sb.rpc('proposition_conges', { p_annee: annee })) as PropositionConges[]
     },
 
-    async attribuerConges(annee) {
-      return verifier(await sb.rpc('attribuer_conges', { p_annee: annee })) as number
+    async attribuerConges(annee, personnes) {
+      return verifier(await sb.rpc('attribuer_conges', { p_annee: annee, ...(personnes ? { p_personnes: personnes } : {}) })) as number
+    },
+    async soldesPersonne(personneId) {
+      return verifier(await sb.from('soldes').select('*').eq('personne_id', personneId).order('ordre').order('periode_debut', { ascending: false })) as Solde[]
+    },
+    async mouvementsPersonne(personneId) {
+      return verifier(await sb.rpc('mouvements_personne', { p_personne: personneId })) as MouvementCompteur[]
+    },
+    async ajusterSolde(personneId, compteur, minutes, motif) {
+      verifier(await sb.rpc('mouvement_solde_rh', { p_personne_id: personneId, p_compteur: compteur, p_minutes: minutes, p_type: 'ajustement', p_motif: motif }))
+    },
+    async preparerDepart(personneId, date) {
+      return verifier(await sb.rpc('preparer_depart', { p_personne: personneId, p_date: date })) as ApercuDepart
+    },
+    async enregistrerDepart(personneId, date, motif) {
+      return verifier(await sb.rpc('enregistrer_depart', { p_personne: personneId, p_date: date, p_motif: motif ?? null })) as { demandes_annulees: number }
+    },
+    async annulerDepart(personneId) {
+      verifier(await sb.rpc('annuler_depart', { p_personne: personneId }))
+    },
+    async journal(limite = 200, objet = null) {
+      return verifier(await sb.rpc('journal_modifications', { p_limite: limite, p_table: objet })) as Modification[]
     },
 
     async etatCloture(mois) {

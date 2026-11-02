@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IcAttention, IcCheck } from '../components/Icones'
 import Toast from '../components/Toast'
 import MotDePasseRH from '../components/MotDePasseRH'
+import SoldesPersonne from '../components/SoldesPersonne'
+import DepartPersonne from '../components/DepartPersonne'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
@@ -174,7 +176,7 @@ export default function Rh({ api }: { api: Api }) {
           } catch (e) { erreur(e) }
         }} />
 
-        <FichePersonne api={api} personnes={personnes} />
+        <FichePersonne api={api} personnes={personnes} onMessage={(texte, e) => setMessage({ texte, erreur: e })} />
 
         <section className="carte">
           <h2>Encoder une absence</h2>
@@ -457,7 +459,8 @@ function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur
 
 // ---------------------------------------------------------------------------
 /** Fiche rapide d'une personne : jours de télétravail habituels et mot de passe (création / oubli). */
-function FichePersonne({ api, personnes }: { api: Api; personnes: Personne[] }) {
+function FichePersonne({ api, personnes, onMessage }: { api: Api; personnes: Personne[]; onMessage: (t: string, erreur?: boolean) => void }) {
+  const nomDe = (pid: string) => { const p = personnes.find((x) => x.id === pid); return p ? `${p.prenom} ${p.nom}` : '' }
   const [id, setId] = useState('')
   const tri = useMemo(() => [...personnes].sort((a, b) => a.nom.localeCompare(b.nom)), [personnes])
   return (
@@ -474,6 +477,8 @@ function FichePersonne({ api, personnes }: { api: Api; personnes: Personne[] }) 
       {id && <div key={id} className="pile" style={{ gap: 12 }}>
         <div><h3 className="sous-titre">Télétravail habituel</h3><TeletravailHabituel api={api} personneId={id} moi={false} /></div>
         <div><h3 className="sous-titre">Mot de passe</h3><MotDePasseRH api={api} personneId={id} /></div>
+        <div><h3 className="sous-titre">Soldes et compteurs</h3><SoldesPersonne api={api} personneId={id} onMessage={onMessage} /></div>
+        <div><h3 className="sous-titre">Départ</h3><DepartPersonne api={api} personneId={id} nom={nomDe(id)} dateSortie={null} onFait={onMessage} /></div>
       </div>}
     </section>
   )

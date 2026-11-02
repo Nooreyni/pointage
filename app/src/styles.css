@@ -778,3 +778,17 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
 .grille-cartes > * { min-width: 0; }
 .reglage .segments.compact { max-width: 100%; }
 .reglage .segments.compact button { white-space: normal; }
+.fenetre.large { max-width: 760px; }
+.soldes-personne .liste li strong { font-variant-numeric: tabular-nums; }
+.ajustement { margin-top: 10px; padding: 12px; border-radius: 12px; background: var(--fond); }
+.ajustement .champ { margin: 8px 0; }
+.arrivee .barre { margin: 4px 0 10px; }
+.arrivee .controle li { align-items: center; }
+.detail-journal { margin-top: 6px; font-size: 13px; } .detail-journal td { white-space: normal; overflow-wrap: anywhere; }
+.faq { border-top: 1px solid var(--bord); padding: 10px 0; }
+.carte > .faq:first-of-type { border-top: 0; }
+.faq summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; color: var(--texte-doux); font-weight: 700; }
+.faq[open] summary::after { content: '–'; }
+.faq p { margin: 6px 0 0; color: var(--texte-doux); font-size: 15px; }

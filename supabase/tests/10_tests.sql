@@ -845,6 +845,27 @@ select test.connecte('Yanis'); set role authenticated;
 select test.erreur(format('select public.regime_personnalise(%L, array[456,456,456,456,456,0,0], current_date)', pointage.moi()), 'Régime : réservé admin / admin RH', 'réservée');
 reset role;
 
+-- ===================== Gestion RH : compteurs, départ, journal =====================
+select test.pid('Emma') as pid_emma \gset
+select test.connecte('Nadia'); set role authenticated;
+select public.mouvement_solde_rh(:'pid_emma', 'CONGE_LEGAL', 456, 'ajustement', pointage.aujourdhui(), 'Test ajustement');
+select test.ok(exists (select 1 from public.mouvements_personne(:'pid_emma') where motif = 'Test ajustement' and par like 'Nadia%'), 'Compteurs : ajustement visible avec son auteur');
+select test.ok((public.preparer_depart(:'pid_emma', pointage.aujourdhui() + 10) ? 'soldes'), 'Départ : aperçu de l''impact');
+select public.enregistrer_depart(:'pid_emma', pointage.aujourdhui() + 10) as dep \gset
+select test.ok((select date_sortie = pointage.aujourdhui() + 10 from pointage.personnes where id = :'pid_emma'), 'Départ : date de sortie enregistrée');
+select test.ok(not exists (select 1 from pointage.demandes where personne_id = :'pid_emma' and statut in ('en_attente', 'accordee') and date_debut > pointage.aujourdhui() + 10), 'Départ : demandes après le départ annulées');
+select public.annuler_depart(:'pid_emma');
+select test.ok((select date_sortie is null from pointage.personnes where id = :'pid_emma'), 'Départ annulé : la personne reste');
+select test.erreur(format('select public.enregistrer_depart(%L, current_date)', pointage.moi()), 'Départ : pas le sien', 'propre départ');
+select test.erreur('select * from public.journal_modifications()', 'Journal : réservé admin / admin RH', 'réservée');
+reset role;
+select test.connecte('Inès'); set role authenticated;
+select test.ok(exists (select 1 from public.journal_modifications(50) where objet = 'personnes' and 'date_sortie' = any(champs)), 'Journal : la modification de la date de sortie est tracée');
+reset role;
+select test.connecte('Yanis'); set role authenticated;
+select test.erreur(format('select * from public.mouvements_personne(%L)', :'pid_emma'), 'Compteurs d''un collègue : refusé', 'autoris');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

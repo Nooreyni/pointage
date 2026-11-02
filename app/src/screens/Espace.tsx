@@ -21,10 +21,11 @@ const Admin = lazy(() => import('./Admin'))
 const Agenda = lazy(() => import('./Agenda'))
 const Compte = lazy(() => import('./Compte'))
 const Bilan = lazy(() => import('./Bilan'))
+const Aide = lazy(() => import('./Aide'))
 import { useDialogue } from '../components/useDialogue'
 import { useInactivite } from '../components/useInactivite'
 
-type Onglet = 'pointer' | 'bilan' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
+type Onglet = 'pointer' | 'bilan' | 'aide' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
 
 const VUES_DEMO: [Persona, string, string][] = [
   ['employe', 'Employée', 'Pointe, demande ses congés'],
@@ -44,7 +45,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>(() => {
     const demande = new URLSearchParams(location.search).get('onglet')
-    return (['pointer', 'bilan', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+    return (['pointer', 'bilan', 'aide', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
   })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
@@ -152,7 +153,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     ...(gere ? [['rh', 'Suivi RH'] as [Onglet, string]] : []),
     ...(voitRapports ? [['rapports', 'Rapports'] as [Onglet, string]] : []),
     ...(estAdmin ? [['admin', 'Réglages'] as [Onglet, string]] : []),
-    ['alertes', 'Alertes'], ['compte', 'Mon compte'],
+    ['alertes', 'Alertes'], ['compte', 'Mon compte'], ['aide', 'Aide'],
   ]
   // … regroupées en 3 à 5 onglets : le reste passe par des sous-onglets, la cloche et l'avatar
   const gestion = vues.filter(([id]) => id === 'rh' || id === 'rapports' || id === 'admin')
@@ -186,6 +187,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
             <div className="menu" role="menu">
               <div className="menu-nom"><strong>{profil.prenom} {profil.nom}</strong><span className="doux petit">{libelleRole} · {profil.service}</span></div>
               <button role="menuitem" onClick={() => { setMenu(false); aller('compte') }}>Mon compte</button>
+              <button role="menuitem" onClick={() => { setMenu(false); aller('aide') }}>Aide</button>
               <button role="menuitem" onClick={seDeconnecter}>Se déconnecter</button>
             </div>
           )}
@@ -239,6 +241,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} onVoirAgenda={() => aller('agenda')} />}
       {actif === 'agenda' && <Agenda api={api} profil={profil} onDemanderConge={() => aller('conges')} onVoirCompte={() => aller('compte')} />}
       {actif === 'compte' && <Compte api={api} profil={profil} />}
+      {actif === 'aide' && <Aide profil={profil} />}
       {actif === 'bilan' && <Bilan api={api} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}

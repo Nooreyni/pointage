@@ -240,6 +240,10 @@ export interface LigneMensuelle {
   jours_incomplets: number
 }
 
+export interface MouvementCompteur { id: number; compteur_code: string; compteur: string; date_effet: string; type: string; minutes: number; motif: string | null; par: string; cree_le: string }
+export interface ApercuDepart { soldes: { compteur: string; reste_min: number }[]; demandes_apres: number; chef_de: string[]; acces_delegues: number; demandes_a_valider: number }
+export interface Modification { id: number; quand: string; qui: string; objet: string; action: 'INSERT' | 'UPDATE' | 'DELETE'; champs: string[]; avant: Record<string, unknown> | null; apres: Record<string, unknown> | null }
+
 export interface MotDePasseGenere { email: string; nom: string; mot_de_passe: string; cree: boolean }
 
 export interface LigneCpas {
@@ -365,7 +369,14 @@ export interface Api {
   aConstater(): Promise<Demande[]>
   constater(ids: string[]): Promise<number>
   propositionConges(annee: number): Promise<PropositionConges[]>
-  attribuerConges(annee: number): Promise<number>
+  attribuerConges(annee: number, personnes?: string[]): Promise<number>
+  soldesPersonne(personneId: string): Promise<Solde[]>
+  mouvementsPersonne(personneId: string): Promise<MouvementCompteur[]>
+  ajusterSolde(personneId: string, compteur: string, minutes: number, motif: string): Promise<void>
+  preparerDepart(personneId: string, date: string): Promise<ApercuDepart>
+  enregistrerDepart(personneId: string, date: string, motif?: string): Promise<{ demandes_annulees: number }>
+  annulerDepart(personneId: string): Promise<void>
+  journal(limite?: number, objet?: string | null): Promise<Modification[]>
   etatCloture(mois: string): Promise<EtatCloture>
   cloturer(mois: string): Promise<{ reports_boni: number; boni_hors_limites: number }>
   heuresAValider(): Promise<HeureAValider[]>
