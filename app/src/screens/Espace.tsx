@@ -4,7 +4,7 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAdmin, IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHeures, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import { IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import Recherche, { type Cible } from '../components/Recherche'
 import type { Section } from './Admin'
 import Pointer from './Pointer'
@@ -56,6 +56,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [rechercheEquipe, setRechercheEquipe] = useState('')
   const [sectionAdmin, setSectionAdmin] = useState<Section | undefined>(undefined)
   const [inactiviteMin, setInactiviteMin] = useState(0)
+  const [dernieres, setDernieres] = useState<Record<string, Onglet>>({})
   const [deconnecteInactif, setDeconnecteInactif] = useState(false)
 
   useEffect(() => {
@@ -126,20 +127,39 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     const reste = enAttente().length
     if (reste) setAttenteDeco(reste); else quitter()
   }
-  const aller = (o: Onglet, vc: VueConges = 'mes') => { setVueConges(vc); setOnglet(o); window.scrollTo({ top: 0 }) }
+  const aller = (o: Onglet, vc: VueConges = 'mes') => {
+    setVueConges(vc); setOnglet(o); window.scrollTo({ top: 0 })
+    const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'rapports' || o === 'admin' ? 'gestion' : null
+    if (g) setDernieres((d) => ({ ...d, [g]: o }))
+  }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider') : aller(d))
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
-  const onglets: [Onglet, string, () => React.JSX.Element, number][] = [
-    ['pointer', 'Pointer', IcHorloge, 0], ['agenda', 'Agenda', IcAgenda, 0], ['heures', 'Heures', IcHeures, 0], ['equipe', 'Équipe', IcEquipe, 0], ['conges', 'Congés', IcCalendrier, aValider],
-    ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [['rh', 'RH', IcRh, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
-    ...(['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
-      ? [['rapports', 'Rapports', IcStats, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
-    ...(['admin', 'admin_rh'].includes(profil.role) ? [['admin', 'Admin', IcAdmin, 0] as [Onglet, string, () => React.JSX.Element, number]] : []),
-    ['alertes', 'Alertes', IcCloche, 0],
+  // Vues autorisées pour ce rôle (liens, recherche) …
+  const gere = ['rh', 'admin_rh', 'admin'].includes(profil.role)
+  const voitRapports = ['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
+  const estAdmin = ['admin', 'admin_rh'].includes(profil.role)
+  const voitEquipe = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
+  const vues: [Onglet, string][] = [
+    ['pointer', 'Pointer'], ['agenda', 'Calendrier'], ['heures', 'Heures'], ['equipe', 'Équipe'], ['conges', 'Congés'],
+    ...(gere ? [['rh', 'Suivi RH'] as [Onglet, string]] : []),
+    ...(voitRapports ? [['rapports', 'Rapports'] as [Onglet, string]] : []),
+    ...(estAdmin ? [['admin', 'Réglages'] as [Onglet, string]] : []),
+    ['alertes', 'Alertes'], ['compte', 'Mon compte'],
+  ]
+  // … regroupées en 3 à 5 onglets : le reste passe par des sous-onglets, la cloche et l'avatar
+  const gestion = vues.filter(([id]) => id === 'rh' || id === 'rapports' || id === 'admin')
+  const groupes: { id: string; libelle: string; Icone: (p?: { size?: number }) => React.JSX.Element; vues: [Onglet, string][]; compte: number }[] = [
+    { id: 'pointer', libelle: 'Pointer', Icone: IcHorloge, vues: [['pointer', 'Pointer']], compte: 0 },
+    { id: 'mois', libelle: 'Mon mois', Icone: IcAgenda, vues: [['agenda', 'Calendrier'], ['heures', 'Heures']], compte: 0 },
+    ...(voitEquipe ? [{ id: 'equipe', libelle: 'Équipe', Icone: IcEquipe, vues: [['equipe', 'Équipe']] as [Onglet, string][], compte: 0 }] : []),
+    { id: 'conges', libelle: 'Congés', Icone: IcCalendrier, vues: [['conges', 'Congés']], compte: aValider },
+    ...(gestion.length ? [{ id: 'gestion', libelle: gestion.length === 1 ? gestion[0][1] : 'Gestion', Icone: gestion.length === 1 ? IcStats : IcRh, vues: gestion, compte: 0 }] : []),
   ]
   // Onglet demandé (lien d'une notification) mais non autorisé pour ce rôle → Pointer
-  const actif: Onglet = onglet === 'compte' || onglets.some(([id]) => id === onglet) ? onglet : 'pointer'
+  const actif: Onglet = vues.some(([id]) => id === onglet) ? onglet : 'pointer'
+  const groupeActif = groupes.find((g) => g.vues.some(([id]) => id === actif))
+  const derniere = (g: (typeof groupes)[number]) => g.vues.find(([id]) => id === dernieres[g.id])?.[0] ?? g.vues[0][0]
 
   return (
     <div className="app">
@@ -179,16 +199,23 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {!enLigne && <div className="bandeau-hors-ligne">Hors ligne — tes pointages sont gardés sur l’appareil et envoyés dès le retour du réseau</div>}
 
       <nav className="nav" aria-label="Navigation principale">
-        {onglets.map(([id, libelle, Icone, compte]) => (
-          <button key={id} aria-current={actif === id ? 'page' : undefined} onClick={() => { setRechercheEquipe(''); setSectionAdmin(undefined); aller(id) }}>
-            <span className="icone-nav"><Icone />{compte > 0 && <span className="pastille-nav">{compte}</span>}</span>{libelle}
+        {groupes.map((g) => (
+          <button key={g.id} aria-current={groupeActif?.id === g.id ? 'page' : undefined} onClick={() => { setRechercheEquipe(''); setSectionAdmin(undefined); aller(derniere(g)) }}>
+            <span className="icone-nav"><g.Icone />{g.compte > 0 && <span className="pastille-nav">{g.compte}</span>}</span>{g.libelle}
           </button>
         ))}
       </nav>
+      {groupeActif && groupeActif.vues.length > 1 && (
+        <div className="sous-nav" role="tablist" aria-label={groupeActif.libelle}>
+          {groupeActif.vues.map(([id, libelle]) => (
+            <button key={id} role="tab" aria-selected={actif === id} onClick={() => { setSectionAdmin(undefined); aller(id) }}>{libelle}</button>
+          ))}
+        </div>
+      )}
 
       {restantInactif !== null && !deconnecteInactif && <AvertirInactivite secondes={restantInactif} onRester={resterConnecte} />}
       {rechercheOuverte && (
-        <Recherche api={api} profil={profil} onglets={[...onglets.map(([id, libelle]) => [id, libelle] as [string, string]), ['compte', 'Mon compte']]} onFermer={() => setRechercheOuverte(false)}
+        <Recherche api={api} profil={profil} onglets={vues} onFermer={() => setRechercheOuverte(false)}
                    onChoisir={(c: Cible) => {
                      if (c.type === 'onglet') aller(c.onglet as Onglet)
                      else if (c.type === 'personne' && c.fiche) { setFicheDe(c.id); aller('heures') }

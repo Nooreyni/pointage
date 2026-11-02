@@ -4,7 +4,7 @@ import type { Anomalie, Api, Demande, Journee, Pointage, Profil, Sens, TypePoint
 import { messageErreur } from '../lib/supabase'
 import { enAttente, estErreurReseau, mettreEnAttente, synchroniser, versPointage } from '../lib/file'
 import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhmm, isoBxl, jourBxl, minutesDepuisMinuit } from '../lib/temps'
-import { IcAttention, IcCheck, IcEntree, IcErreur, IcSortie } from '../components/Icones'
+import { IcAttention, IcCheck, IcChevron, IcEntree, IcErreur, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
 import NotifAppareil from '../components/NotifAppareil'
 import { useDialogue } from '../components/useDialogue'
@@ -37,6 +37,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   const [types, setTypes] = useState<TypePointage[]>([])
   const [type, setType] = useState<string | null>(null)       // null = automatique (réseau CFB / extérieur)
   const [remarque, setRemarque] = useState<string | null>(null)
+  const [voirTypes, setVoirTypes] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
   const [aCorriger, setACorriger] = useState<Anomalie | null>(null)
@@ -175,19 +176,27 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
             </button>
           </div>
 
-          {!present && (
+          {/* Écran léger : le type et la remarque restent repliés, une ligne discrète sous le bouton */}
+          <div className="options-pointage">
+            {!present && (
+              <button className="lien petit" aria-expanded={voirTypes} onClick={() => setVoirTypes((v) => !v)}>
+                Type : {type ? libelleType(type) : ttPrevu ? 'auto (télétravail)' : 'auto'}<IcChevron className={`chevron-mini ${voirTypes ? 'ouvert' : ''}`} size={14} />
+              </button>
+            )}
+            {remarque === null && <button className="lien petit" onClick={() => setRemarque('')}>Ajouter une remarque</button>}
+          </div>
+          {!present && voirTypes && (
             <div className="puces" role="group" aria-label="Type de prestation">
-              <button className="puce" aria-pressed={type === null} onClick={() => setType(null)}
+              <button className="puce" aria-pressed={type === null} onClick={() => { setType(null); setVoirTypes(false) }}
                       title={ttPrevu ? 'Jour de télétravail habituel : Télétravail, sauf si tu es sur le réseau du bureau' : 'Bureau sur le réseau CFB, télétravail sinon'}>
                 {ttPrevu ? 'Auto · télétravail' : 'Auto'}</button>
               {types.filter((t) => t.code !== 'BUREAU' || ttPrevu).map((t) => (
-                <button key={t.code} className="puce" aria-pressed={type === t.code} onClick={() => setType(t.code)}>{t.libelle}</button>
+                <button key={t.code} className="puce" aria-pressed={type === t.code} onClick={() => { setType(t.code); setVoirTypes(false) }}>{t.libelle}</button>
               ))}
             </div>
           )}
-          {remarque === null
-            ? <button className="lien petit" style={{ marginTop: 10 }} onClick={() => setRemarque('')}>Ajouter une remarque</button>
-            : <textarea className="remarque" rows={2} maxLength={500} placeholder="Remarque (facultatif)" value={remarque}
+          {remarque !== null
+            && <textarea className="remarque" rows={2} maxLength={500} placeholder="Remarque (facultatif)" value={remarque}
                         onChange={(e) => setRemarque(e.target.value)} autoFocus />}
 
           {aPrester > 0 && (
