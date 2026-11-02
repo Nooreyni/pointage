@@ -755,3 +755,26 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
   .bilan-tuiles .tuile strong { font-size: 22px; }
   .bilan-tuiles .tuile span { font-size: 13px; }
 }
+/* ---------- Menu d'export ---------- */
+.export { position: relative; display: inline-block; }
+.export .bouton { gap: 6px; }
+.menu-export { right: 0; left: auto; min-width: 230px; z-index: 25; }
+.menu-export button { display: grid; gap: 1px; }
+.menu-export button .petit { font-weight: 400; }
+
+/* ---------- Réglages : fonction → réglages ---------- */
+.liste-reglages { list-style: none; margin: 0; padding: 0; }
+.reglage { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--bord); }
+.liste-reglages > .reglage:first-child { border-top: 0; }
+.reglage.enfant { margin-left: 14px; padding-left: 14px; border-top: 0; border-left: 2px solid var(--bord); padding-top: 8px; padding-bottom: 8px; }
+.reglage-texte { flex: 1 1 220px; min-width: 0; display: grid; gap: 2px; }
+.reglage-libelle { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reglage-controle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.valeur-reglage { display: inline-flex; align-items: baseline; gap: 8px; border: 1px solid var(--bord); background: var(--carte); border-radius: 10px; padding: 6px 10px;
+  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--texte); transition: border-color .15s; }
+.valeur-reglage:hover { border-color: var(--bleu); }
+.edition-reglage { display: flex; align-items: center; gap: 6px; }
+.edition-reglage input { width: 110px; border: 1px solid var(--bleu); border-radius: 10px; padding: 6px 10px; font: inherit; font-weight: 600; }
+.grille-cartes > * { min-width: 0; }
+.reglage .segments.compact { max-width: 100%; }
+.reglage .segments.compact button { white-space: normal; }

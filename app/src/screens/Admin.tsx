@@ -56,7 +56,7 @@ export default function Admin({ api, profil, sectionInitiale }: { api: Api; prof
         {section === 'regimes' && <Regimes regimes={regimes} api={api} ok={ok} erreur={erreur} />}
         {section === 'acces' && <AccesServices api={api} personnes={personnes ?? []} services={services} erreur={erreur} setMessage={setMessage} />}
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
-        {section === 'parametres' && <Parametres api={api} erreur={erreur} setMessage={setMessage} />}
+        {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
       </div>
       <Toast message={message} />
@@ -126,6 +126,10 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
   const [dateRegime, setDateRegime] = useState(`${Number(jourBxl().slice(0, 4)) + 1}-01-01`)
   const [enCours, setEnCours] = useState(false)
   const [confirmerDelier, setConfirmerDelier] = useState(false)
+  const regimeActuel = regimes.find((r) => r.id === personne?.regime_id)
+  const [joursAuChoix, setJoursAuChoix] = useState(false)
+  const [jours, setJours] = useState<boolean[]>(() => (regimeActuel?.minutes_jour ?? [1, 1, 1, 1, 1, 0, 0]).map((m) => m > 0))
+  const [heuresJour, setHeuresJour] = useState(() => hhmm(Math.max(...(regimeActuel?.minutes_jour ?? [456])) || 456))
   const maj = <K extends keyof SaisiePersonne>(k: K, v: SaisiePersonne[K]) => setF((x) => ({ ...x, [k]: v }))
   const verrouille = personne?.role === 'admin' && !estAdmin
 
@@ -207,15 +211,40 @@ function FichePersonne({ personne, services, regimes, estAdmin, api, onFermer, o
         <div className="encart">
           <h3>Régime de travail</h3>
           <p className="petit">Actuel : <strong>{personne.regime ?? '—'}</strong>{personne.regime_depuis && ` depuis le ${dateCourte(personne.regime_depuis)}`}</p>
-          <div className="champs-ligne">
-            <label className="champ">Nouveau régime
-              <select id="p-nouveau-regime" value={nouveauRegime} onChange={(e) => setNouveauRegime(Number(e.target.value))}>
-                {regimes.filter((r) => r.actif).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}</select></label>
-            <label className="champ">À partir du<input id="p-date-regime" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
+          <div className="segments compact" role="radiogroup" aria-label="Type de régime" style={{ marginBottom: 10 }}>
+            <button type="button" role="radio" aria-checked={!joursAuChoix} onClick={() => setJoursAuChoix(false)}>Régime existant</button>
+            <button type="button" role="radio" aria-checked={joursAuChoix} onClick={() => setJoursAuChoix(true)}>Jours au choix (4/5, 3/5…)</button>
           </div>
-          <button className="bouton secondaire large" onClick={async () => {
-            try { await api.changerRegime(personne.id, nouveauRegime, dateRegime); await ok('Changement de régime enregistré ✅') } catch (e) { erreur(e) }
-          }}>Programmer le changement</button>
+          {joursAuChoix ? (
+            <>
+              <div className="jours-tt" role="group" aria-label="Jours travaillés">
+                {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((j, i) => (
+                  <button key={j} type="button" className="puce" aria-pressed={jours[i]} onClick={() => setJours(jours.map((x, k) => (k === i ? !x : x)))}>{j}</button>
+                ))}
+              </div>
+              <div className="champs-ligne">
+                <label className="champ">Heures par jour travaillé<input id="p-heures-jour" type="time" value={heuresJour} onChange={(e) => setHeuresJour(e.target.value)} /></label>
+                <label className="champ">À partir du<input id="p-date-regime-jours" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
+              </div>
+              <p className="doux petit" style={{ marginTop: 0 }}>{jours.filter(Boolean).length} jour(s) · {duree(jours.filter(Boolean).length * enMin(heuresJour))} par semaine.
+                Un régime identique est réutilisé, sinon il est créé (visible dans Régimes).</p>
+              <button className="bouton secondaire large" onClick={async () => {
+                try { await api.regimePersonnalise(personne.id, jours.map((x) => (x ? enMin(heuresJour) : 0)), dateRegime); await ok('Jours de travail enregistrés ✅') } catch (e) { erreur(e) }
+              }}>Programmer ces jours</button>
+            </>
+          ) : (
+            <>
+              <div className="champs-ligne">
+                <label className="champ">Nouveau régime
+                  <select id="p-nouveau-regime" value={nouveauRegime} onChange={(e) => setNouveauRegime(Number(e.target.value))}>
+                    {regimes.filter((r) => r.actif).map((r) => <option key={r.id} value={r.id}>{r.libelle}</option>)}</select></label>
+                <label className="champ">À partir du<input id="p-date-regime" type="date" value={dateRegime} onChange={(e) => setDateRegime(e.target.value)} /></label>
+              </div>
+              <button className="bouton secondaire large" onClick={async () => {
+                try { await api.changerRegime(personne.id, nouveauRegime, dateRegime); await ok('Changement de régime enregistré ✅') } catch (e) { erreur(e) }
+              }}>Programmer le changement</button>
+            </>
+          )}
         </div>
       )}
     </Fenetre>
@@ -396,90 +425,116 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
 }
 
 // ---------------------------------------------------------------------------
+const euros = (c: number) => `${(c / 100).toFixed(2).replace('.', ',')} €`
 function valeurLisible(p: Parametre): string {
   if (p.unite === 'booleen') return p.valeur ? 'Oui' : 'Non'
+  if (p.unite === 'centimes') return p.valeur === 0 && p.cle.includes('plafond') ? 'Sans plafond' : `${euros(p.valeur)} HT`
   if (p.valeur === 0 && p.cle.startsWith('conservation')) return 'Sans limite'
   if (p.valeur === 0 && p.cle === 'stats_seuil_anonymat') return 'Jamais'
   if (p.unite === 'min') return duree(p.valeur)
   if (p.unite === 'min_depuis_minuit') return hhmm(p.valeur)
   return `${p.valeur} ${p.unite}`
 }
-const ORDRE_CATEGORIES = ['Temps de travail', 'Congés', 'Rappels', 'Confidentialité', 'Conservation', 'Sécurité']
+const ORDRE_CATEGORIES = ['Temps de travail', 'Télétravail', 'Congés et absences', 'Rappels', 'Confidentialité', 'Conservation', 'Sécurité']
+const sansAccent = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
-function Parametres({ api, erreur, setMessage }: { api: Api; erreur: (e: unknown) => void; setMessage: (m: Message) => void }) {
+/**
+ * Réglages : regroupés par thème. Une fonction a son interrupteur, ses réglages apparaissent dessous quand elle est active.
+ * Chaque valeur provisoire porte « À confirmer » et un bouton « Confirmer ». Tout changement est tracé (qui, quand, source).
+ */
+function Parametres({ api, profil, erreur, setMessage }: { api: Api; profil: Profil; erreur: (e: unknown) => void; setMessage: (m: Message) => void }) {
   const [liste, setListe] = useState<Parametre[]>([])
-  const [edition, setEdition] = useState<{ p: Parametre; valeur: string; source: string } | null>(null)
-  const [categorie, setCategorie] = useState<string | null>(null)
+  const [edition, setEdition] = useState<{ cle: string; valeur: string } | null>(null)
+  const [q, setQ] = useState('')
+  const [aConfirmer, setAConfirmer] = useState(false)
   const charger = useCallback(() => { api.parametres().then(setListe).catch(erreur) }, [api, erreur])
   useEffect(() => { charger() }, [charger])
+  const source = `Réglé par ${profil.prenom} ${profil.nom} le ${new Date().toLocaleDateString('fr-BE')}`
+  const enregistrer = async (p: Parametre, valeur: number, texte = 'Enregistré') => {
+    try { await api.modifierParametre(p.cle, valeur, source); setEdition(null); setMessage({ texte }); charger() } catch (e) { erreur(e) }
+  }
   const provisoires = liste.filter((p) => p.provisoire).length
-  const categories = useMemo(() => [...new Set(liste.map((p) => p.categorie || 'Autres'))]
-    .sort((a, b) => (ORDRE_CATEGORIES.indexOf(a) + 99) % 99 - (ORDRE_CATEGORIES.indexOf(b) + 99) % 99 || a.localeCompare(b)), [liste])
-  const ouvrir = (p: Parametre, valeur?: number) => setEdition({ p, source: '',
-    valeur: valeur !== undefined ? String(valeur) : p.unite === 'min_depuis_minuit' ? hhmm(p.valeur) : String(p.valeur) })
+  const filtre = (p: Parametre) => (!aConfirmer || p.provisoire) && (!q || sansAccent(`${p.libelle} ${p.categorie} ${p.aide ?? ''}`).includes(sansAccent(q)))
+  const enfants = (cle: string) => liste.filter((x) => x.parent === cle).sort((a, b) => (a.ordre ?? 100) - (b.ordre ?? 100))
+  const racines = liste.filter((p) => !p.parent)
+  const categories = [...new Set(racines.map((p) => p.categorie || 'Autres'))]
+    .sort((a, b) => (ORDRE_CATEGORIES.indexOf(a) + 99) % 99 - (ORDRE_CATEGORIES.indexOf(b) + 99) % 99 || a.localeCompare(b))
+  const visible = (p: Parametre) => filtre(p) || enfants(p.cle).some(filtre)
+
+  const ligne = (p: Parametre, enfant = false) => {
+    const enEdition = edition?.cle === p.cle
+    return (
+      <li key={p.cle} className={`reglage ${enfant ? 'enfant' : ''}`}>
+        <div className="reglage-texte">
+          <span className="reglage-libelle">{p.libelle}{p.provisoire && <span className="pilule attente">À confirmer</span>}</span>
+          {p.aide && <span className="doux petit">{p.aide}</span>}
+          {!p.provisoire && p.source && <span className="doux petit">{p.source}</span>}
+        </div>
+        <div className="reglage-controle">
+          {p.unite === 'booleen' && p.options?.length === 2 ? (
+            <div className="segments compact" role="radiogroup" aria-label={p.libelle}>
+              {p.options.map((o, i) => (
+                <button key={o} type="button" role="radio" aria-checked={p.valeur === i} onClick={() => p.valeur !== i && enregistrer(p, i)}>{o}</button>
+              ))}
+            </div>
+          ) : p.unite === 'booleen' ? (
+            <button className="interrupteur" role="switch" aria-checked={p.valeur === 1} aria-label={p.libelle}
+                    onClick={() => enregistrer(p, p.valeur ? 0 : 1, p.valeur ? 'Désactivé' : 'Activé')}><span /></button>
+          ) : enEdition ? (
+            <form className="edition-reglage" onSubmit={(e) => {
+              e.preventDefault()
+              const v = p.unite === 'min_depuis_minuit' ? enMin(edition.valeur) : p.unite === 'centimes' ? Math.round(Number(edition.valeur.replace(',', '.')) * 100) : Number(edition.valeur)
+              if (!Number.isFinite(v)) return erreur(new Error('Valeur invalide'))
+              enregistrer(p, v)
+            }}>
+              <input id={`param-${p.cle}`} aria-label={p.libelle} autoFocus required value={edition.valeur}
+                     type={p.unite === 'min_depuis_minuit' ? 'time' : 'text'} inputMode={p.unite === 'min_depuis_minuit' ? undefined : 'decimal'}
+                     onChange={(e) => setEdition({ cle: p.cle, valeur: e.target.value })} />
+              <span className="doux petit">{p.unite === 'centimes' ? '€ HT' : p.unite === 'min_depuis_minuit' ? '' : p.unite}</span>
+              <button className="bouton petit">OK</button>
+              <button type="button" className="lien petit" onClick={() => setEdition(null)}>Annuler</button>
+            </form>
+          ) : (
+            <button className="valeur-reglage" onClick={() => setEdition({ cle: p.cle, valeur: p.unite === 'min_depuis_minuit' ? hhmm(p.valeur)
+              : p.unite === 'centimes' ? (p.valeur / 100).toFixed(2).replace('.', ',') : String(p.valeur) })} title="Modifier">
+              {valeurLisible(p)}<span className="doux petit">Modifier</span>
+            </button>
+          )}
+          {p.provisoire && !enEdition && <button className="lien petit" onClick={() => enregistrer(p, p.valeur, 'Valeur confirmée')}>Confirmer</button>}
+        </div>
+      </li>
+    )
+  }
 
   return (
     <>
       <section className="carte">
-        <div className="ligne entre"><h2>Paramètres</h2>{provisoires > 0 && <span className="pilule attente">{provisoires} à confirmer</span>}</div>
-        <p className="doux petit" style={{ marginBottom: 0 }}>Toutes les règles sont réglables ici, sans toucher au code. Chaque modification exige sa source et est tracée dans le journal.</p>
-        <div className="filtres" role="group" aria-label="Catégories">
-          <button className="puce" aria-pressed={categorie === null} onClick={() => setCategorie(null)}>Toutes</button>
-          {categories.map((c) => <button key={c} className="puce" aria-pressed={categorie === c} onClick={() => setCategorie(categorie === c ? null : c)}>
-            {c} <b>{liste.filter((p) => (p.categorie || 'Autres') === c).length}</b></button>)}
+        <div className="ligne entre barre-outils">
+          <h2>Réglages {provisoires > 0 && <span className="pilule attente">{provisoires} à confirmer</span>}</h2>
+          <input id="recherche-reglages" type="search" className="recherche" placeholder="Chercher un réglage…" aria-label="Chercher un réglage" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        <label className="case-a-cocher petit"><input type="checkbox" checked={aConfirmer} onChange={(e) => setAConfirmer(e.target.checked)} />Seulement les valeurs à confirmer</label>
+        <p className="doux petit" style={{ margin: 0 }}>Active ou coupe une fonction avec son interrupteur ; ses réglages apparaissent juste en dessous. Chaque changement est enregistré dans le journal (qui, quand).</p>
       </section>
       <div className="grille-cartes">
-        {categories.filter((c) => !categorie || c === categorie).map((c) => (
-          <section key={c} className="carte">
-            <h2>{c}</h2>
-            <ul className="liste">{liste.filter((p) => (p.categorie || 'Autres') === c).map((p) => (
-              <li key={p.cle} className="ligne-param">
-                <span className="texte-ligne">{p.libelle}<div className="doux petit">{p.provisoire ? 'Valeur provisoire' : p.source ?? '—'}</div></span>
-                {p.unite === 'booleen' ? (
-                  <button className="interrupteur" role="switch" aria-checked={p.valeur === 1} aria-label={p.libelle}
-                          onClick={() => ouvrir(p, p.valeur ? 0 : 1)}><span /></button>
-                ) : <>
-                  <strong className="num valeur-param">{valeurLisible(p)}</strong>
-                  <button className="lien petit" onClick={() => ouvrir(p)}>Modifier</button>
-                </>}
-                {p.provisoire && <span className="pilule attente">À confirmer</span>}
-              </li>
-            ))}</ul>
-          </section>
-        ))}
+        {categories.map((c) => {
+          const items = racines.filter((p) => (p.categorie || 'Autres') === c && visible(p)).sort((a, b) => (a.ordre ?? 100) - (b.ordre ?? 100) || a.libelle.localeCompare(b.libelle))
+          if (!items.length) return null
+          return (
+            <section key={c} className="carte">
+              <h2>{c}</h2>
+              <ul className="liste-reglages">
+                {items.map((p) => {
+                  const sous = enfants(p.cle)
+                  const actif = p.unite !== 'booleen' || p.valeur === 1
+                  return [ligne(p), ...(sous.length && actif ? sous.filter((x) => !q && !aConfirmer ? true : filtre(x) || filtre(p)).map((x) => ligne(x, true)) : []),
+                    ...(sous.length && !actif ? [<li key={p.cle + '-off'} className="reglage enfant doux petit">Fonction coupée : {sous.length} réglage(s) masqué(s)</li>] : [])]
+                })}
+              </ul>
+            </section>
+          )
+        })}
       </div>
-      {edition && (
-        <Fenetre titre={edition.p.libelle} onFermer={() => setEdition(null)}>
-          <form onSubmit={async (e) => {
-            e.preventDefault()
-            const v = edition.p.unite === 'min_depuis_minuit' ? enMin(edition.valeur) : Number(edition.valeur)
-            try { await api.modifierParametre(edition.p.cle, v, edition.source); setEdition(null); setMessage({ texte: 'Paramètre enregistré ✅' }); charger() }
-            catch (err) { erreur(err) }
-          }}>
-            {edition.p.unite === 'booleen' ? (
-              <div className="segments" role="radiogroup" aria-label="Valeur">
-                {[['1', 'Oui'], ['0', 'Non']].map(([v, l]) => (
-                  <button key={v} type="button" role="radio" aria-checked={edition.valeur === v} onClick={() => setEdition({ ...edition, valeur: v })}>{l}</button>
-                ))}
-              </div>
-            ) : (
-              <label className="champ">Valeur ({edition.p.unite === 'min_depuis_minuit' ? 'heure' : edition.p.unite})
-                <input id="param-valeur" type={edition.p.unite === 'min_depuis_minuit' ? 'time' : 'number'} min={0} value={edition.valeur} required
-                       onChange={(e) => setEdition({ ...edition, valeur: e.target.value })} />
-                {(edition.p.cle.startsWith('conservation') || edition.p.cle === 'stats_seuil_anonymat') && <span className="doux petit">0 = {edition.p.cle === 'stats_seuil_anonymat' ? 'ne jamais regrouper' : 'sans limite'}</span>}
-              </label>
-            )}
-            <label className="champ">Source (obligatoire)
-              <input id="param-source" value={edition.source} required placeholder="Ex. règlement de travail, art. 12"
-                     onChange={(e) => setEdition({ ...edition, source: e.target.value })} /></label>
-            <div className="actions">
-              <button type="button" className="bouton secondaire" onClick={() => setEdition(null)}>Fermer</button>
-              <button className="bouton">Enregistrer</button>
-            </div>
-          </form>
-        </Fenetre>
-      )}
     </>
   )
 }

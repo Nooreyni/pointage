@@ -201,7 +201,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
                compte_lie: p.prenom !== 'Léa', regime_id: rid, regime: regimes.find((r) => r.id === rid)!.libelle, regime_depuis: '2025-01-01' }
     })
   let acces: Acces[] = []
-  let parametres: Parametre[] = ([
+  let parametres: Parametre[] = (([
     ['pause_midi_min', 30, 'min', 'Pause de midi déduite automatiquement'], ['pause_seuil_min', 360, 'min', 'Pause déduite si la journée pointée dépasse'],
     ['max_jour_min', 540, 'min', 'Maximum journalier en horaire flottant'], ['max_semaine_min', 2700, 'min', 'Maximum hebdomadaire en horaire flottant'],
     ['boni_periode_mois', 3, 'mois', 'Période de référence du boni'], ['boni_report_max_min', 720, 'min', 'Boni reportable max (crédit)'],
@@ -217,8 +217,27 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   ] as const).map(([cle, valeur, unite, libelle]) => ({ cle, valeur, unite, libelle, provisoire: !['ip_visible_n1', 'isp_conges', 'conservation_ip_mois', 'liaison_sso_seulement'].includes(cle),
       source: ['ip_visible_n1', 'isp_conges', 'conservation_ip_mois'].includes(cle) ? 'Décision CFB du 31/10/2026'
         : cle === 'liaison_sso_seulement' ? 'Audit du 31/10/2026 (R2)' : 'Valeur par défaut',
-      categorie: cle.startsWith('rappel') || cle.startsWith('relance') ? 'Rappels' : cle.startsWith('conges') || cle === 'isp_conges' ? 'Congés'
-        : cle.startsWith('conservation') ? 'Conservation' : ['liaison_sso_seulement', 'session_inactivite_min'].includes(cle) ? 'Sécurité' : ['ip_visible_n1', 'stats_seuil_anonymat'].includes(cle) ? 'Confidentialité' : 'Temps de travail' }))
+      categorie: cle.startsWith('rappel') || cle.startsWith('relance') ? 'Rappels' : cle.startsWith('conges') || cle === 'isp_conges' ? 'Congés et absences'
+        : cle.startsWith('conservation') ? 'Conservation' : ['liaison_sso_seulement', 'session_inactivite_min'].includes(cle) ? 'Sécurité' : ['ip_visible_n1', 'stats_seuil_anonymat'].includes(cle) ? 'Confidentialité' : 'Temps de travail' }))) as Parametre[]
+  parametres = [...parametres,
+    { cle: 'justificatifs_actifs', valeur: 0, unite: 'booleen', libelle: 'Demander des justificatifs (certificats…)', provisoire: true, source: null, categorie: 'Congés et absences', ordre: 10,
+      aide: 'Coupé : aucun justificatif n’est demandé ni signalé comme manquant.' },
+    { cle: 'justificatif_visible_n1', valeur: 0, unite: 'booleen', libelle: 'Le N+1 peut ouvrir les justificatifs de son équipe', provisoire: true, source: null, categorie: 'Congés et absences', parent: 'justificatifs_actifs', ordre: 11 },
+    { cle: 'indemnite_tt_active', valeur: 1, unite: 'booleen', libelle: 'Indemnité de télétravail', provisoire: true, source: null, categorie: 'Télétravail', ordre: 10,
+      aide: 'Calculée dans Rapports › Télétravail, à partir des jours pointés en télétravail.' },
+    { cle: 'indemnite_tt_montant', valeur: 2500, unite: 'centimes', libelle: 'Indemnité de télétravail (montant € HT)', provisoire: true, source: null, categorie: 'Télétravail', parent: 'indemnite_tt_active', ordre: 11 },
+    { cle: 'indemnite_tt_forfait_mensuel', valeur: 0, unite: 'booleen', libelle: 'Mode de calcul', provisoire: true, source: null, categorie: 'Télétravail', parent: 'indemnite_tt_active', ordre: 12,
+      options: ['Par jour de télétravail', 'Forfait par mois'] },
+    { cle: 'indemnite_tt_plafond', valeur: 0, unite: 'centimes', libelle: 'Plafond mensuel de l’indemnité (0 = sans plafond)', provisoire: true, source: null, categorie: 'Télétravail', parent: 'indemnite_tt_active', ordre: 13 },
+  ]
+  const param = (cle: string) => parametres.find((p) => p.cle === cle)?.valeur ?? 0
+  const indemnite = (jours: number) => {
+    if (jours <= 0 || !param('indemnite_tt_active')) return 0
+    const brut = param('indemnite_tt_forfait_mensuel') ? param('indemnite_tt_montant') : param('indemnite_tt_montant') * jours
+    return param('indemnite_tt_plafond') > 0 ? Math.min(brut, param('indemnite_tt_plafond')) : brut
+  }
+  // Justificatifs coupés : rien n'est « requis »
+  const justif = (d: Demande): Demande => ({ ...d, justificatif_requis: !!d.justificatif_requis && param('justificatifs_actifs') === 1 })
   let compteurs: Compteur[] = ([
     ['CONGE_LEGAL', 'Congés annuels', 'annuelle', 'total', 'CONGE_N1'], ['CONGE_N1', 'Congés année passée', 'annuelle', 'total', 'CONGE_N2'],
     ['CONGE_N2', 'Congés année −2', 'annuelle', 'perdu', null], ['EXTRA_LEGAL', 'Congés extra-légaux', 'annuelle', 'total', null],
@@ -395,11 +414,11 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async mesDemandes() {
       return [...demandes.filter((d) => d.personne_id === 'demo'), ...transmises.filter((d) => d.de === persona)]
-        .sort((a, b) => b.date_debut.localeCompare(a.date_debut))
+        .sort((a, b) => b.date_debut.localeCompare(a.date_debut)).map(justif)
     },
     async aValider() {
       const recues = transmises.filter((d) => d.vers === persona && d.statut === 'en_attente').map((d) => ({ ...d, je_peux_valider: true }))
-      return [...(['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : []), ...recues]
+      return [...(['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : []), ...recues].map(justif)
     },
     async decider(ids, accorder, commentaire) {
       await attendre()
@@ -429,7 +448,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       d.encode_par_rh = true; d.constate_le = new Date().toISOString()
       demandes.push(d)
     },
-    async aConstater() { return demandes.filter((d) => d.statut === 'accordee' && !d.constate_le && d.personne_id !== 'demo') },
+    async aConstater() { return demandes.filter((d) => d.statut === 'accordee' && !d.constate_le && d.personne_id !== 'demo').map(justif) },
     async constater(ids) {
       demandes.filter((d) => ids.includes(d.id)).forEach((d) => { d.constate_le = new Date().toISOString() })
       return ids.length
@@ -542,7 +561,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
           // Exemple : une personne sur quatre a aussi télétravaillé un autre jour (exceptionnel)
           if (k % 4 === 1) { const extra = decalerJour(mois, 8); if (extra <= aujourdhui && isodow(extra) < 6 && !dates.includes(extra)) dates.push(extra) }
           dates.sort()
-          return { personne_id: x.id, prenom: x.prenom, nom: x.nom, service: x.service, jours_tt: dates.length, dates, jours_habituels: jours }
+          return { personne_id: x.id, prenom: x.prenom, nom: x.nom, service: x.service, jours_tt: dates.length, dates, jours_habituels: jours, indemnite_centimes: indemnite(dates.length) }
         })
         .sort((a, b) => a.service.localeCompare(b.service) || a.nom.localeCompare(b.nom))
     },
@@ -586,6 +605,20 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       adminP.push({ ...s, id, email: s.email.toLowerCase(), service, compte_lie: false, regime: regimes.find((r) => r.id === s.regime_id)!.libelle,
                     regime_depuis: s.date_entree })
       return id
+    },
+    async regimePersonnalise(personneId, minutesJour, debut) {
+      exigerAdmin()
+      if (!minutesJour.some((m) => m > 0)) throw new Error('Choisis au moins un jour travaillé')
+      let r = regimes.find((x) => x.actif && x.minutes_jour.join() === minutesJour.join())
+      if (!r) {
+        const noms = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'], n = minutesJour.filter((m) => m > 0).length, tot = minutesJour.reduce((a, b) => a + b, 0)
+        const plein = tot >= 2280
+        r = { id: Math.max(...regimes.map((x) => x.id)) + 1, libelle: `${plein ? 'Temps plein' : `${n}/5`} · ${noms.filter((_, i) => minutesJour[i] > 0).join(' ')} (${Math.floor(tot / 60)}h${String(tot % 60).padStart(2, '0')}/sem.)`,
+              contrat: plein ? 'temps_plein' : 'temps_partiel', minutes_jour: minutesJour, actif: true, utilisations: 0, minutes_semaine: tot } as Regime
+        regimes = [...regimes, r]
+      }
+      await this.changerRegime(personneId, r.id, debut)
+      return r.id
     },
     async changerRegime(personneId, regimeId, debut) {
       exigerAdmin(); await attendre()
@@ -655,7 +688,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       Object.assign(cible, { justificatif_joint: true, justificatif_chemin: chemin })
     },
     async justificatifsManquants() {
-      return [...demandes, ...congesEquipe].filter((d) => d.statut === 'accordee' && d.justificatif_requis && !d.justificatif_joint)
+      return [...demandes, ...congesEquipe].map(justif).filter((d) => d.statut === 'accordee' && d.justificatif_requis && !d.justificatif_joint)
     },
     async lienJustificatif(chemin) { return fichiers.get(chemin) ?? 'about:blank' },
     async retirerJustificatif(d) {
@@ -692,7 +725,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async absencesPersonne(personneId, debut, fin) {
       return [...demandes, ...congesEquipe].filter((d) => d.statut === 'accordee' && d.date_debut <= fin && d.date_fin >= debut
-        && (personneId === profil.id ? d.personne_id === profil.id || d.prenom === profil.prenom : d.personne_id === personneId))
+        && (personneId === profil.id ? d.personne_id === profil.id || d.prenom === profil.prenom : d.personne_id === personneId)).map(justif)
     },
     async personnesVisibles(): Promise<PersonneVisible[]> {
       if (persona === 'employe') return [{ id: 'demo', prenom: profil.prenom, nom: profil.nom, service: profil.service }]
@@ -700,7 +733,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async demandesEquipe(debut, fin) {
       return [...demandes, ...congesEquipe].filter((d) => ['en_attente', 'accordee'].includes(d.statut) && d.date_debut <= fin && d.date_fin >= debut)
-        .map((d) => ({ ...d, personne_id: PERSONNES.find((p) => p.prenom === d.prenom)?.id ?? d.personne_id }))
+        .map((d) => justif({ ...d, personne_id: PERSONNES.find((p) => p.prenom === d.prenom)?.id ?? d.personne_id }))
     },
     async compteurs() { return compteurs },
     async enregistrerCompteur(c) {

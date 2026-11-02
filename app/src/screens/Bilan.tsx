@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Api, LigneMensuelle } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { telechargerCsv } from '../lib/csv'
+import { telecharger, type Format } from '../lib/export'
+import Export from '../components/Export'
 import { duree, jourBxl } from '../lib/temps'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -30,13 +31,13 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
     { prevus: 0, presents: 0, tt: 0, regul: 0, personnesRegul: 0 })
   const plusieursServices = new Set((lignes ?? []).map((l) => l.service)).size > 1
 
-  function exporter() {
+  function exporter(format: Format) {
     if (!lignes) return
     const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
-    telechargerCsv([['Nom', 'Prénom', 'Service', 'Régime', 'Jours prévus', 'Jours pointés', 'Jours télétravail', 'Heures à prester', 'Heures prestées', 'Boni (h)',
+    telecharger([['Nom', 'Prénom', 'Service', 'Régime', 'Jours prévus', 'Jours pointés', 'Jours télétravail', 'Heures à prester', 'Heures prestées', 'Boni (h)',
       'Congés (h)', 'Maladie (h)', 'Autres absences (h)', 'Jours sans pointage', 'Jours incomplets'],
       ...lignes.map((l) => [l.nom, l.prenom, l.service, l.regime ?? '', l.jours_prevus, l.jours_presents, l.jours_tt, h(l.a_prester), h(l.preste), h(l.boni),
-        h(l.conges), h(l.maladie), h(l.autres_absences), l.jours_non_justifies, l.jours_incomplets])], `recap-${choix.slice(0, 7)}.csv`)
+        h(l.conges), h(l.maladie), h(l.autres_absences), l.jours_non_justifies, l.jours_incomplets])], `recap-${choix.slice(0, 7)}`, format, `Récap ${choix.slice(0, 7)}`)
   }
 
   return (
@@ -49,7 +50,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
               <select id="bilan-mois" className="choix-mois" aria-label="Mois" value={choix} onChange={(e) => setChoix(e.target.value)}>
                 {mois.map((m, i) => <option key={m} value={m}>{nomMois(m)}{i === 0 ? ' (en cours)' : ''}</option>)}
               </select>
-              <button className="bouton secondaire petit" disabled={!lignes?.length} onClick={exporter}>Exporter (Excel)</button>
+              <Export disabled={!lignes?.length} onExporter={exporter} />
             </span>
           </div>
           {lignes && lignes.length > 0 && (
@@ -95,7 +96,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
               </table>
             </div>
           )}
-          <p className="doux petit" style={{ marginBottom: 0 }}>Jusqu’à hier. Clique sur un nom pour voir sa fiche de temps jour par jour. L’export Excel contient le détail (congés, maladie, autres absences).</p>
+          <p className="doux petit" style={{ marginBottom: 0 }}>Jusqu’à hier. Clique sur un nom pour voir sa fiche de temps jour par jour. L’export contient le détail (congés, maladie, autres absences).</p>
         </section>
       </div>
     </main>

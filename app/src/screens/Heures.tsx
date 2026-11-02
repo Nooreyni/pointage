@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { IcCorrection, IcDiffere, IcEntree, IcSortie } from '../components/Icones'
 import type { Api, Demande, Journee, PersonneVisible, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { telechargerCsv } from '../lib/csv'
+import { telecharger, type Format } from '../lib/export'
+import Export from '../components/Export'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import { dateCourte, decalerJour, duree, heure, jourBxl } from '../lib/temps'
 
@@ -53,13 +54,13 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
     absence: t.absence + j.absence }), { aPrester: 0, preste: 0, boni: 0, regul: 0, absence: 0 })
   const visibles = (lignes ?? []).filter(({ j, pts }) => toutVoir || j.prevues > 0 || pts.length > 0)
 
-  function exporter() {
+  function exporter(format: Format) {
     if (!lignes) return
     const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
     const entete = ['Date', 'Prévu (h)', 'Absence', 'Absence (h)', 'Pointages', 'Prestées (h)', 'Boni (h)', 'Statut']
     const corps = lignes.map(({ j, pts, absence }) => [j.jour, h(j.prevues), absence?.libelle_absence ?? '', h(j.absence),
       pts.map((p) => `${p.sens === 'entree' ? 'E' : 'S'} ${heure(p.horodatage)}`).join(' '), h(j.preste), h(j.boni), statut(j).texte])
-    telechargerCsv([entete, ...corps], `fiche-temps-${nomQui.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${choixMois.slice(0, 7)}.csv`)
+    telecharger([entete, ...corps], `fiche-temps-${nomQui.toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${choixMois.slice(0, 7)}`, format, `Fiche de temps ${choixMois.slice(0, 7)}`)
   }
 
   return (
@@ -99,7 +100,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
               <label className="case-a-cocher petit" style={{ margin: 0 }}>
                 <input type="checkbox" checked={toutVoir} onChange={(e) => setToutVoir(e.target.checked)} />Week-ends et jours non prestés</label>
               <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
-              <button className="bouton petit" disabled={!lignes?.length} onClick={exporter}>Export Excel (CSV)</button>
+              <Export disabled={!lignes?.length} onExporter={exporter} />
             </span>
           </div>
           {erreur && <p className="negatif">{erreur}</p>}

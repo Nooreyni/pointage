@@ -247,6 +247,9 @@ export function apiSupabase(): Api {
     async delierCompte(personneId) {
       verifier(await sb.rpc('delier_compte', { p_personne_id: personneId }))
     },
+    async regimePersonnalise(personneId, minutesJour, debut) {
+      return verifier(await sb.rpc('regime_personnalise', { p_personne_id: personneId, p_minutes_jour: minutesJour, p_debut: debut })) as number
+    },
     async changerRegime(personneId, regimeId, debut) {
       verifier(await sb.rpc('changer_regime', { p_personne_id: personneId, p_regime_id: regimeId, p_debut: debut }))
     },

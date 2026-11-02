@@ -6,6 +6,7 @@ import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
 import { IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import Recherche, { type Cible } from '../components/Recherche'
+import { ReglagesContext } from '../lib/reglages'
 import type { Section } from './Admin'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
@@ -58,11 +59,15 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [sectionAdmin, setSectionAdmin] = useState<Section | undefined>(undefined)
   const [inactiviteMin, setInactiviteMin] = useState(0)
   const [dernieres, setDernieres] = useState<Record<string, Onglet>>({})
+  const [reglages, setReglages] = useState<Record<string, number>>({})
   const [deconnecteInactif, setDeconnecteInactif] = useState(false)
 
   useEffect(() => {
     api.profil().then((p) => { definirProprietaire(p.id); setProfil(p) }).catch((e) => setErreur(messageErreur(e)))
-    api.parametres().then((ps) => setInactiviteMin(ps.find((x) => x.cle === 'session_inactivite_min')?.valeur ?? 0)).catch(() => {})
+    api.parametres().then((ps) => {
+      setInactiviteMin(ps.find((x) => x.cle === 'session_inactivite_min')?.valeur ?? 0)
+      setReglages(Object.fromEntries(ps.map((x) => [x.cle, x.valeur])))
+    }).catch(() => {})
     return () => definirProprietaire(null)
   }, [api])
 
@@ -164,6 +169,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const derniere = (g: (typeof groupes)[number]) => g.vues.find(([id]) => id === dernieres[g.id])?.[0] ?? g.vues[0][0]
 
   return (
+    <ReglagesContext.Provider value={reglages}>
     <div className="app">
       <header className="entete">
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
@@ -242,6 +248,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
       </Suspense>
     </div>
+    </ReglagesContext.Provider>
   )
 }
 

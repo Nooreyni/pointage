@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { IcTrombone } from './Icones'
+import { useReglage } from '../lib/reglages'
 import type { Api, Demande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 
@@ -12,6 +13,9 @@ export default function Justificatif({ api, d, peutDeposer, onChange }: {
 }) {
   const champ = useRef<HTMLInputElement>(null)
   const [enCours, setEnCours] = useState(false)
+  const actifs = useReglage('justificatifs_actifs') === 1
+  // Fonction coupée (Admin › Réglages) : plus rien à demander ; un justificatif déjà joint reste consultable
+  if (!actifs && !d.justificatif_joint) return null
   if (d.statut === 'refusee' || d.statut === 'annulee') return null
   // Utile seulement si requis, déjà joint, ou absence encodée par la RH (maladie…) — pas sur chaque congé
   if (!d.justificatif_joint && !d.justificatif_requis && !d.encode_par_rh) return null

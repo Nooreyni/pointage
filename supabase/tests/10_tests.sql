@@ -648,6 +648,7 @@ reset role;
 
 
 -- ===================== Justificatifs =====================
+update pointage.parametres set valeur = 1 where cle = 'justificatifs_actifs';   -- fonction activée pour ces tests
 select id as dem_awa, personne_id as pid_awa from pointage.demandes where personne_id = test.pid('Awa') and code_absence = 'MAL' \gset
 select test.connecte('Awa'); set role authenticated;
 select test.ok((select justificatif_requis and not justificatif_joint from public.demandes where id = :'dem_awa'), 'Maladie : justificatif requis, pas encore joint');
@@ -809,6 +810,39 @@ select test.ok((select bool_and(jours_presents <= jours_prevus + 31 and preste >
 reset role;
 select test.connecte('Yanis'); set role authenticated;
 select test.ok(not exists (select 1 from public.rapport_mensuel(pointage.aujourdhui() - 1)), 'Récap : un employé ne voit personne');
+reset role;
+
+-- ===================== Indemnité de télétravail (réglable) =====================
+select test.ok(pointage.indemnite_tt(3) = 7500, 'Indemnité TT : 25 € × 3 jours par défaut');
+select test.ok(pointage.indemnite_tt(0) = 0, 'Indemnité TT : rien sans télétravail');
+update pointage.parametres set valeur = 1 where cle = 'indemnite_tt_forfait_mensuel';
+select test.ok(pointage.indemnite_tt(3) = 2500, 'Indemnité TT : forfait mensuel');
+update pointage.parametres set valeur = 0 where cle = 'indemnite_tt_forfait_mensuel';
+update pointage.parametres set valeur = 5000 where cle = 'indemnite_tt_plafond';
+select test.ok(pointage.indemnite_tt(3) = 5000, 'Indemnité TT : plafond appliqué');
+update pointage.parametres set valeur = 0 where cle = 'indemnite_tt_plafond';
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select indemnite_centimes = jours_tt * 2500 from public.rapport_teletravail(pointage.aujourdhui()) where prenom = 'Sofia'), 'Rapport TT : indemnité calculée');
+reset role;
+
+-- ===================== Réglages organisés =====================
+select test.ok((select count(*) from public.parametres where parent = 'indemnite_tt_active') = 3, 'Réglages : l''indemnité regroupe montant, mode et plafond');
+update pointage.parametres set valeur = 0 where cle = 'indemnite_tt_active';
+select test.ok(pointage.indemnite_tt(3) = 0, 'Indemnité coupée : 0 €');
+update pointage.parametres set valeur = 1 where cle = 'indemnite_tt_active';
+update pointage.parametres set valeur = 0 where cle = 'justificatifs_actifs';   -- retour à la valeur livrée
+select test.ok((select valeur = 0 from pointage.parametres where cle = 'justificatifs_actifs'), 'Justificatifs : fonction coupable');
+select test.ok(not exists (select 1 from public.demandes where justificatif_requis), 'Justificatifs coupés : aucun requis');
+-- Régime personnalisé : 4/5 avec le mercredi libre
+select test.connecte('Admin'); set role authenticated;
+select public.regime_personnalise(test.pid('Yanis'), array[456,456,0,456,456,0,0], pointage.aujourdhui() + 30) as reg1 \gset
+select public.regime_personnalise(test.pid('Sofia'), array[456,456,0,456,456,0,0], pointage.aujourdhui() + 30) as reg2 \gset
+select test.erreur(format('select public.regime_personnalise(%L, array[0,0,0,0,0,0,0], current_date)', test.pid('Yanis')), 'Régime : au moins un jour', 'au moins un jour');
+reset role;
+select test.ok(:'reg1' = :'reg2', 'Régime identique réutilisé (pas de doublon)');
+select test.ok((select libelle like '4/5 · lun mar jeu ven%' and contrat = 'temps_partiel' from pointage.regimes where id = :'reg1'), 'Régime nommé d''après ses jours');
+select test.connecte('Yanis'); set role authenticated;
+select test.erreur(format('select public.regime_personnalise(%L, array[456,456,456,456,456,0,0], current_date)', pointage.moi()), 'Régime : réservé admin / admin RH', 'réservée');
 reset role;
 
 -- ===================== Bilan =====================

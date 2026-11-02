@@ -218,6 +218,7 @@ export interface LigneTeletravail {
   jours_tt: number          // jours avec au moins un pointage « Télétravail » (indemnité)
   dates: string[]
   jours_habituels: number[]
+  indemnite_centimes?: number   // selon Admin › Réglages › Télétravail
 }
 
 export interface LigneMensuelle {
@@ -316,7 +317,12 @@ export interface Regime {
 }
 
 export interface Acces { personne_id: string; prenom: string; nom: string; service_id: string; service: string; peut_valider: boolean }
-export interface Parametre { cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null; categorie: string }
+export interface Parametre {
+  cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null; categorie: string
+  parent?: string | null      // réglage d'une fonction : masqué quand la fonction est coupée
+  options?: string[] | null   // oui/non présenté comme un choix entre deux modalités
+  ordre?: number; aide?: string | null
+}
 export interface Compteur {
   code: string; libelle: string; periodicite: 'annuelle' | 'trimestrielle' | 'aucune'; visible_employe: boolean; autorise_negatif: boolean
   ordre: number; actif: boolean; report_mode: 'perdu' | 'total' | 'plafonne'; report_vers: string | null; report_plafond_min: number | null; regle_provisoire: boolean
@@ -380,6 +386,8 @@ export interface Api {
   connexion(): Promise<{ motDePasse: boolean; microsoft: boolean }>
   changerMotDePasse(actuel: string, nouveau: string): Promise<void>
   changerRegime(personneId: string, regimeId: number, debut: string): Promise<void>
+  /** Régime aux jours choisis (4/5, 3/5… le jour libre varie) : réutilise un régime identique ou le crée */
+  regimePersonnalise(personneId: string, minutesJour: number[], debut: string): Promise<number>
   adminServices(): Promise<AdminService[]>
   enregistrerService(s: Omit<AdminService, 'effectif' | 'id'> & { id: string | null }): Promise<string>
   regimes(): Promise<Regime[]>

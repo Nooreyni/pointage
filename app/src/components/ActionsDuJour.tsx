@@ -3,6 +3,7 @@ import type { Api, Presence, Profil } from '../lib/types'
 import { jourBxl } from '../lib/temps'
 import { IcOk } from './Icones'
 import { etatDe } from '../screens/Equipe'
+import { useReglage } from '../lib/reglages'
 
 export type CibleAction = 'conges-valider' | 'equipe' | 'rh'
 type Action = { cle: string; nombre: number; texte: string; bouton: string; faire: () => void }
@@ -20,6 +21,7 @@ export default function ActionsDuJour({ api, profil, aValider, onAller }: {
 }) {
   const rh = ['rh', 'admin_rh', 'admin'].includes(profil.role)
   const vueCfb = rh || profil.role === 'direction'
+  const justifsActifs = useReglage('justificatifs_actifs') === 1
   const [presence, setPresence] = useState<Presence[]>([])
   const [anomalies, setAnomalies] = useState(0)
   const [justifs, setJustifs] = useState(0)
@@ -30,10 +32,10 @@ export default function ActionsDuJour({ api, profil, aValider, onAller }: {
     api.presence().then(setPresence).catch(() => {})
     if (!rh) return
     api.anomaliesTous().then((a) => setAnomalies(new Set(a.filter((x) => x.code !== 'semaine_max').map((x) => x.personne_id)).size)).catch(() => {})
-    api.justificatifsManquants().then((j) => setJustifs(j.length)).catch(() => {})
+    if (justifsActifs) api.justificatifsManquants().then((j) => setJustifs(j.length)).catch(() => {})
     const m = moisPrecedent()
     api.etatCloture(m).then((e) => setCloture(e.mois_termine && !e.deja_cloture ? MOIS.format(new Date(`${m}T12:00:00Z`)) : null)).catch(() => {})
-  }, [api, rh])
+  }, [api, rh, justifsActifs])
 
   const nonPointesEquipe = presence.filter((p) => p.mon_service && p.statut === 'Pas encore pointé' && p.personne_id !== profil.id)
   const compte = (f: (p: Presence) => boolean) => presence.filter(f).length

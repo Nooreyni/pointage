@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Api, LigneCpas, LigneTeletravail, Profil, StatService, StatsDirection } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { telechargerCsv } from '../lib/csv'
+import { telecharger, type Format } from '../lib/export'
+import Export from '../components/Export'
 import { duree, jourBxl } from '../lib/temps'
 
 const MOIS_LONG = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -70,14 +71,14 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
   const parAnomalies = [...s.services].filter((x) => x.anomalies > 0).sort((a, b) => b.anomalies - a.anomalies)
   const d = s.demandes, decidees = d.accordees + d.refusees
 
-  function exporterCsv() {
+  function exporterCsv(format: Format) {
     const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
     const p1 = (v: number | null) => (v === null ? '' : (Math.round(v * 10) / 10).toString().replace('.', ','))
     const entete = ['Service', 'Effectif', 'Heures prévues', 'Heures prestées', 'Congés (h)', 'Maladie (h)', 'Autres absences (h)',
                     'Taux d’absence (%)', 'Jours prestés', 'Jours télétravail', 'Anomalies (jours)']
     const corps = s!.services.map((x) => [x.service, x.effectif, h(x.prevues), h(x.preste), h(x.absence_conge),
       x.absence_maladie === null ? 'masqué' : h(x.absence_maladie), h(x.absence_autre), p1(tauxAbs(x)), x.jours_presence, x.jours_tt, x.anomalies])
-    telechargerCsv([entete, ...corps], `indicateurs-${mois.slice(0, 7)}.csv`)
+    telecharger([entete, ...corps], `indicateurs-${mois.slice(0, 7)}`, format)
   }
 
   return (
@@ -100,7 +101,7 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
       <section className="carte">
         <div className="ligne entre barre-outils">
           <h2>Par service <span className="doux petit">· {nomMois(s.debut)} · {tot.effectif} personnes</span></h2>
-          <button className="bouton secondaire petit" onClick={exporterCsv}>Export Excel (CSV)</button>
+          <Export onExporter={exporterCsv} />
         </div>
         <div className="tableau-defilant">
           <table className="tableau services">
@@ -222,14 +223,14 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
   const [erreur, setErreur] = useState<string | null>(null)
   useEffect(() => { setLignes(null); setErreur(null); api.rapportCpas(mois).then(setLignes).catch((e) => setErreur(messageErreur(e))) }, [api, mois])
 
-  function exporterCsv() {
+  function exporterCsv(format: Format) {
     if (!lignes) return
     const h = (m: number) => (m / 60).toFixed(2).replace('.', ',')
     const entete = ['Nom', 'Prénom', 'Partenaire', 'Service', 'Régime', 'Heures à prester', 'Heures prestées', 'Écart (h)',
                     'Congés (h)', 'Autres absences justifiées (h)', 'Maladie (h)', 'Jours non justifiés', 'Jours incomplets']
     const corps = lignes.map((l) => [l.nom, l.prenom, l.partenaire, l.service, l.regime ?? '', h(l.a_prester), h(l.preste), h(l.ecart),
                                      h(l.conges), h(l.absence_justifiee), h(l.absence_maladie), l.jours_non_justifies, l.jours_incomplets])
-    telechargerCsv([entete, ...corps], `rapport-cpas-${mois.slice(0, 7)}.csv`)
+    telecharger([entete, ...corps], `rapport-cpas-${mois.slice(0, 7)}`, format)
   }
 
   if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
@@ -240,7 +241,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
           <p className="doux petit" style={{ margin: '4px 0 0' }}>Pour le suivi des contrats article 60 : heures et congés à communiquer au CPAS.</p></div>
         <span className="ligne">
           <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
-          <button className="bouton petit" disabled={!lignes?.length} onClick={exporterCsv}>Export Excel (CSV)</button>
+          <Export disabled={!lignes?.length} onExporter={exporterCsv} />
         </span>
       </div>
       {!lignes && <p className="vide">Calcul…</p>}
@@ -286,14 +287,17 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
   const sansAccent = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const visibles = (lignes ?? []).filter((l) => !filtre || sansAccent(`${l.nom} ${l.prenom} ${l.service}`).includes(sansAccent(filtre)))
   const total = visibles.reduce((t, l) => t + l.jours_tt, 0)
+  const avecIndemnite = (lignes ?? []).some((l) => (l.indemnite_centimes ?? 0) > 0)
+  const totalIndemnite = visibles.reduce((t, l) => t + (l.indemnite_centimes ?? 0), 0)
+  const eur = (c: number) => `${(c / 100).toFixed(2).replace('.', ',')} €`
   const enCours = mois.slice(0, 7) === jourBxl().slice(0, 7)
 
-  function exporterCsv() {
+  function exporterCsv(format: Format) {
     if (!lignes) return
-    const entete = ['Nom', 'Prénom', 'Service', 'Jours de télétravail', 'Dates', 'Jours habituels']
-    const corps = lignes.map((l) => [l.nom, l.prenom, l.service, l.jours_tt, l.dates.map((d) => `${d.slice(8)}/${d.slice(5, 7)}`).join(' '),
+    const entete = ['Nom', 'Prénom', 'Service', 'Jours de télétravail', 'Indemnité (€ HT)', 'Dates', 'Jours habituels']
+    const corps = lignes.map((l) => [l.nom, l.prenom, l.service, l.jours_tt, ((l.indemnite_centimes ?? 0) / 100).toFixed(2).replace('.', ','), l.dates.map((d) => `${d.slice(8)}/${d.slice(5, 7)}`).join(' '),
                                      l.jours_habituels.map((j) => JOURS_SEM[j - 1]).join(' ')])
-    telechargerCsv([entete, ...corps], `teletravail-${mois.slice(0, 7)}.csv`)
+    telecharger([entete, ...corps], `teletravail-${mois.slice(0, 7)}`, format)
   }
 
   if (erreur) return <section className="carte"><p className="negatif">{erreur}</p></section>
@@ -305,7 +309,7 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
             {enCours && ' Mois en cours : chiffres provisoires.'}</p></div>
         <span className="ligne">
           <button className="bouton secondaire petit" onClick={() => window.print()}>Imprimer</button>
-          <button className="bouton petit" disabled={!lignes?.length} onClick={exporterCsv}>Export Excel (CSV)</button>
+          <Export disabled={!lignes?.length} onExporter={exporterCsv} />
         </span>
       </div>
       {lignes && lignes.length > 8 && (
@@ -316,21 +320,22 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
       {lignes && lignes.length > 0 && (
         <div className="tableau-defilant">
           <table className="tableau">
-            <thead><tr><th>Personne</th><th>Service</th><th className="num">Jours TT</th><th>Dates</th><th>Jours habituels</th></tr></thead>
+            <thead><tr><th>Personne</th><th>Service</th><th className="num">Jours TT</th>{avecIndemnite && <th className="num">Indemnité</th>}<th>Dates</th><th>Jours habituels</th></tr></thead>
             <tbody>{visibles.map((l) => (
               <tr key={l.personne_id}>
                 <td><strong>{l.nom} {l.prenom}</strong></td>
                 <td>{l.service}</td>
                 <td className="num"><strong>{l.jours_tt}</strong></td>
+                {avecIndemnite && <td className="num">{l.indemnite_centimes ? eur(l.indemnite_centimes) : '—'}</td>}
                 <td className="petit">{l.dates.length ? l.dates.map((d) => Number(d.slice(8))).join(', ') : <span className="doux">—</span>}</td>
                 <td className="petit">{l.jours_habituels.length ? l.jours_habituels.map((j) => JOURS_SEM[j - 1]).join(', ') : <span className="doux">aucun</span>}</td>
               </tr>
             ))}</tbody>
-            <tfoot><tr><td colSpan={2}><strong>Total</strong> ({visibles.length} personne{visibles.length > 1 ? 's' : ''})</td><td className="num"><strong>{total}</strong></td><td colSpan={2} /></tr></tfoot>
+            <tfoot><tr><td colSpan={2}><strong>Total</strong> ({visibles.length} personne{visibles.length > 1 ? 's' : ''})</td><td className="num"><strong>{total}</strong></td>{avecIndemnite && <td className="num"><strong>{eur(totalIndemnite)}</strong></td>}<td colSpan={2} /></tr></tfoot>
           </table>
         </div>
       )}
-      <p className="doux petit" style={{ marginBottom: 0 }}>Le montant de l’indemnité n’est pas calculé ici : il dépend de la règle du CFB (à confirmer par la RH).</p>
+      <p className="doux petit" style={{ marginBottom: 0 }}>Indemnité calculée selon Admin › Réglages › Télétravail (montant, par jour ou forfait, plafond) ; HT.</p>
     </section>
   )
 }
