@@ -18,7 +18,7 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 | Changement de régime daté (crédit-temps, congé parental à temps partiel…) | ✅ |
 | Heures au-delà du maximum : politique « pas d'heures sup », exceptions validées | ✅ |
 | Jours fériés (et récupérables) | ✅ |
-| Pointage sur un poste partagé (tablette à l'entrée) | ❓ |
+| Pointage sur un poste partagé (tablette à l'entrée) | plus tard (décision 02/11) |
 | Planning / horaires d'équipe | ⛔ |
 
 ## 2. Absences et compteurs
@@ -32,7 +32,7 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 | Absences encodées par la RH (maladie, petit chômage…) | ✅ |
 | Justificatifs | ✅ option, coupée par défaut 🆕 |
 | Calendrier d'équipe, agenda personnel (mois / à venir) | ✅ |
-| Congés dans Outlook (lien calendrier) | ❓ |
+| Congés dans Outlook (lien d'agenda personnel) | 🆕 |
 
 ## 3. Personnes et comptes
 | Besoin | État |
@@ -41,9 +41,9 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 | Import en masse (reprise Dinclock) avec vérification | 🆕 |
 | Arrivée : étapes (régime, compte, congés au prorata, télétravail) | 🆕 |
 | Départ : date, impact (soldes, demandes, chef à remplacer), réversible ; accès coupé automatiquement | 🆕 |
-| Suppression : jamais (historique conservé) ; effacement / anonymisation après X ans | ❓ légal |
+| Suppression : jamais ; anonymisation des personnes parties après N ans (5 par défaut, réglable) | 🆕 |
 | Connexion : e-mail + mot de passe, Microsoft ; mot de passe généré par la RH ; changement libre | ✅ |
-| Double authentification pour admin / RH | ❓ |
+| Double authentification pour admin / RH | 🆕 option, coupée |
 | Déconnexion après inactivité (poste partagé) | ✅ réglable |
 
 ## 4. Pilotage
@@ -71,10 +71,9 @@ Légende : ✅ en place · 🆕 ajouté le 02/11 · ❓ décision du CFB · ⛔ 
 | Accessibilité WCAG A/AA | ✅ contrôlée |
 
 ## Décisions à prendre par le CFB
-1. Effacement / anonymisation des personnes parties : délai (question légale).
-2. Pointage sur un poste partagé à l'entrée : oui / non.
-3. Double authentification pour admin / RH.
-4. Congés visibles dans Outlook.
-5. Format du fichier Partena.
-6. Montant et mode de l'indemnité de télétravail (provisoire : 25 € HT par jour).
-7. Sauvegardes : plan Supabase Pro.
+1. Format du fichier Partena.
+2. Montant et mode de l'indemnité de télétravail (provisoire : 25 € HT par jour).
+3. Sauvegardes : plan Supabase Pro.
+4. Anonymisation : le journal d'audit garde les noms (append-only, traçabilité) ; à valider avec le juriste.
+
+Décidé le 02/11 : anonymisation 5 ans (réglable) · tablette plus tard · double authentification en option · Outlook oui.
