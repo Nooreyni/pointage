@@ -822,7 +822,7 @@ update pointage.parametres set valeur = 5000 where cle = 'indemnite_tt_plafond';
 select test.ok(pointage.indemnite_tt(3) = 5000, 'Indemnité TT : plafond appliqué');
 update pointage.parametres set valeur = 0 where cle = 'indemnite_tt_plafond';
 select test.connecte('Nadia'); set role authenticated;
-select test.ok((select indemnite_centimes = jours_tt * 2500 from public.rapport_teletravail(pointage.aujourdhui()) where prenom = 'Sofia'), 'Rapport TT : indemnité calculée');
+select test.ok((select indemnite_centimes = jours_tt * 2500 from public.rapport_teletravail_mois(pointage.aujourdhui()) where prenom = 'Sofia'), 'Rapport TT : indemnité calculée');
 reset role;
 
 -- ===================== Réglages organisés =====================

@@ -21,8 +21,8 @@ language sql stable security definer set search_path = '' as $$
          end
 $$;
 
-drop function if exists public.rapport_teletravail(date);
-create function public.rapport_teletravail(p_mois date)
+-- Nouvelle fonction (pas de suppression de l'ancienne rapport_teletravail : aucune confirmation destructive)
+create or replace function public.rapport_teletravail_mois(p_mois date)
 returns table (personne_id uuid, prenom text, nom text, service text, jours_tt int, dates date[], jours_habituels smallint[], indemnite_centimes int)
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -49,6 +49,6 @@ begin
 end $$;
 
 revoke all on function pointage.indemnite_tt(int) from public, anon, authenticated;
-revoke all on function public.rapport_teletravail(date) from public, anon;
-grant execute on function public.rapport_teletravail(date) to authenticated;
+revoke all on function public.rapport_teletravail_mois(date) from public, anon;
+grant execute on function public.rapport_teletravail_mois(date) to authenticated;
 select pointage.fixer_fuseau();

@@ -205,7 +205,7 @@ export function apiSupabase(): Api {
       return verifier(await sb.rpc('rapport_mensuel', { p_mois: mois })) as LigneMensuelle[]
     },
     async rapportTeletravail(mois) {
-      return verifier(await sb.rpc('rapport_teletravail', { p_mois: mois })) as LigneTeletravail[]
+      return verifier(await sb.rpc('rapport_teletravail_mois', { p_mois: mois })) as LigneTeletravail[]
     },
     async rapportCpas(mois) {
       return verifier(await sb.rpc('rapport_cpas', { p_mois: mois })) as LigneCpas[]
