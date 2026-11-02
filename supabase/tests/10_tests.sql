@@ -797,6 +797,20 @@ set role service_role;
 select test.erreur(format('select public.attacher_compte(%L, %L, null)', :'pid_yanis', :'compte_recrue'), 'Un compte ne peut pas servir à deux personnes', 'déjà lié');
 reset role;
 
+-- ===================== Récap du mois =====================
+select test.connecte('Marc'); set role authenticated;
+select test.ok((select count(*) > 0 and bool_and(service = (select nom from pointage.services where id = (select service_id from pointage.personnes where prenom = 'Marc')))
+                from public.rapport_mensuel(pointage.aujourdhui() - 1)), 'Récap : le chef voit son équipe, pas les autres services');
+select test.ok(not exists (select 1 from public.rapport_mensuel(pointage.aujourdhui() - 1) where prenom = 'Marc'), 'Récap : sans la personne elle-même');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select test.ok((select count(distinct service) > 1 from public.rapport_mensuel(pointage.aujourdhui() - 1)), 'Récap : la RH voit tous les services');
+select test.ok((select bool_and(jours_presents <= jours_prevus + 31 and preste >= 0) from public.rapport_mensuel(pointage.aujourdhui() - 1)), 'Récap : chiffres cohérents');
+reset role;
+select test.connecte('Yanis'); set role authenticated;
+select test.ok(not exists (select 1 from public.rapport_mensuel(pointage.aujourdhui() - 1)), 'Récap : un employé ne voit personne');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

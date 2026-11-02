@@ -2,7 +2,7 @@
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
 import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
-  LigneCpas, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
+  LigneCpas, LigneMensuelle, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
 
 const REGIME = [456, 456, 456, 456, 456, 0, 0]
@@ -509,6 +509,25 @@ export function apiDemo(persona: Persona = 'employe'): Api {
           regime: 'Temps plein 37h30', a_prester: a as number - (j as number) - (mal as number), preste: p as number,
           conges: j as number, absence_justifiee: 0, absence_maladie: mal as number, jours_non_justifies: nj as number, jours_incomplets: inc as number,
           ecart: (p as number) - ((a as number) - (j as number) - (mal as number)) }))
+    },
+    async rapportMensuel(mois): Promise<LigneMensuelle[]> {
+      if (persona === 'employe') return []
+      await attendre()
+      const fin = (() => { const d = new Date(`${mois}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, 0); return d.toISOString().slice(0, 10) })()
+      const veille = decalerJour(aujourdhui, -1), borne = fin < veille ? fin : veille
+      let ouvrables = 0
+      for (let j = mois; j <= borne; j = decalerJour(j, 1)) { const d = new Date(`${j}T12:00:00Z`).getUTCDay(); if (d > 0 && d < 6 && !feries.some((f) => f.jour === j)) ouvrables++ }
+      return PERSONNES.filter((x) => x.id !== 'p99' && (persona !== 'chef' || x.service === profil.service) && !(persona === 'chef' && x.prenom === profil.prenom))
+        .map((x, i) => {
+          const lim = (n: number) => Math.min(n, Math.floor(ouvrables / 3))
+          const conges = lim(i % 7 === 2 ? 3 : i % 11 === 4 ? 1 : 0), maladie = lim(i % 13 === 5 ? 2 : 0), nj = lim(i % 9 === 3 ? 1 : 0), inc = lim(i % 8 === 6 ? 1 : 0)
+          const tt = (teletravail.get(x.id)?.length ?? (i % 3 === 0 ? 1 : 0)) * Math.round(ouvrables / 5)
+          const prevus = ouvrables, presents = Math.max(0, prevus - conges - maladie - nj)
+          const aPrester = (prevus - conges - maladie) * 456, preste = prevus ? Math.max(0, aPrester - nj * 456 + ((i * 37) % 90) - 30) : 0
+          return { personne_id: x.id, prenom: x.prenom, nom: x.nom, service: x.service, regime: 'Temps plein 38h', jours_prevus: prevus, jours_presents: presents,
+                   jours_tt: Math.min(tt, presents), a_prester: aPrester, preste, boni: preste - aPrester, conges: conges * 456, maladie: maladie * 456,
+                   autres_absences: 0, jours_non_justifies: nj, jours_incomplets: inc }
+        }).sort((a, b) => a.service.localeCompare(b.service) || a.nom.localeCompare(b.nom))
     },
     async rapportTeletravail(mois): Promise<LigneTeletravail[]> {
       if (!['rh', 'admin', 'direction'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, direction, admin')

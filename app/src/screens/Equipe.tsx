@@ -5,14 +5,14 @@ import type { Api, Presence, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { heure } from '../lib/temps'
 
-type Etat = 'present' | 'tt' | 'absent' | 'parti' | 'non_pointe' | 'non_prevu'
+export type Etat = 'present' | 'tt' | 'absent' | 'parti' | 'non_pointe' | 'non_prevu'
 const ETATS: Record<Etat, string> = {
   present: 'Présents', tt: 'Télétravail', absent: 'Absents', parti: 'Partis', non_pointe: 'Pas encore pointé', non_prevu: 'Pas prévus',
 }
 const COURT: Record<Etat, string> = { present: 'présents', tt: 'télétravail', absent: 'absents', parti: 'partis', non_pointe: 'pas pointé', non_prevu: 'pas prévus' }
 const ORDRE: Etat[] = ['non_pointe', 'present', 'tt', 'absent', 'parti', 'non_prevu']
 
-function etatDe(statut: string): Etat {
+export function etatDe(statut: string): Etat {
   if (statut === 'Télétravail') return 'tt'
   if (statut === 'Parti') return 'parti'
   if (statut === 'Pas encore pointé' || statut === 'Télétravail prévu') return 'non_pointe'

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -201,6 +201,9 @@ export function apiSupabase(): Api {
       return verifier(await sb.rpc('stats_direction', { p_mois: mois })) as StatsDirection
     },
 
+    async rapportMensuel(mois) {
+      return verifier(await sb.rpc('rapport_mensuel', { p_mois: mois })) as LigneMensuelle[]
+    },
     async rapportTeletravail(mois) {
       return verifier(await sb.rpc('rapport_teletravail', { p_mois: mois })) as LigneTeletravail[]
     },

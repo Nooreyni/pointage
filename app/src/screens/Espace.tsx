@@ -19,10 +19,11 @@ const Rapports = lazy(() => import('./Rapports'))
 const Admin = lazy(() => import('./Admin'))
 const Agenda = lazy(() => import('./Agenda'))
 const Compte = lazy(() => import('./Compte'))
+const Bilan = lazy(() => import('./Bilan'))
 import { useDialogue } from '../components/useDialogue'
 import { useInactivite } from '../components/useInactivite'
 
-type Onglet = 'pointer' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
+type Onglet = 'pointer' | 'bilan' | 'agenda' | 'heures' | 'equipe' | 'conges' | 'rh' | 'rapports' | 'admin' | 'alertes' | 'compte'
 
 const VUES_DEMO: [Persona, string, string][] = [
   ['employe', 'Employée', 'Pointe, demande ses congés'],
@@ -42,7 +43,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [erreur, setErreur] = useState<string | null>(null)
   const [onglet, setOnglet] = useState<Onglet>(() => {
     const demande = new URLSearchParams(location.search).get('onglet')
-    return (['pointer', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
+    return (['pointer', 'bilan', 'agenda', 'heures', 'equipe', 'conges', 'rh', 'rapports', 'admin', 'alertes', 'compte'] as string[]).includes(demande ?? '') ? demande as Onglet : 'pointer'
   })
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
@@ -129,7 +130,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   }
   const aller = (o: Onglet, vc: VueConges = 'mes') => {
     setVueConges(vc); setOnglet(o); window.scrollTo({ top: 0 })
-    const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'rapports' || o === 'admin' ? 'gestion' : null
+    const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'rapports' || o === 'admin' ? 'gestion' : o === 'equipe' || o === 'bilan' ? 'equipe' : null
     if (g) setDernieres((d) => ({ ...d, [g]: o }))
   }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider') : aller(d))
@@ -141,7 +142,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const estAdmin = ['admin', 'admin_rh'].includes(profil.role)
   const voitEquipe = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
   const vues: [Onglet, string][] = [
-    ['pointer', 'Pointer'], ['agenda', 'Calendrier'], ['heures', 'Heures'], ['equipe', 'Équipe'], ['conges', 'Congés'],
+    ['pointer', 'Pointer'], ['agenda', 'Calendrier'], ['heures', 'Heures'], ['conges', 'Congés'],
+    ...(voitEquipe ? [['equipe', 'Équipe'] as [Onglet, string], ['bilan', 'Récap du mois'] as [Onglet, string]] : []),
     ...(gere ? [['rh', 'Suivi RH'] as [Onglet, string]] : []),
     ...(voitRapports ? [['rapports', 'Rapports'] as [Onglet, string]] : []),
     ...(estAdmin ? [['admin', 'Réglages'] as [Onglet, string]] : []),
@@ -152,7 +154,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const groupes: { id: string; libelle: string; Icone: (p?: { size?: number }) => React.JSX.Element; vues: [Onglet, string][]; compte: number }[] = [
     { id: 'pointer', libelle: 'Pointer', Icone: IcHorloge, vues: [['pointer', 'Pointer']], compte: 0 },
     { id: 'mois', libelle: 'Mon mois', Icone: IcAgenda, vues: [['agenda', 'Calendrier'], ['heures', 'Heures']], compte: 0 },
-    ...(voitEquipe ? [{ id: 'equipe', libelle: 'Équipe', Icone: IcEquipe, vues: [['equipe', 'Équipe']] as [Onglet, string][], compte: 0 }] : []),
+    ...(voitEquipe ? [{ id: 'equipe', libelle: 'Équipe', Icone: IcEquipe, vues: [['equipe', 'Aujourd’hui'], ['bilan', 'Ce mois']] as [Onglet, string][], compte: 0 }] : []),
     { id: 'conges', libelle: 'Congés', Icone: IcCalendrier, vues: [['conges', 'Congés']], compte: aValider },
     ...(gestion.length ? [{ id: 'gestion', libelle: gestion.length === 1 ? gestion[0][1] : 'Gestion', Icone: gestion.length === 1 ? IcStats : IcRh, vues: gestion, compte: 0 }] : []),
   ]
@@ -226,10 +228,12 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       )}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
-      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} onVoirAgenda={() => aller('agenda')} />}
+      {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} onVoirAgenda={() => aller('agenda')}
+                                    aValider={aValider} onAller={(c) => (c === 'conges-valider' ? aller('conges', 'valider') : aller(c))} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} onVoirAgenda={() => aller('agenda')} />}
       {actif === 'agenda' && <Agenda api={api} profil={profil} onDemanderConge={() => aller('conges')} onVoirCompte={() => aller('compte')} />}
       {actif === 'compte' && <Compte api={api} profil={profil} />}
+      {actif === 'bilan' && <Bilan api={api} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}
       {actif === 'admin' && <Admin api={api} profil={profil} sectionInitiale={sectionAdmin} />}

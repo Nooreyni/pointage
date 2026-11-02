@@ -726,3 +726,32 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
 .pointeuse .puces { animation: voile-entree .2s ease-out; }
 .detail-jour .ligne { flex-wrap: wrap; }
 .detail-jour .lien { white-space: normal; text-align: left; flex-shrink: 1; }
+
+/* ---------- Accueil des responsables : « À traiter » ---------- */
+.actions-jour h2 { margin-bottom: 10px; }
+.etat-cfb {
+  width: 100%; display: grid; gap: 6px; text-align: left; border: 0; border-radius: 12px; background: var(--fond); padding: 10px 12px; margin-bottom: 10px;
+  transition: background-color .15s;
+}
+.etat-cfb:hover { background: #EEF2FA; }
+.etat-cfb .doux { font-size: 13px; font-weight: 600; }
+.etat-cfb__chiffres { display: flex; flex-wrap: wrap; gap: 4px 14px; font-weight: 600; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+.etat-cfb__chiffres > span { display: inline-flex; align-items: center; gap: 6px; }
+.liste-actions { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.liste-actions li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--bord); }
+.liste-actions li:first-child { border-top: 0; }
+.nombre-action { min-width: 32px; height: 32px; padding: 0 8px; border-radius: 10px; display: grid; place-items: center; background: #FFF4D9; color: #7A5A00; font-variant-numeric: tabular-nums; }
+.rien-a-faire { display: flex; align-items: center; gap: 8px; margin: 0; color: #3D6609; font-weight: 600; }
+/* ---------- Ce mois ---------- */
+.bilan-tuiles { margin: 14px 0 6px; }
+@media (min-width: 900px) { .bilan-tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.filtres-bilan { flex-wrap: wrap; gap: 8px 16px; margin: 10px 0 4px; }
+.filtres-bilan .recherche { flex: 1 1 200px; max-width: 320px; width: auto; }
+.resume-jour { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; margin-top: 12px; font-size: 14px; color: var(--texte-doux); }
+.resume-jour strong { color: var(--texte); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.resume-jour strong.positif { color: #3D6609; } .resume-jour strong.negatif { color: var(--rouge); }
+@media (max-width: 599px) {
+  .bilan-tuiles .tuile { padding: 10px 12px; }
+  .bilan-tuiles .tuile strong { font-size: 22px; }
+  .bilan-tuiles .tuile span { font-size: 13px; }
+}

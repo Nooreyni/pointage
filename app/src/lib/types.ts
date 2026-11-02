@@ -220,6 +220,25 @@ export interface LigneTeletravail {
   jours_habituels: number[]
 }
 
+export interface LigneMensuelle {
+  personne_id: string
+  prenom: string
+  nom: string
+  service: string
+  regime: string | null
+  jours_prevus: number
+  jours_presents: number
+  jours_tt: number
+  a_prester: number
+  preste: number
+  boni: number
+  conges: number
+  maladie: number
+  autres_absences: number
+  jours_non_justifies: number
+  jours_incomplets: number
+}
+
 export interface MotDePasseGenere { email: string; nom: string; mot_de_passe: string; cree: boolean }
 
 export interface LigneCpas {
@@ -349,6 +368,8 @@ export interface Api {
   statsDirection(mois: string): Promise<StatsDirection>
   rapportCpas(mois: string): Promise<LigneCpas[]>
   rapportTeletravail(mois: string): Promise<LigneTeletravail[]>
+  /** Récap du mois par personne visible (équipe pour un chef, tout le CFB pour RH / direction) */
+  rapportMensuel(mois: string): Promise<LigneMensuelle[]>
   // Administration
   adminPersonnes(): Promise<AdminPersonne[]>
   enregistrerPersonne(p: SaisiePersonne): Promise<string>

@@ -6,6 +6,7 @@ import { enAttente, estErreurReseau, mettreEnAttente, synchroniser, versPointage
 import { dateCourte, dateLongue, decalerJour, duree, heure, heureHabituelle, hhmm, isoBxl, jourBxl, minutesDepuisMinuit } from '../lib/temps'
 import { IcAttention, IcCheck, IcChevron, IcEntree, IcErreur, IcSortie } from '../components/Icones'
 import Equipe from './Equipe'
+import ActionsDuJour, { type CibleAction } from '../components/ActionsDuJour'
 import NotifAppareil from '../components/NotifAppareil'
 import { useDialogue } from '../components/useDialogue'
 
@@ -14,9 +15,12 @@ const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut:
 
 interface Message { texte: string; erreur?: boolean }
 
-export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois, onVoirAgenda }: {
+export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois, onVoirAgenda, onAller, aValider }: {
   api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void; onVoirMois?: () => void; onVoirAgenda?: () => void
+  onAller?: (c: CibleAction) => void; aValider?: number
 }) {
+  const grandEcran = useGrandEcran()
+  const responsable = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
   const [ttJours, setTtJours] = useState<number[]>(profil.jours_teletravail ?? [])
   const [prochain, setProchain] = useState<Demande | null>(null)
   useEffect(() => {
@@ -201,23 +205,19 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
 
           {aPrester > 0 && (
             <div className="progression">
-              <div className="ligne entre petit"><span>Journée : <strong>{duree(direct.preste)}</strong> / {duree(aPrester)}</span>
+              <div className="ligne entre petit" title={`Pause de midi : ${PAUSE} min retirées automatiquement`}><span>Journée : <strong>{duree(direct.preste)}</strong> / {duree(aPrester)}</span>
                 {finEstimee !== null && present && <span className="doux">Fin estimée {hhmm(finEstimee % 1440)}</span>}</div>
               <div className="barre"><span style={{ width: `${ratio}%` }} /></div>
             </div>
           )}
-          <div className="chiffres">
-            <div className="chiffre"><strong>{duree(direct.preste)}</strong><span>Prestées</span></div>
-            <div className="chiffre"><strong className={boniJour === null ? 'doux' : boniJour < 0 ? 'negatif' : 'positif'}>
-              {boniJour === null ? '—' : duree(boniJour, true)}</strong><span>Boni du jour</span></div>
-            <div className="chiffre"><strong className={boni !== null && boni < 0 ? 'negatif' : ''}>{boni === null ? '—' : duree(boni, true)}</strong>
-              <span>Boni trimestre</span></div>
-          </div>
-          <div className="ligne entre" style={{ marginTop: 10 }}>
-            <p className="doux petit" style={{ margin: 0 }}>Pause de midi : {PAUSE} min retirées automatiquement</p>
+          <div className="resume-jour">
+            <span>Boni du jour <strong className={boniJour === null ? 'doux' : boniJour < 0 ? 'negatif' : 'positif'}>{boniJour === null ? '—' : duree(boniJour, true)}</strong></span>
+            <span>Boni trimestre <strong className={boni !== null && boni < 0 ? 'negatif' : ''}>{boni === null ? '—' : duree(boni, true)}</strong></span>
             {onVoirMois && <button className="lien petit" onClick={onVoirMois}>Voir mon mois →</button>}
           </div>
         </section>
+
+        {responsable && onAller && !grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
 
         {prochain && (
           <section className="carte prochain-conge">
@@ -278,7 +278,10 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
         </section>
       </div>
 
-      <div className="col-laterale pile"><Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} /></div>
+      <div className="col-laterale pile">
+        {responsable && onAller && grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
+        {!['direction', 'admin'].includes(profil.role) && <Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} />}
+      </div>
 
       {aCorriger && (
         <Correction anomalie={aCorriger} hEntree={hEntree} hSortie={hSortie}
@@ -326,4 +329,15 @@ function Correction({ anomalie, hEntree, hSortie, onFermer, onValider }: {
       </form>
     </div>
   )
+}
+
+/** Vrai au-dessus de 900 px (deux colonnes) : décide où placer le bloc « À traiter ». */
+function useGrandEcran() {
+  const [grand, setGrand] = useState(() => typeof matchMedia === 'function' && matchMedia('(min-width: 900px)').matches)
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return
+    const m = matchMedia('(min-width: 900px)'), maj = () => setGrand(m.matches)
+    m.addEventListener('change', maj); return () => m.removeEventListener('change', maj)
+  }, [])
+  return grand
 }
