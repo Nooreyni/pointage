@@ -3,6 +3,8 @@ import type { Api, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import NotifAppareil from '../components/NotifAppareil'
+import AgendaOutlook from '../components/AgendaOutlook'
+import DoubleAuth from '../components/DoubleAuth'
 
 const ROLES: Record<Profil['role'], string> = {
   employe: 'Employé·e', rh: 'RH', admin_rh: 'Admin RH', responsable_isp: 'Responsable ISP', direction: 'Direction', admin: 'Admin général',
@@ -47,9 +49,16 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
           {moyens?.motDePasse && moyens.microsoft && <p className="doux petit">Tu peux aussi te connecter avec Microsoft.</p>}
         </section>
         <section className="carte">
-          <h2>Notifications</h2>
-          <NotifAppareil api={api} />
+          <h2>Agenda Outlook</h2>
+          <AgendaOutlook api={api} />
         </section>
+        {['admin', 'admin_rh', 'rh'].includes(profil.role) && (
+          <section className="carte">
+            <h2>Double authentification</h2>
+            <DoubleAuth api={api} />
+          </section>
+        )}
+        <NotifAppareil api={api} />
       </div>
     </main>
   )

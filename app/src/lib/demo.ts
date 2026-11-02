@@ -223,6 +223,10 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     { cle: 'justificatifs_actifs', valeur: 0, unite: 'booleen', libelle: 'Demander des justificatifs (certificats…)', provisoire: true, source: null, categorie: 'Congés et absences', ordre: 10,
       aide: 'Coupé : aucun justificatif n’est demandé ni signalé comme manquant.' },
     { cle: 'justificatif_visible_n1', valeur: 0, unite: 'booleen', libelle: 'Le N+1 peut ouvrir les justificatifs de son équipe', provisoire: true, source: null, categorie: 'Congés et absences', parent: 'justificatifs_actifs', ordre: 11 },
+    { cle: 'anonymisation_depart_ans', valeur: 5, unite: 'ans', libelle: 'Anonymiser les personnes parties après (0 = jamais)', provisoire: true, source: null, categorie: 'Conservation', ordre: 20,
+      aide: 'Nom, e-mail et matricule effacés ; heures et absences gardées pour les statistiques.' },
+    { cle: 'mfa_admin_rh', valeur: 0, unite: 'booleen', libelle: 'Double authentification pour admin et RH', provisoire: false, source: 'Décision CFB du 02/11/2026 : pas pour le moment', categorie: 'Sécurité', ordre: 5,
+      aide: 'Activée : ces comptes confirment leur connexion avec un code sur leur téléphone (application d’authentification).' },
     { cle: 'indemnite_tt_active', valeur: 1, unite: 'booleen', libelle: 'Indemnité de télétravail', provisoire: true, source: null, categorie: 'Télétravail', ordre: 10,
       aide: 'Calculée dans Rapports › Télétravail, à partir des jours pointés en télétravail.' },
     { cle: 'indemnite_tt_montant', valeur: 2500, unite: 'centimes', libelle: 'Indemnité de télétravail (montant € HT)', provisoire: true, source: null, categorie: 'Télétravail', parent: 'indemnite_tt_active', ordre: 11 },
@@ -638,6 +642,11 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return { email: x?.email ?? 'personne@cfb.test', nom: x ? `${x.prenom} ${x.nom}` : 'Personne', mot_de_passe: `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`, cree }
     },
     async connexion() { return { motDePasse: true, microsoft: false } },
+    async lienAgenda() { return 'https://exemple-cfb.supabase.co/functions/v1/agenda?jeton=lien-de-demonstration' },
+    async mfaEtat() { return { facteurs: [], niveau: 'aal1' as const, requisPossible: false } },
+    async mfaInscrire(): Promise<{ id: string; qr: string; secret: string }> { throw new Error('Non disponible en démo') },
+    async mfaVerifier() { throw new Error('Non disponible en démo') },
+    async mfaRetirer() { /* démo */ },
     async changerMotDePasse(actuel, nouveau) {
       await attendre()
       if (!actuel) throw new Error('Mot de passe actuel incorrect')

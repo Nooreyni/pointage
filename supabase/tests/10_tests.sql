@@ -866,6 +866,32 @@ select test.connecte('Yanis'); set role authenticated;
 select test.erreur(format('select * from public.mouvements_personne(%L)', :'pid_emma'), 'Compteurs d''un collègue : refusé', 'autoris');
 reset role;
 
+-- ===================== Conformité : anonymisation, double authentification, agenda =====================
+select test.pid('Tom') as pid_tom \gset
+update pointage.personnes set date_sortie = current_date - interval '6 years' where id = :'pid_tom';
+select test.ok(pointage.anonymiser_partis() >= 1, 'Anonymisation : personne partie depuis plus de 5 ans');
+select test.ok((select prenom = 'Personne' and email like 'anonyme-%' and auth_user_id is null and anonymise_le is not null from pointage.personnes where id = :'pid_tom'), 'Anonymisation : nom, e-mail, compte effacés');
+select test.ok(pointage.anonymiser_partis() = 0, 'Anonymisation : pas deux fois');
+update pointage.parametres set valeur = 1 where cle = 'mfa_admin_rh';
+select test.connecte('Nadia'); set role authenticated;
+select test.erreur('select public.preparer_depart(pointage.moi(), current_date)', 'Double authentification activée : action RH refusée sans code', 'Double authentification');
+select set_config('request.jwt.claims', (current_setting('request.jwt.claims')::jsonb || '{"aal":"aal2"}')::text, false);
+select test.ok((public.preparer_depart(pointage.moi(), current_date) ? 'soldes'), 'Double authentification : acceptée avec session vérifiée');
+reset role;
+update pointage.parametres set valeur = 0 where cle = 'mfa_admin_rh';
+select test.connecte('Sofia'); set role authenticated;
+select public.mon_lien_agenda() as jeton1 \gset
+select test.ok(public.mon_lien_agenda() = :'jeton1', 'Agenda : lien stable');
+select public.mon_lien_agenda(true) as jeton2 \gset
+select test.erreur('select * from public.agenda_evenements(''x'')', 'Agenda : lecture directe interdite', 'permission');
+reset role;
+select test.ok(:'jeton2' <> :'jeton1' and length(:'jeton2') = 64, 'Agenda : nouveau lien secret');
+set role service_role;
+select count(*) as nb_ancien from public.agenda_evenements(:'jeton1') \gset
+select count(*) as nb_nouveau from public.agenda_evenements(:'jeton2') \gset
+reset role;
+select test.ok(:nb_ancien = 0 and :nb_nouveau > 0, 'Agenda : l''ancien lien ne marche plus, le nouveau oui');
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

@@ -265,6 +265,28 @@ export function apiSupabase(): Api {
       const { error } = await sb.auth.updateUser({ password: nouveau })
       if (error) throw new Error(traduireAuth(error.message))
     },
+    async lienAgenda(regenerer = false) {
+      const jeton = verifier(await sb.rpc('mon_lien_agenda', { p_regenerer: regenerer })) as string
+      return `${URL}/functions/v1/agenda?jeton=${jeton}`
+    },
+    async mfaEtat() {
+      const [{ data: f }, { data: n }] = await Promise.all([sb.auth.mfa.listFactors(), sb.auth.mfa.getAuthenticatorAssuranceLevel()])
+      return { facteurs: (f?.totp ?? []).map((x) => ({ id: x.id, nom: x.friendly_name ?? 'Application d’authentification' })),
+               niveau: (n?.currentLevel ?? 'aal1') as 'aal1' | 'aal2', requisPossible: n?.nextLevel === 'aal2' }
+    },
+    async mfaInscrire() {
+      const { data, error } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: `CFB ${new Date().toLocaleDateString('fr-BE')}` })
+      if (error) throw new Error(traduireAuth(error.message))
+      return { id: data.id, qr: data.totp.qr_code, secret: data.totp.secret }
+    },
+    async mfaVerifier(facteurId, code) {
+      const { error } = await sb.auth.mfa.challengeAndVerify({ factorId: facteurId, code: code.replace(/\s/g, '') })
+      if (error) throw new Error(/invalid|expired/i.test(error.message) ? 'Code incorrect ou expiré : réessaie avec le code affiché maintenant' : traduireAuth(error.message))
+    },
+    async mfaRetirer(facteurId) {
+      const { error } = await sb.auth.mfa.unenroll({ factorId: facteurId })
+      if (error) throw new Error(traduireAuth(error.message))
+    },
     async delierCompte(personneId) {
       verifier(await sb.rpc('delier_compte', { p_personne_id: personneId }))
     },

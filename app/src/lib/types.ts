@@ -396,6 +396,13 @@ export interface Api {
   /** Moyens de connexion du compte actuel */
   connexion(): Promise<{ motDePasse: boolean; microsoft: boolean }>
   changerMotDePasse(actuel: string, nouveau: string): Promise<void>
+  /** Lien d'abonnement agenda (Outlook…) : congés accordés + fériés. `regenerer` invalide l'ancien. */
+  lienAgenda(regenerer?: boolean): Promise<string>
+  /** Double authentification (application d'authentification, code à 6 chiffres) */
+  mfaEtat(): Promise<{ facteurs: { id: string; nom: string }[]; niveau: 'aal1' | 'aal2'; requisPossible: boolean }>
+  mfaInscrire(): Promise<{ id: string; qr: string; secret: string }>
+  mfaVerifier(facteurId: string, code: string): Promise<void>
+  mfaRetirer(facteurId: string): Promise<void>
   changerRegime(personneId: string, regimeId: number, debut: string): Promise<void>
   /** Régime aux jours choisis (4/5, 3/5… le jour libre varie) : réutilise un régime identique ou le crée */
   regimePersonnalise(personneId: string, minutesJour: number[], debut: string): Promise<number>

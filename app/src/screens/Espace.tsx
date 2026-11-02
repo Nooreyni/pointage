@@ -7,6 +7,7 @@ import { desactiverPush } from '../lib/push'
 import { IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import Recherche, { type Cible } from '../components/Recherche'
 import { ReglagesContext } from '../lib/reglages'
+import DoubleAuth from '../components/DoubleAuth'
 import type { Section } from './Admin'
 import Pointer from './Pointer'
 import Equipe from './Equipe'
@@ -61,6 +62,11 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [inactiviteMin, setInactiviteMin] = useState(0)
   const [dernieres, setDernieres] = useState<Record<string, Onglet>>({})
   const [reglages, setReglages] = useState<Record<string, number>>({})
+  const mfaExigee = reglages.mfa_admin_rh === 1
+  const [mfaOk, setMfaOk] = useState(false)
+  useEffect(() => {   // session déjà vérifiée par code : pas d'écran
+    if (mfaExigee && api.mode !== 'demo') api.mfaEtat().then((e) => setMfaOk(e.niveau === 'aal2')).catch(() => {})
+  }, [api, mfaExigee])
   const [deconnecteInactif, setDeconnecteInactif] = useState(false)
 
   useEffect(() => {
@@ -124,6 +130,15 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     )
   }
   if (!profil) return <div className="squelette">Chargement…</div>
+  if (mfaExigee && !mfaOk && api.mode !== 'demo' && ['admin', 'admin_rh', 'rh'].includes(profil.role)) {
+    return (
+      <div className="connexion"><div className="carte">
+        <h1>Vérification</h1>
+        <DoubleAuth api={api} mode="exiger" onOk={() => setMfaOk(true)} />
+        <p style={{ marginTop: 16 }}><button className="lien petit" onClick={onQuitter}>Se déconnecter</button></p>
+      </div></div>
+    )
+  }
 
   const nonLues = notifs.filter((n) => !n.lu_le).length
   // Appareil partagé : on coupe les notifications de cette personne avant de partir
