@@ -112,6 +112,14 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     if (u.searchParams.has('onglet')) { u.searchParams.delete('onglet'); history.replaceState(null, '', u) }
   }, [])
 
+  // PC : la barre d'onglets reste collée sous l'en-tête (hauteur mesurée, encoche et zoom compris)
+  useEffect(() => {
+    const e = document.querySelector<HTMLElement>('.entete')
+    if (!e) return
+    const o = new ResizeObserver(() => document.documentElement.style.setProperty('--h-entete', `${e.offsetHeight}px`))
+    o.observe(e); return () => o.disconnect()
+  }, [profil])
+
   useEffect(() => {
     const maj = () => setEnLigne(navigator.onLine)
     addEventListener('online', maj); addEventListener('offline', maj)

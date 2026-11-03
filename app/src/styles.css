@@ -94,7 +94,7 @@ main.contenu {
 .nav button[aria-current='page'] { color: var(--bleu-fonce); background: #EEF2FA; }
 .nav svg { width: 22px; height: 22px; }
 @media (min-width: 900px) {
-  .nav { position: static; z-index: auto; justify-content: center; gap: 8px; border-top: 0; border-bottom: 1px solid var(--bord); padding: 6px 16px; }
+  .nav { position: sticky; top: var(--h-entete, 63px); z-index: var(--z-nav); justify-content: center; gap: 8px; border-top: 0; border-bottom: 1px solid var(--bord); padding: 6px 16px; }
   .nav button { flex-direction: row; gap: 8px; max-width: none; flex: 0 0 auto; padding: 8px 14px; font-size: 15px; }
   .nav svg { width: 18px; height: 18px; }
 }
@@ -888,3 +888,6 @@ input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-dat
 body.fenetre-ouverte { overflow: hidden; }
 body.fenetre-ouverte .toast { bottom: auto; top: calc(12px + env(safe-area-inset-top)); }
 .menu.vers-haut { top: auto; bottom: calc(100% + 8px); transform-origin: bottom right; }
+/* Éléments amenés à l'écran (focus, lien) : jamais cachés sous l'en-tête ou les onglets collés */
+html { scroll-padding-top: calc(var(--h-entete, 63px) + 12px); }
+@media (min-width: 900px) { html { scroll-padding-top: calc(var(--h-entete, 63px) + 64px); } }
