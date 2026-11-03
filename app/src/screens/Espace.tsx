@@ -132,7 +132,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     )
   }
   if (!profil) return <div className="squelette">Chargement…</div>
-  if (mfaExigee && !mfaOk && api.mode !== 'demo' && ['admin', 'admin_rh', 'rh'].includes(profil.role)) {
+  if (mfaExigee && !mfaOk && api.mode !== 'demo' && ['admin', 'admin_rh', 'rh', 'direction'].includes(profil.role)) {
     return (
       <div className="connexion"><div className="carte">
         <h1>Vérification</h1>
@@ -160,9 +160,9 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
   // Vues autorisées pour ce rôle (liens, recherche) …
-  const gere = ['rh', 'admin_rh', 'admin'].includes(profil.role)
+  const gere = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
   const voitRapports = ['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role)
-  const estAdmin = ['admin', 'admin_rh'].includes(profil.role)
+  const estAdmin = ['admin', 'admin_rh', 'direction'].includes(profil.role)
   const voitEquipe = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
   const vues: [Onglet, string][] = [
     ['pointer', 'Pointer'], ['agenda', 'Calendrier'], ['heures', 'Heures'], ['conges', 'Congés'],

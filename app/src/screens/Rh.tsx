@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IcAttention, IcCheck } from '../components/Icones'
 import Toast from '../components/Toast'
-import { LienPersonne } from '../lib/navigation'
-import type { AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
+import { LienPersonne, useNav } from '../lib/navigation'
+import type { AnomalieRH, Api, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
@@ -80,6 +80,8 @@ export default function Rh({ api }: { api: Api }) {
         <Tuile valeur={heures.length} libelle="journées au-delà de 9 h" alerte={heures.length > 0} />
         <Tuile valeur={etat?.derniere_cloture ? nomMois(etat.derniere_cloture) : '—'} libelle="dernière clôture" texte />
       </div>
+
+      <IndicateursMois api={api} />
 
       <div className="col-principale pile">
         {aConstater.length > 0 && (
@@ -205,6 +207,36 @@ export default function Rh({ api }: { api: Api }) {
 }
 
 // ---------------------------------------------------------------------------
+const pct = (v: number | null) => (v === null || Number.isNaN(v) ? '—' : `${String(Math.round(v * 10) / 10).replace('.', ',')} %`)
+const ratio = (a: number, b: number) => (b > 0 ? (100 * a) / b : null)
+
+/** Indicateurs RH du mois en cours (mêmes calculs que Rapports › Tableau de bord), avec le lien vers le détail. */
+function IndicateursMois({ api }: { api: Api }) {
+  const { naviguer } = useNav()
+  const mois = `${jourBxl().slice(0, 8)}01`
+  const [s, setS] = useState<StatsDirection | null>(null)
+  useEffect(() => { api.statsDirection(mois).then(setS).catch(() => setS(null)) }, [api, mois])
+  if (!s) return null
+  const t = s.services.reduce((a, x) => ({ prevues: a.prevues + x.prevues, maladie: a.maladie + (x.absence_maladie ?? 0),
+    abs: a.abs + x.absence_conge + (x.absence_maladie ?? 0) + x.absence_autre, tt: a.tt + x.jours_tt, presence: a.presence + x.jours_presence,
+    effectif: a.effectif + x.effectif }), { prevues: 0, maladie: 0, abs: 0, tt: 0, presence: 0, effectif: 0 })
+  const plusAbsent = [...s.services].filter((x) => x.prevues > 0)
+    .sort((a, b) => (ratio(b.absence_conge + (b.absence_maladie ?? 0) + b.absence_autre, b.prevues) ?? 0) - (ratio(a.absence_conge + (a.absence_maladie ?? 0) + a.absence_autre, a.prevues) ?? 0))[0]
+  return (
+    <section className="carte col-pleine indicateurs-rh">
+      <div className="ligne entre"><h2>Ce mois-ci <span className="doux petit">· {nomMois(mois)} · {t.effectif} personnes</span></h2>
+        <button className="lien petit" onClick={() => naviguer({ vers: 'onglet', onglet: 'rapports' })}>Tous les indicateurs</button></div>
+      <dl className="mini-stats">
+        <div><dt>Taux d’absence</dt><dd>{pct(ratio(t.abs, t.prevues))}</dd></div>
+        <div><dt>dont maladie</dt><dd>{pct(ratio(t.maladie, t.prevues))}</dd></div>
+        <div><dt>Télétravail</dt><dd>{pct(ratio(t.tt, t.presence))}</dd></div>
+        <div><dt>Demandes en attente</dt><dd>{s.demandes.en_attente}</dd></div>
+        {plusAbsent && <div><dt>Service le plus absent</dt><dd className="texte">{plusAbsent.service}</dd></div>}
+      </dl>
+    </section>
+  )
+}
+
 function Tuile({ valeur, libelle, alerte, texte }: { valeur: number | string; libelle: string; alerte?: boolean; texte?: boolean }) {
   return (
     <div className={`tuile ${alerte ? 'alerte' : ''}`}>

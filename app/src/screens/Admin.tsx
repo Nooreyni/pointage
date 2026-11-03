@@ -71,7 +71,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
         {section === 'services' && <Services services={services} personnes={personnes ?? []} api={api} ok={ok} erreur={erreur} />}
         {section === 'regimes' && <Regimes regimes={regimes} api={api} ok={ok} erreur={erreur} />}
         {section === 'acces' && <AccesServices api={api} personnes={personnes ?? []} services={services} erreur={erreur} setMessage={setMessage} />}
-        {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
+        {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh', 'direction'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
         {section === 'journal' && <Journal api={api} erreur={erreur} />}
@@ -87,7 +87,7 @@ type Commun = { api: Api; ok: (t: string) => Promise<void>; erreur: (e: unknown)
 
 // ---------------------------------------------------------------------------
 type FiltrePersonnes = 'actives' | 'sans_compte' | 'depart' | 'parties'
-const peutGererRole = (moi: Role, r: Role) => moi === 'admin' || (moi === 'admin_rh' && r !== 'admin') || (moi === 'rh' && r !== 'admin' && r !== 'admin_rh')
+const peutGererRole = (moi: Role, r: Role) => moi === 'admin' || ((moi === 'admin_rh' || moi === 'direction') && r !== 'admin') || (moi === 'rh' && r !== 'admin' && r !== 'admin_rh')
 
 export function Personnes({ personnes, services, regimes, monRole, api, ok, erreur, ficheInitiale }: Commun & {
   personnes: AdminPersonne[] | null; services: AdminService[]; regimes: Regime[]; monRole: Role
@@ -197,7 +197,7 @@ function FichePersonne({ personne, ongletInitial, tous, services, regimes, monRo
       <div className="panneau-fiche" role="tabpanel">
         {onglet === 'identite' && (
           <Identite personne={personne} tous={tous} services={services} regimes={regimes} monRole={monRole} api={api} erreur={erreur}
-                    verrouille={verrouille} onEnregistre={() => recharger('Fiche mise à jour ✅')} />
+                    verrouille={verrouille} onEnregistre={() => recharger('Fiche mise à jour ✅')} onAnnuler={onFermer} />
         )}
         {onglet === 'travail' && <>
           <h3 className="titre-bloc">Régime de travail</h3>
@@ -210,7 +210,7 @@ function FichePersonne({ personne, ongletInitial, tous, services, regimes, monRo
           <h3 className="titre-bloc">Compte de connexion</h3>
           {verrouille ? <p className="doux petit">Géré par un admin.</p> : <>
             <MotDePasseRH api={api} personneId={personne.id} compteLie={personne.compte_lie} onFait={() => setVersion((v) => v + 1)} />
-            {personne.compte_lie && ['admin', 'admin_rh'].includes(monRole) && <DelierCompte personne={personne} api={api} erreur={erreur} onFait={() => recharger('Compte délié')} />}
+            {personne.compte_lie && ['admin', 'admin_rh', 'direction'].includes(monRole) && <DelierCompte personne={personne} api={api} erreur={erreur} onFait={() => recharger('Compte délié')} />}
           </>}
         </>}
         {onglet === 'soldes' && <>
@@ -241,6 +241,8 @@ function Identite({ personne, tous, services, regimes, monRole, api, erreur, ver
     : { id: null, prenom: '', nom: '', email: '', service_id: '', role: 'employe', type: 'interne', partenaire_isp: null,
         matricule: null, date_entree: jourBxl(), date_sortie: null, regime_id: regimes.find((r) => r.actif)?.id ?? null })
   const [enCours, setEnCours] = useState(false)
+  const [initial] = useState(() => JSON.stringify(f))
+  const modifie = JSON.stringify(f) !== initial
   const maj = <K extends keyof SaisiePersonne>(k: K, v: SaisiePersonne[K]) => setF((x) => ({ ...x, [k]: v }))
   // Adresse proposée : prénom.nom@ le domaine le plus courant du CFB
   const domaine = useMemo(() => {
@@ -302,8 +304,8 @@ function Identite({ personne, tous, services, regimes, monRole, api, erreur, ver
         <p className="doux petit">Chef de service : se règle dans <LienReglages section="services">Réglages › Services</LienReglages>.
           {personne && ' Départ : onglet « Départ ».'}</p>
         <div className="actions">
-          {onAnnuler && <button type="button" className="bouton secondaire" onClick={onAnnuler}>Annuler</button>}
-          <button className="bouton" disabled={enCours || !!emailPris}>{enCours ? 'Enregistrement…' : personne ? 'Enregistrer' : 'Créer la fiche'}</button>
+          {onAnnuler && <button type="button" className="bouton secondaire" onClick={onAnnuler}>{personne ? 'Fermer' : 'Annuler'}</button>}
+          <button className="bouton" disabled={enCours || !!emailPris || (!!personne && !modifie)}>{enCours ? 'Enregistrement…' : personne ? 'Enregistrer' : 'Créer la fiche'}</button>
         </div>
       </fieldset>
     </form>

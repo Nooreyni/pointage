@@ -25,7 +25,7 @@ export default function Recherche({ api, profil, onglets, onChoisir, onFermer }:
   const [actif, setActif] = useState(0)
   const [personnes, setPersonnes] = useState<Presence[]>([])
   const [parametres, setParametres] = useState<Parametre[]>([])
-  const admin = ['admin', 'admin_rh'].includes(profil.role)
+  const admin = ['admin', 'admin_rh', 'direction'].includes(profil.role)
   const voitTout = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
 
   useEffect(() => {

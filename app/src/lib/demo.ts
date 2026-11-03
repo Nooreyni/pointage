@@ -278,11 +278,11 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     .map((x) => ({ jour: x.slice(0, 10), libelle: x.slice(11), recuperable: [0, 6].includes(new Date(`${x.slice(0, 10)}T12:00:00Z`).getUTCDay()) }))
   let reseaux: Reseau[] = [{ plage: '203.0.113.0/24', libelle: 'Siège (fictif)' }]
   const exigerAdmin = (rh = true) => {
-    if (!(profil.role === 'admin' || (rh && profil.role === 'admin_rh'))) throw new Error('Action réservée à l’admin général')
+    if (!(profil.role === 'admin' || (rh && (profil.role === 'admin_rh' || profil.role === 'direction')))) throw new Error('Action réservée à l’admin général')
   }
   // Fiches des personnes : admin, admin RH et RH (la RH ne gère pas les admins)
-  const exigerGestion = () => { if (!['admin', 'admin_rh', 'rh'].includes(profil.role)) throw new Error('Action réservée à la RH') }
-  const peutGererRole = (r: string) => profil.role === 'admin' || (profil.role === 'admin_rh' && r !== 'admin') || (profil.role === 'rh' && !['admin', 'admin_rh'].includes(r))
+  const exigerGestion = () => { if (!['admin', 'admin_rh', 'rh', 'direction'].includes(profil.role)) throw new Error('Action réservée à la RH') }
+  const peutGererRole = (r: string) => profil.role === 'admin' || ((profil.role === 'admin_rh' || profil.role === 'direction') && r !== 'admin') || (profil.role === 'rh' && !['admin', 'admin_rh'].includes(r))
 
   const compteurDe = (code: string) => CODES.find((c) => c.code === code)?.compteur_code ?? null
   const solde = (compteur: string, avecAttente: boolean) => (ouverture[compteur] ?? 0) - demandes

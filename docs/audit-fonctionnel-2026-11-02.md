@@ -93,3 +93,8 @@ Trouvé en plus : mots coupés dans les tableaux sur mobile (Services), alertes 
 e-mail en double à la création, homonyme signalé, adresse proposée (prénom.nom@domaine du CFB), lien « Fiche RH » depuis
 une fiche de temps, chefs cliquables dans Services, personne qui change son propre rôle (bloqué), filtres
 En poste / Sans compte / Départ prévu / Parties.
+
+## Retours du 03/11
+- Toutes les fenêtres : bouton ✕ (et Échap) ; fiche : bouton « Fermer », « Enregistrer » actif seulement après une modification.
+- Direction : Gestion complète (Suivi RH, Personnes, Rapports, Réglages), comme l'admin RH ; double authentification (option) incluse.
+- RH : encart « Ce mois-ci » dans Suivi RH (absence, maladie, télétravail, demandes en attente, service le plus absent) → lien vers Rapports.

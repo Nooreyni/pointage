@@ -41,6 +41,7 @@
 | Rappels | **Notifications push** en priorité, e-mail en secours |
 | Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
 | Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
+| Gestion (02/11/2026) | **Direction = mêmes droits que l'admin RH** (suivi RH, personnes, rapports, réglages). La RH crée et modifie les fiches, sauf admin RH / admin général. Personne ne change son propre rôle |
 
 ## Conventions techniques
 - **Fuseau** : toute migration qui crée ou recrée une fonction se termine par `select pointage.fixer_fuseau();`

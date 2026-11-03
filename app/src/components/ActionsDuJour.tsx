@@ -19,7 +19,7 @@ const moisPrecedent = () => { const d = new Date(`${jourBxl().slice(0, 8)}01T12:
 export default function ActionsDuJour({ api, profil, aValider, onAller }: {
   api: Api; profil: Profil; aValider: number; onAller: (c: CibleAction) => void
 }) {
-  const rh = ['rh', 'admin_rh', 'admin'].includes(profil.role)
+  const rh = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
   const vueCfb = rh || profil.role === 'direction'
   const justifsActifs = useReglage('justificatifs_actifs') === 1
   const [presence, setPresence] = useState<Presence[]>([])

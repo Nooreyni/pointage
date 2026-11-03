@@ -910,6 +910,20 @@ select public.regime_personnalise(:'pid_lina', array[456,456,0,456,456,0,0], poi
 select test.ok(exists (select 1 from pointage.personne_regimes where personne_id = :'pid_lina' and debut = pointage.aujourdhui() + 30), 'RH : programme un régime');
 reset role;
 
+-- ===================== La direction gère comme l'admin RH =====================
+select test.connecte('Claire'); set role authenticated;
+select test.ok((select count(*) > 10 from public.admin_personnes), 'Direction : voit toutes les fiches');
+select public.enregistrer_personne(null, 'Noa', 'Direction', 'noa.direction@cfb.test', 'a0000000-0000-0000-0000-000000000002', 'admin_rh', 'interne',
+  null, null, pointage.aujourdhui(), null, (select id from pointage.regimes where actif order by id limit 1)) as pid_noa \gset
+select test.ok(exists (select 1 from pointage.personnes where id = :'pid_noa' and role = 'admin_rh'), 'Direction : crée une fiche (même admin RH)');
+select test.erreur(format('select public.enregistrer_personne(null, %L, %L, %L, %L, %L)', 'X', 'Y', 'x.z@cfb.test', 'a0000000-0000-0000-0000-000000000002', 'admin'),
+  'Direction : ne nomme pas un admin général', 'admin général');
+select test.ok((select count(*) >= 0 from public.journal_modifications(5)), 'Direction : lit le journal');
+select test.ok((select count(*) >= 0 from public.heures_a_valider()), 'Direction : suivi RH (heures au-delà du max)');
+select public.modifier_parametre('pause_seuil_min', (select valeur from pointage.parametres where cle = 'pause_seuil_min'), 'test direction');
+select test.ok(true, 'Direction : modifie un réglage');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

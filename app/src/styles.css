@@ -315,7 +315,7 @@ input[type='date'], input[type='time'] { min-height: 48px; }
 /* ---------- Espace RH ---------- */
 .tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 900px) { .tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .col-pleine { grid-column: 1 / -1; } }
-@media (min-width: 900px) { .rh .col-laterale { grid-row: 2 / span 3; } }
+@media (min-width: 900px) { .rh .col-laterale { grid-row: 3 / span 3; } }
 .tuile { background: var(--carte); border-radius: var(--rayon); border: 1px solid var(--bord); padding: 14px 16px; display: grid; gap: 2px; }
 .tuile strong { font-family: var(--titre); font-size: 30px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .tuile strong.texte { font-size: 20px; text-transform: capitalize; }
@@ -867,3 +867,15 @@ input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-dat
   .liste-alertes li { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: start; }
   .liste-alertes li > .bouton { grid-column: 2; justify-self: start; }
 }
+
+/* Fenêtres : titre + bouton de fermeture toujours visible */
+.entete-fenetre { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.entete-fenetre h2 { flex: 1; min-width: 0; }
+.fermer-fenetre { flex: none; width: 40px; height: 40px; margin: -8px -8px 0 0; border: 0; border-radius: 50%; background: var(--fond);
+  color: var(--texte-doux); display: grid; place-items: center; }
+.fermer-fenetre:hover { background: #E4E9F3; color: var(--texte); }
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 16px; margin: 10px 0 0; }
+.mini-stats > div { min-width: 0; }
+.mini-stats dt { font-size: 13px; color: var(--texte-doux); }
+.mini-stats dd { margin: 2px 0 0; font-family: var(--titre); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mini-stats dd.texte { font-family: var(--corps); font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }

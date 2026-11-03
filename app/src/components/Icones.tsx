@@ -2,13 +2,14 @@
 // Les noms Ic… restent ceux utilisés dans les écrans.
 import {
   Bell, BellRing, BriefcaseBusiness, Calendar, CalendarDays, ChartColumn, Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheck,
-  Clock, FileClock, Hourglass, LogIn, LogOut, Paperclip, Pencil, Search, Settings, TreePalm, TriangleAlert, Users, type LucideIcon,
+  Clock, FileClock, Hourglass, LogIn, LogOut, Paperclip, Pencil, Search, Settings, TreePalm, TriangleAlert, Users, X, type LucideIcon,
 } from 'lucide-react'
 
 const ic = (I: LucideIcon, taille = 24) => (props: { size?: number; className?: string } = {}) =>
   <I size={props.size ?? taille} strokeWidth={2} absoluteStrokeWidth aria-hidden="true" focusable="false" className={props.className} />
 
 export const IcHorloge = ic(Clock)
+export const IcFermer = ic(X, 20)
 export const IcEquipe = ic(Users)
 export const IcCalendrier = ic(TreePalm)          // Congés
 export const IcAgenda = ic(Calendar)

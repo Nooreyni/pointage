@@ -37,7 +37,7 @@ const RH: [string, Q[]] = ['RH et administration', [
 export default function Aide({ profil }: { profil: Profil }) {
   const groupes: [string, Q[]][] = [...TOUS,
     ...(profil.est_chef_service || ['direction', 'rh', 'admin_rh', 'admin', 'responsable_isp'].includes(profil.role) ? [CHEF] : []),
-    ...(['rh', 'admin_rh', 'admin'].includes(profil.role) ? [RH] : [])]
+    ...(['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role) ? [RH] : [])]
   return (
     <main className="contenu">
       <div className="col-pleine pile">
