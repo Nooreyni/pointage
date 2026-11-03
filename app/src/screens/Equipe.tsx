@@ -30,6 +30,10 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
 }) {
   const [liste, setListe] = useState<Presence[] | null>(null)
   const [filtre, setFiltre] = useState<Etat | null>(null)
+  // ISP (article 60) : rattachés à leur service ; badge + filtre transversal (la responsable ISP le trouve ouvert)
+  const [isp, setIsp] = useState<Set<string>>(new Set())
+  const [seulementIsp, setSeulementIsp] = useState(profil.role === 'responsable_isp')
+  useEffect(() => { if (!compact) api.personnes().then((ps) => setIsp(new Set(ps.filter((p) => p.type === 'isp').map((p) => p.id)))).catch(() => {}) }, [api, compact])
   const [recherche, setRecherche] = useState(rechercheInitiale)
   useEffect(() => { setRecherche(rechercheInitiale) }, [rechercheInitiale])
   const [ouverts, setOuverts] = useState<Set<string>>(new Set())
@@ -80,8 +84,10 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
   const total = compter(liste)
   const sansAccent = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const q = sansAccent(recherche.trim())
-  const filtrer = (l: Presence[]) => l.filter((p) => (!filtre || etatDe(p.statut) === filtre) && (!q || sansAccent(`${p.prenom} ${p.nom} ${p.service}`).includes(q)))
-  const estOuvert = (nom: string, mien: boolean) => (q || filtre ? true : ouverts.has(nom) !== mien)   // mon service ouvert par défaut
+  const filtrer = (l: Presence[]) => l.filter((p) => (!filtre || etatDe(p.statut) === filtre) && (!seulementIsp || isp.has(p.personne_id))
+    && (!q || sansAccent(`${p.prenom} ${p.nom} ${p.service}${isp.has(p.personne_id) ? ' isp' : ''}`).includes(q)))
+  const estOuvert = (nom: string, mien: boolean) => (q || filtre || (seulementIsp && isp.size) ? true : ouverts.has(nom) !== mien)
+  const nbIsp = (liste ?? []).filter((p) => isp.has(p.personne_id)).length   // mon service ouvert par défaut
 
   return (
     <main className="contenu">
@@ -97,12 +103,13 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
               <button key={e} className="puce" aria-pressed={filtre === e} onClick={() => setFiltre(filtre === e ? null : e)}>
                 <span className={`point ${e === 'non_pointe' || e === 'non_prevu' ? '' : e}`} />{ETATS[e]} <b>{total[e]}</b></button>
             ))}
+            {nbIsp > 0 && <button className="puce puce-isp" aria-pressed={seulementIsp} onClick={() => setSeulementIsp((v) => !v)}>ISP <b>{nbIsp}</b></button>}
           </div>
         </section>
 
         {services.map(({ nom, membres, mien, compte }) => {
           const visibles = filtrer(membres)
-          if ((q || filtre) && visibles.length === 0) return null
+          if ((q || filtre || (seulementIsp && isp.size)) && visibles.length === 0) return null
           const ouvert = estOuvert(nom, mien)
           const nonPointes = membres.filter((p) => etatDe(p.statut) === 'non_pointe' && peutRappeler(p))
           return (
@@ -123,7 +130,7 @@ export default function Equipe({ api, profil, compact = false, onVoirTout, onOuv
               <div className="repli" data-ouvert={ouvert || undefined} inert={!ouvert || undefined}>
                 <div className="repli-contenu"><div className="grille-personnes">
                   {visibles.sort((a, b) => ORDRE.indexOf(etatDe(a.statut)) - ORDRE.indexOf(etatDe(b.statut)) || a.nom.localeCompare(b.nom))
-                    .map((p) => <Tuile key={p.personne_id} p={p} onRappeler={etatDe(p.statut) === 'non_pointe' && peutRappeler(p) ? () => rappeler([p.personne_id]) : undefined}
+                    .map((p) => <Tuile key={p.personne_id} p={p} isp={isp.has(p.personne_id)} onRappeler={etatDe(p.statut) === 'non_pointe' && peutRappeler(p) ? () => rappeler([p.personne_id]) : undefined}
                                        onFiche={peutVoirFiche(p) ? () => onOuvrirFiche!(p.personne_id) : undefined} />)}
                 </div></div>
               </div>
@@ -146,7 +153,7 @@ function Compteurs({ compte }: { compte: Record<Etat, number> }) {
   )
 }
 
-function Tuile({ p, onRappeler, onFiche }: { p: Presence; onRappeler?: () => void; onFiche?: () => void }) {
+function Tuile({ p, isp, onRappeler, onFiche }: { p: Presence; isp?: boolean; onRappeler?: () => void; onFiche?: () => void }) {
   const e = etatDe(p.statut)
   return (
     <div className={`tuile-personne etat-${e}`}>
@@ -154,6 +161,7 @@ function Tuile({ p, onRappeler, onFiche }: { p: Presence; onRappeler?: () => voi
       <span className="texte">
         {onFiche ? <button className="nom lien-nom" title="Voir sa fiche de temps" onClick={onFiche}>{p.prenom} {p.nom}</button>
                  : <span className="nom">{p.prenom} {p.nom}</span>}
+        {isp && <span className="pilule neutre badge-isp" title="Article 60 (CPAS)">ISP</span>}
         <span className="etat"><span className={`point ${classeStatut(p.statut)}`} />{p.statut}{p.depuis && e !== 'parti' ? ` · ${heure(p.depuis)}` : ''}</span>
       </span>
       {onRappeler && (

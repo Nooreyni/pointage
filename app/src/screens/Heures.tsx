@@ -89,7 +89,8 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
           </div>
           <TeletravailHabituel api={api} personneId={qui} moi={qui === profil.id} />
           <div className="tuiles fiche-tuiles">
-            <div className="tuile"><strong>{duree(tot.preste)}</strong><span>prestées</span><small className="doux">sur {duree(tot.aPrester)} à prester</small></div>
+            <div className="tuile"><strong>{duree(tot.preste)}</strong><span>prestées</span>
+              <small className="doux">{tot.aPrester > 0 ? `sur ${duree(tot.aPrester)} à prester` : (lignes ?? []).some(({ j }) => j.prevues > 0) ? 'rien à prester (absences)' : 'mois commencé : rien encore à prester'}</small></div>
             <div className="tuile"><strong className={tot.boni < 0 ? 'negatif' : 'positif'}>{duree(tot.boni, true)}</strong><span>boni du mois</span></div>
             <div className="tuile"><strong>{duree(tot.absence)}</strong><span>d’absence (congés…)</span></div>
             <div className={`tuile ${tot.regul ? 'alerte' : ''}`}><strong>{tot.regul}</strong><span>jour(s) à régulariser</span></div>

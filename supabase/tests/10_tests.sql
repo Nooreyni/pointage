@@ -924,6 +924,22 @@ select public.modifier_parametre('pause_seuil_min', (select valeur from pointage
 select test.ok(true, 'Direction : modifie un réglage');
 reset role;
 
+-- ===================== Accès temporaire à un autre service =====================
+select pe.id as pid_log from pointage.personnes pe where pe.service_id = 'a0000000-0000-0000-0000-000000000005' limit 1 \gset
+select test.connecte('Claire'); set role authenticated;
+select test.erreur(format('select public.donner_acces(%L, %L, true, current_date - 1)', test.pid('Lucas'), 'a0000000-0000-0000-0000-000000000005'), 'Accès : date de fin passée refusée', 'déjà passée');
+select public.donner_acces(test.pid('Lucas'), 'a0000000-0000-0000-0000-000000000005', true, pointage.aujourdhui() + 5);
+select test.ok((select jusqu_au = pointage.aujourdhui() + 5 and actif from public.admin_acces where personne_id = test.pid('Lucas') and service_id = 'a0000000-0000-0000-0000-000000000005'), 'Accès : date de fin enregistrée');
+reset role;
+select test.ok(test.notifs('Lucas', 'acces_service') >= 1, 'Accès : la personne est prévenue');
+select test.connecte('Lucas'); set role authenticated;
+select test.ok((select je_peux_valider from public.personnes where id = :'pid_log'), 'Accès temporaire : valide pendant la période');
+reset role;
+update pointage.acces_services set jusqu_au = pointage.aujourdhui() - 1 where personne_id = test.pid('Lucas') and service_id = 'a0000000-0000-0000-0000-000000000005';
+select test.connecte('Lucas'); set role authenticated;
+select test.ok(not exists (select 1 from public.personnes where id = :'pid_log'), 'Accès expiré : plus de visibilité');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

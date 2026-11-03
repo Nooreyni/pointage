@@ -102,3 +102,11 @@ En poste / Sans compte / Départ prévu / Parties.
 - Congés (PC) : deux rangées équilibrées (prochains congés | soldes, nouvelle demande | mes demandes), cartes de même hauteur.
 - Demandes à valider : « Ouvrir » → fiche (période, décompte, message, justificatif, solde avant / après, collègues du service
   absents ces jours-là), Accepter / Refuser (motif) / Fermer, passage à la demande suivante.
+
+## Ajouts du 03/11 (suite du dernier tour)
+- Aide : bouton « ? » par écran, page Aide avec recherche, carte de bienvenue (une seule source, adaptée au rôle).
+- Équipe : badge ISP et filtre ISP transversal (ouvert d'office pour la responsable ISP).
+- Accès à un autre service avec date de fin (remplacement pendant un congé), personne prévenue, expiré = sans effet.
+- Congés › À valider : « Décidées récemment » (60 jours ; pour la gestion : ses propres décisions).
+- Mon mois : message clair en début de mois ; calendrier mobile : barres de couleur au lieu de libellés tronqués.
+- Tests de bout en bout dans le dépôt (`npm run e2e`) et sur GitHub à chaque envoi.

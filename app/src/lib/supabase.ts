@@ -132,6 +132,11 @@ export function apiSupabase(): Api {
         .order('date_debut', { ascending: false }).limit(50)) as Demande[]
     },
 
+    async decisionsRecentes() {
+      const depuis = new Date(Date.now() - 60 * 86_400_000).toISOString()
+      return verifier(await sb.from('demandes').select('*').in('statut', ['accordee', 'refusee']).gte('decide_le', depuis)
+        .order('decide_le', { ascending: false }).limit(200)) as Demande[]
+    },
     async aValider() {
       return verifier(await sb.from('demandes').select('*').eq('statut', 'en_attente').eq('je_peux_valider', true)
         .order('date_debut')) as Demande[]
@@ -315,8 +320,8 @@ export function apiSupabase(): Api {
     async acces() {
       return verifier(await sb.from('admin_acces').select('*').order('nom')) as Acces[]
     },
-    async donnerAcces(personneId, serviceId, peutValider) {
-      verifier(await sb.rpc('donner_acces_service', { p_personne_id: personneId, p_service_id: serviceId, p_peut_valider: peutValider }))
+    async donnerAcces(personneId, serviceId, peutValider, jusquAu = null) {
+      verifier(await sb.rpc('donner_acces', { p_personne_id: personneId, p_service_id: serviceId, p_peut_valider: peutValider, p_jusqu_au: jusquAu }))
     },
     async retirerAcces(personneId, serviceId) {
       verifier(await sb.rpc('retirer_acces_service', { p_personne_id: personneId, p_service_id: serviceId }))

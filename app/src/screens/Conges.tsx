@@ -141,6 +141,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
                             setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger(); return true
                           } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }); return false }
                         }} />}
+          <DecisionsRecentes api={api} profil={profil} version={aValider.length} />
           {['direction', 'admin'].includes(profil.role) && <PreferencesDirection api={api} />}
         </div>
       )}
@@ -489,6 +490,36 @@ function AValider({ api, codes, demandes, enJours, onDecider, onMessage }: {
           </div>
         </div>
       )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Historique : les demandes accordées ou refusées ces 60 derniers jours (mon équipe ; pour la gestion : mes décisions)
+function DecisionsRecentes({ api, profil, version }: { api: Api; profil: Profil; version: number }) {
+  const [liste, setListe] = useState<Demande[] | null>(null)
+  const [noms, setNoms] = useState<Map<string, string>>(new Map())
+  const [tout, setTout] = useState(false)
+  const gestion = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
+  useEffect(() => {
+    api.decisionsRecentes().then((d) => setListe(d.filter((x) => x.personne_id !== profil.id && (!gestion || x.decide_par === profil.id)))).catch(() => setListe([]))
+    api.personnesVisibles().then((ps) => setNoms(new Map(ps.map((p) => [p.id, `${p.prenom} ${p.nom}`])))).catch(() => {})
+  }, [api, profil.id, gestion, version])
+  if (!liste?.length) return null
+  const visibles = tout ? liste : liste.slice(0, 5)
+  const par = (d: Demande) => (d.decide_par === profil.id ? 'toi' : d.decide_par ? noms.get(d.decide_par) ?? 'un responsable' : null)
+  return (
+    <section className="carte">
+      <div className="ligne entre"><h2>Décidées récemment</h2><span className="doux petit">{gestion ? 'tes décisions · ' : ''}60 derniers jours</span></div>
+      <ul className="liste">{visibles.map((d) => (
+        <li key={d.id}>
+          <span className="texte-ligne"><strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
+            <div className="doux petit">{periode(d)}{d.decide_le && ` · décidé le ${dateCourte(d.decide_le.slice(0, 10))}`}{par(d) && ` par ${par(d)}`}
+              {d.statut === 'refusee' && d.commentaire_decision && ` · « ${d.commentaire_decision} »`}</div></span>
+          <span className={`pilule ${STATUTS[d.statut][1]}`}>{STATUTS[d.statut][0]}</span>
+        </li>
+      ))}</ul>
+      {liste.length > 5 && <button className="lien petit" onClick={() => setTout((t) => !t)}>{tout ? 'Voir moins' : `Voir les ${liste.length}`}</button>}
     </section>
   )
 }

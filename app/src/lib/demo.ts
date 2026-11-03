@@ -327,7 +327,9 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     const debut = decalerJour(aujourdhui, (k * 3) % 24 - 2), fin = decalerJour(debut, k % 3 === 0 ? 4 : k % 3)
     return { id: `ce${k}`, numero: 900 + k, personne_id: p.id, prenom: p.prenom, nom: p.nom, type: 'conge_jours', code_absence: 'CP',
              libelle_absence: 'Congé annuel', date_debut: debut, date_fin: fin, demi: null, minutes_decomptees: 456 * 3, commentaire: null,
-             statut: k % 5 === 2 ? 'en_attente' : 'accordee', decide_le: null, commentaire_decision: null, constate_le: null,
+             statut: k % 5 === 2 ? 'en_attente' : k % 7 === 4 ? 'refusee' : 'accordee',
+             decide_le: k % 5 === 2 ? null : new Date(Date.now() - (k + 1) * 2 * 86_400_000).toISOString(), decide_par: 'p1',
+             commentaire_decision: k % 7 === 4 ? 'Trop d’absences dans le service cette semaine-là' : null, constate_le: null,
              encode_par_rh: false, cree_le: new Date().toISOString(), je_peux_valider: false } as Demande
   })
 
@@ -451,11 +453,15 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       const recues = transmises.filter((d) => d.vers === persona && d.statut === 'en_attente').map((d) => ({ ...d, je_peux_valider: true }))
       return [...(['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : []), ...recues].map(justif)
     },
+    async decisionsRecentes() {
+      return [...demandes, ...transmises, ...congesEquipe].filter((d) => ['accordee', 'refusee'].includes(d.statut) && d.decide_le && d.personne_id !== 'demo')
+        .sort((a, b) => (b.decide_le ?? '').localeCompare(a.decide_le ?? ''))
+    },
     async decider(ids, accorder, commentaire) {
       await attendre()
       if (!accorder && !commentaire?.trim()) throw new Error('Un refus doit être motivé')
       for (const d of [...demandes, ...transmises].filter((x) => ids.includes(x.id))) {
-        d.statut = accorder ? 'accordee' : 'refusee'; d.decide_le = new Date().toISOString(); d.commentaire_decision = commentaire ?? null
+        d.statut = accorder ? 'accordee' : 'refusee'; d.decide_le = new Date().toISOString(); d.decide_par = profil.id; d.commentaire_decision = commentaire ?? null
       }
       return ids.length
     },
@@ -726,10 +732,11 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       regimes.push({ ...r, id, minutes_semaine: semaine, utilisations: 0 }); return id
     },
     async acces() { return acces },
-    async donnerAcces(personneId, serviceId, peutValider) {
+    async donnerAcces(personneId, serviceId, peutValider, jusquAu = null) {
+      if (jusquAu && jusquAu < aujourdhui) throw new Error('La date de fin est déjà passée')
       const p = adminP.find((x) => x.id === personneId)!, s = services.find((x) => x.id === serviceId)!
       acces = [...acces.filter((a) => !(a.personne_id === personneId && a.service_id === serviceId)),
-               { personne_id: personneId, prenom: p.prenom, nom: p.nom, service_id: serviceId, service: s.nom, peut_valider: peutValider }]
+               { personne_id: personneId, prenom: p.prenom, nom: p.nom, service_id: serviceId, service: s.nom, peut_valider: peutValider, jusqu_au: jusquAu, actif: true }]
     },
     async retirerAcces(personneId, serviceId) { acces = acces.filter((a) => !(a.personne_id === personneId && a.service_id === serviceId)) },
     async parametres() { return parametres },

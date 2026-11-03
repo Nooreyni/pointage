@@ -515,6 +515,7 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
   const [personne, setPersonne] = useState('')
   const [service, setService] = useState('')
   const [valider, setValider] = useState(false)
+  const [jusquAu, setJusquAu] = useState('')
   const charger = useCallback(() => { api.acces().then(setListe).catch(erreur) }, [api, erreur])
   useEffect(() => { charger() }, [charger])
   const candidats = useMemo(() => personnes.filter((p) => !p.date_sortie), [personnes])
@@ -522,10 +523,11 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
   return (
     <section className="carte">
       <h2>Accès à d’autres services</h2>
-      <p className="doux petit">Pour qu’un responsable voie (et éventuellement valide) les demandes d’un service qui n’est pas le sien.</p>
+      <p className="doux petit">Pour qu’un responsable voie (et éventuellement valide) les demandes d’un service qui n’est pas le sien.
+        Remplacement pendant un congé : indique une date de fin, l’accès s’arrête tout seul. La personne est prévenue.</p>
       <form className="champs-ligne aligne-bas" onSubmit={async (e) => {
         e.preventDefault()
-        try { await api.donnerAcces(personne, service, valider); setMessage({ texte: 'Accès accordé ✅' }); charger() } catch (err) { erreur(err) }
+        try { await api.donnerAcces(personne, service, valider, jusquAu || null); setMessage({ texte: jusquAu ? `Accès accordé jusqu’au ${dateCourte(jusquAu)} ✅` : 'Accès accordé ✅' }); setJusquAu(''); charger() } catch (err) { erreur(err) }
       }}>
         <label className="champ">Personne<select id="a-personne" value={personne} required onChange={(e) => setPersonne(e.target.value)}>
           <option value="" disabled>Choisir…</option>{candidats.map((p) => <option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.service}</option>)}</select></label>
@@ -533,13 +535,16 @@ function AccesServices({ api, personnes, services, erreur, setMessage }: {
           <option value="" disabled>Choisir…</option>{services.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}</select></label>
         <label className="champ">Droit<select id="a-droit" value={valider ? '1' : '0'} onChange={(e) => setValider(e.target.value === '1')}>
           <option value="0">Lecture seule</option><option value="1">Lecture + validation</option></select></label>
+        <label className="champ"><span>Jusqu’au <span className="doux">(facultatif)</span></span>
+          <input id="a-jusqu" type="date" value={jusquAu} min={jourBxl()} onChange={(e) => setJusquAu(e.target.value)} /></label>
         <button className="bouton" style={{ marginBottom: 14 }}>Accorder</button>
       </form>
       {liste.length === 0 ? <p className="vide">Aucun accès particulier.</p> : (
         <ul className="liste">{liste.map((a) => (
           <li key={a.personne_id + a.service_id}>
             <span className="texte-ligne"><LienPersonne id={a.personne_id} nom={`${a.prenom} ${a.nom}`} /> → {a.service}</span>
-            <span className={`pilule ${a.peut_valider ? 'ok' : 'neutre'}`}>{a.peut_valider ? 'Lecture + validation' : 'Lecture'}</span>
+            <span className={`pilule ${a.actif === false ? 'neutre' : a.peut_valider ? 'ok' : 'neutre'}`}>{a.peut_valider ? 'Lecture + validation' : 'Lecture'}</span>
+            {a.jusqu_au && <span className={`pilule ${a.actif === false ? 'ko' : 'attente'}`}>{a.actif === false ? `Expiré le ${dateCourte(a.jusqu_au)}` : `Jusqu’au ${dateCourte(a.jusqu_au)}`}</span>}
             <button className="lien petit" onClick={async () => {
               try { await api.retirerAcces(a.personne_id, a.service_id); setMessage({ texte: 'Accès retiré' }); charger() } catch (e) { erreur(e) }
             }}>Retirer</button>

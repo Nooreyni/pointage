@@ -44,7 +44,13 @@ cd app && npm ci && npm test && npm run build
 ```bash
 node supabase/functions/envoyer-notifications/integration.test.mjs supabase/functions/envoyer-notifications/index.ts email
 ```
-Prérequis : PostgreSQL 16 + paquet `faketime`, Node ≥ 20, Deno 2 (pour le dernier test).
+Parcours dans un vrai navigateur (5 rôles, mobile et PC, accessibilité, superposition, aide, validation, fiches) :
+```
+cd app && npx playwright install chromium   # une seule fois
+npm run dev                                  # dans un autre terminal
+npm run e2e
+```
+Prérequis : PostgreSQL 16 + paquet `faketime`, Node ≥ 20, Deno 2 (pour le dernier test). Tout tourne aussi automatiquement sur GitHub à chaque envoi (`.github/workflows/tests.yml`).
 
 ## Environnements
 | Env | Base | Données |

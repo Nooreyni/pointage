@@ -124,6 +124,7 @@ export interface Demande {
   commentaire: string | null
   statut: StatutDemande
   decide_le: string | null
+  decide_par?: string | null
   commentaire_decision: string | null
   constate_le: string | null
   encode_par_rh: boolean
@@ -320,7 +321,7 @@ export interface Regime {
   utilisations: number
 }
 
-export interface Acces { personne_id: string; prenom: string; nom: string; service_id: string; service: string; peut_valider: boolean }
+export interface Acces { personne_id: string; prenom: string; nom: string; service_id: string; service: string; peut_valider: boolean; jusqu_au?: string | null; actif?: boolean }
 export interface Parametre {
   cle: string; valeur: number; unite: string; libelle: string; provisoire: boolean; source: string | null; categorie: string
   parent?: string | null      // réglage d'une fonction : masqué quand la fonction est coupée
@@ -359,6 +360,8 @@ export interface Api {
   soumettre(s: SaisieDemande): Promise<void>
   mesDemandes(): Promise<Demande[]>
   aValider(): Promise<Demande[]>
+  /** Demandes accordées ou refusées ces 60 derniers jours, parmi celles que je peux voir */
+  decisionsRecentes(): Promise<Demande[]>
   decider(ids: string[], accorder: boolean, commentaire?: string): Promise<number>
   annulerDemande(id: string, motif?: string): Promise<void>
   // Espace RH
@@ -411,7 +414,8 @@ export interface Api {
   regimes(): Promise<Regime[]>
   enregistrerRegime(r: { id: number | null; libelle: string; contrat: Regime['contrat']; minutes_jour: number[]; actif: boolean }): Promise<number>
   acces(): Promise<Acces[]>
-  donnerAcces(personneId: string, serviceId: string, peutValider: boolean): Promise<void>
+  /** `jusquAu` : dernier jour de l'accès (remplacement pendant un congé), null = sans limite */
+  donnerAcces(personneId: string, serviceId: string, peutValider: boolean, jusquAu?: string | null): Promise<void>
   retirerAcces(personneId: string, serviceId: string): Promise<void>
   parametres(): Promise<Parametre[]>
   modifierParametre(cle: string, valeur: number, source: string): Promise<void>
