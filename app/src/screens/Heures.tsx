@@ -113,7 +113,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
             <p className="vide">Pas encore de jour ouvrable écoulé ce mois-ci. <button className="lien petit" onClick={() => setToutVoir(true)}>Voir tous les jours</button></p>
           )}
           {lignes && visibles.length > 0 && (
-            <div className="tableau-defilant">
+            <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
               <table className="tableau fiche">
                 <thead><tr><th>Jour</th><th className="num">Prévu</th><th>Pointages</th><th className="num">Prestées</th><th className="num">Boni</th><th>Statut</th></tr></thead>
                 <tbody>{visibles.map(({ j, pts, absence }) => {

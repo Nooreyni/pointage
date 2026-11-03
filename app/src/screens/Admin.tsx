@@ -387,7 +387,7 @@ function Services({ services, personnes, api, ok, erreur }: Commun & { services:
     <section className="carte">
       <div className="ligne entre"><h2>Services</h2><button className="bouton petit" onClick={nouveau}>Nouveau service</button></div>
       <p className="doux petit">Un service sans chef remonte ses demandes au chef du service parent (la direction).</p>
-      <div className="tableau-defilant">
+      <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
         <table className="tableau cliquable">
           <thead><tr><th>Service</th><th>Rattaché à</th><th>Chef(s)</th><th className="num">Effectif</th><th className="num">Seuil d’absence</th></tr></thead>
           <tbody>{services.map((s) => (
@@ -458,7 +458,7 @@ function Regimes({ regimes, api, ok, erreur }: Commun & { regimes: Regime[] }) {
     <section className="carte">
       <div className="ligne entre"><h2>Régimes de travail</h2><button className="bouton petit" onClick={() => ouvrir(null)}>Nouveau régime</button></div>
       <p className="doux petit">Heures prévues pour chaque jour de la semaine. Un régime déjà utilisé ne change pas d’horaire : on en crée un nouveau.</p>
-      <div className="tableau-defilant">
+      <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
         <table className="tableau cliquable">
           <thead><tr><th>Régime</th>{JOURS.map((j) => <th key={j} className="num">{j}</th>)}<th className="num">Semaine</th><th className="num">Personnes</th></tr></thead>
           <tbody>{regimes.map((r) => (
@@ -685,7 +685,7 @@ function Compteurs({ api, estAdmin, erreur, setMessage }: { api: Api; estAdmin: 
         {liste?.some((c) => c.regle_provisoire) && <span className="pilule attente">{liste.filter((c) => c.regle_provisoire).length} règle(s) à confirmer</span>}</div>
       <p className="doux petit">Congés, récup, boni… Pour chaque compteur : sa période, si le solde peut être négatif et ce qui arrive au reste en fin de période (report appliqué à la clôture du dernier mois de la période).</p>
       {!liste && <p className="vide">Chargement…</p>}
-      <div className="tableau-defilant">
+      <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
         <table className="tableau">
           <thead><tr><th>Compteur</th><th>Période</th><th>Négatif</th><th>Visible employé</th><th>Fin de période</th><th /></tr></thead>
           <tbody>{liste?.map((c) => (

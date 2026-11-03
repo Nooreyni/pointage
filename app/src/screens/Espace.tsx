@@ -4,7 +4,9 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAgenda, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import { IcAgenda, IcAide, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import AideEcran from '../components/AideEcran'
+import { aidePour } from '../lib/aide'
 import Recherche, { type Cible } from '../components/Recherche'
 import { ReglagesContext } from '../lib/reglages'
 import DoubleAuth from '../components/DoubleAuth'
@@ -58,6 +60,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [vueConges, setVueConges] = useState<VueConges>('mes')
   const [ficheDe, setFicheDe] = useState<string | null>(null)   // fiche de temps ouverte depuis Équipe
   const [rechercheOuverte, setRechercheOuverte] = useState(false)
+  const [aideOuverte, setAideOuverte] = useState(false)
   const [rechercheEquipe, setRechercheEquipe] = useState('')
   const [sectionAdmin, setSectionAdmin] = useState<Section | undefined>(undefined)
   const [ficheCible, setFicheCible] = useState<{ id: string; onglet?: OngletFiche } | null>(null)
@@ -94,6 +97,9 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   useEffect(() => {   // Ctrl+K (ou Cmd+K) ouvre la recherche
     const clavier = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setRechercheOuverte(true) }
+      // « ? » hors d'un champ de saisie : aide de l'écran
+      const cible = e.target as HTMLElement
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !cible.closest('input, textarea, select, [contenteditable]') && !document.querySelector('.voile')) { e.preventDefault(); setAideOuverte(true) }
     }
     addEventListener('keydown', clavier)
     return () => removeEventListener('keydown', clavier)
@@ -210,6 +216,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
         <div className="espace" />
         <button className="cloche bouton-recherche" aria-label="Rechercher (Ctrl + K)" title="Rechercher (Ctrl + K)" onClick={() => setRechercheOuverte(true)}><IcLoupe /></button>
+        <button className="cloche bouton-aide" aria-label="Aide sur cet écran (?)" title="Aide sur cet écran (?)" onClick={() => setAideOuverte(true)}><IcAide /></button>
         {api.mode !== 'demo' && <span className="badge-role" title="Ton rôle dans l’application">{libelleRole}</span>}
         <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} onClick={() => aller('alertes')}>
           <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues}</span>}
@@ -269,14 +276,16 @@ export default function Espace({ api, onQuitter, vueDemo }: {
                      else { setSectionAdmin('parametres'); aller('admin') }
                    }} />
       )}
+      {aideOuverte && <AideEcran ecran={aidePour(profil).find((e) => e.id === actif)} onFermer={() => setAideOuverte(false)}
+                                 onToutVoir={() => { setAideOuverte(false); aller('aide') }} />}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
       <Suspense fallback={<main className="contenu"><div className="squelette">Chargement…</div></main>}>
       {actif === 'pointer' && <Pointer api={api} profil={profil} enLigne={enLigne} onVoirEquipe={() => aller('equipe')} onVoirMois={() => { setFicheDe(null); aller('heures') }} onVoirAgenda={() => aller('agenda')}
-                                    aValider={aValider} onAller={(c) => (c === 'conges-valider' ? aller('conges', 'valider') : aller(c))} />}
+                                    aValider={aValider} onAller={(c) => (c === 'conges-valider' ? aller('conges', 'valider') : aller(c))} onAide={() => aller('aide')} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} onVoirAgenda={() => aller('agenda')} />}
       {actif === 'agenda' && <Agenda api={api} profil={profil} onDemanderConge={() => aller('conges')} onVoirCompte={() => aller('compte')} />}
       {actif === 'compte' && <Compte api={api} profil={profil} />}
-      {actif === 'aide' && <Aide profil={profil} />}
+      {actif === 'aide' && <Aide profil={profil} onAller={(e) => { if (vues.some(([id]) => id === e)) aller(e as Onglet) }} />}
       {actif === 'bilan' && <Bilan api={api} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'rh' && <Rh api={api} />}
       {actif === 'rapports' && <Rapports api={api} profil={profil} />}

@@ -197,7 +197,7 @@ function Calendrier({ api }: { api: Api }) {
       )}
       <div className="legende petit"><span><i className="case accordee" />Congé accordé</span><span><i className="case attente" />En attente</span></div>
       {personnes === null ? <p className="vide">Chargement…</p> : (
-        <div className="tableau-defilant">
+        <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
           <table className="calendrier">
             <thead>
               <tr><th className="fige">Personne</th>

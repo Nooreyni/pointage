@@ -69,7 +69,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
           {!lignes && !erreur && <p className="vide">Calcul…</p>}
           {lignes?.length === 0 && <p className="vide">Personne à afficher pour ce mois.</p>}
           {visibles.length > 0 && (
-            <div className="tableau-defilant">
+            <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
               <table className="tableau">
                 <thead><tr>
                   <th>Personne</th>{plusieursServices && <th className="masque-mobile">Service</th>}

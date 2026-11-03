@@ -913,3 +913,11 @@ html { scroll-padding-top: calc(var(--h-entete, 63px) + 12px); }
 .bouton-refus { color: var(--rouge); }
 .a-valider .liste li > .bouton { margin-left: auto; }
 .sans-coupure { white-space: nowrap; }
+
+/* ---------- Aide ---------- */
+.en-bref { margin: 4px 0 10px; color: var(--texte); font-size: 15.5px; }
+.bienvenue { border-color: #C9D6F2; background: linear-gradient(180deg, #F4F7FE, var(--carte) 70%); }
+.conseils { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.conseils li::marker { color: var(--bleu); font-weight: 700; }
+@media (max-width: 420px) { .entete .bouton-recherche, .entete .bouton-aide { padding: 4px; } .entete { gap: 6px; } }
+.tableau-defilant:focus-visible { outline-offset: 2px; border-radius: 8px; }

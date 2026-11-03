@@ -1,3 +1,4 @@
+import Bienvenue from '../components/Bienvenue'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Toast from '../components/Toast'
 import type { Anomalie, Api, Demande, Journee, Pointage, Profil, Sens, TypePointage } from '../lib/types'
@@ -15,9 +16,9 @@ const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut:
 
 interface Message { texte: string; erreur?: boolean }
 
-export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois, onVoirAgenda, onAller, aValider }: {
+export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois, onVoirAgenda, onAller, aValider, onAide }: {
   api: Api; profil: Profil; enLigne: boolean; onVoirEquipe?: () => void; onVoirMois?: () => void; onVoirAgenda?: () => void
-  onAller?: (c: CibleAction) => void; aValider?: number
+  onAller?: (c: CibleAction) => void; aValider?: number; onAide?: () => void
 }) {
   const grandEcran = useGrandEcran()
   const responsable = profil.est_chef_service || ['rh', 'admin_rh', 'admin', 'direction', 'responsable_isp'].includes(profil.role)
@@ -217,6 +218,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
           </div>
         </section>
 
+        {onAide && <Bienvenue profil={profil} onAide={onAide} />}
         {responsable && onAller && !grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
 
         {prochain && (

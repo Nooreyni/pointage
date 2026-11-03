@@ -340,7 +340,7 @@ function CongesAnnuels({ api, onFait, onErreur }: { api: Api; onFait: (n: number
         <>
           {!liste && <p className="vide">Calcul…</p>}
           {liste && (
-            <div className="tableau-defilant">
+            <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
               <table className="tableau">
                 <thead><tr><th>Personne</th><th>Régime</th><th className="num">Mois</th><th className="num">Heures</th><th className="num">≈ Jours</th></tr></thead>
                 <tbody>{liste.map((p) => (

@@ -64,7 +64,7 @@ export default function SoldesPersonne({ api, personneId, onMessage }: { api: Ap
         </div>
       )}
       {voirHisto && (
-        <div className="tableau-defilant">
+        <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
           <table className="tableau">
             <thead><tr><th>Date</th><th>Compteur</th><th>Mouvement</th><th className="num">Durée</th><th className="masque-mobile">Par</th></tr></thead>
             <tbody>{histo.map((m) => (

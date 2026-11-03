@@ -69,7 +69,7 @@ export default function ImportPersonnes({ api, services, regimes, existants, onF
       </>}
       {brut && !resultat && <>
         <p className="petit" style={{ marginTop: 0 }}><strong>{valides.length}</strong> prête(s) à créer{lignes.length - valides.length > 0 && <> · <span className="negatif">{lignes.length - valides.length} à corriger dans le fichier</span></>}</p>
-        <div className="tableau-defilant" style={{ maxHeight: 340 }}>
+        <div className="tableau-defilant" style={{ maxHeight: 340 }} tabIndex={0} role="region" aria-label="Aperçu de l’import, défilable">
           <table className="tableau">
             <thead><tr><th>Personne</th><th>Service</th><th className="masque-mobile">Régime</th><th>État</th></tr></thead>
             <tbody>{lignes.map((l, i) => (

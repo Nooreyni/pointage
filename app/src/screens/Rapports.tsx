@@ -104,7 +104,7 @@ function TableauDeBord({ api, mois }: { api: Api; mois: string }) {
           <h2>Par service <span className="doux petit">· {nomMois(s.debut)} · {tot.effectif} personnes</span></h2>
           <Export onExporter={exporterCsv} />
         </div>
-        <div className="tableau-defilant">
+        <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
           <table className="tableau services">
             <thead><tr>
               <th>Service</th><th className="num">Effectif</th><th>Taux d’absence</th><th className="num">Congés</th><th className="num">Maladie</th>
@@ -248,7 +248,7 @@ function RapportCpas({ api, mois }: { api: Api; mois: string }) {
       {!lignes && <p className="vide">Calcul…</p>}
       {lignes?.length === 0 && <p className="vide">Aucune personne ISP sur ce mois.</p>}
       {lignes && lignes.length > 0 && (
-        <div className="tableau-defilant">
+        <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
           <table className="tableau">
             <thead><tr>
               <th>ISP</th><th>Service</th><th className="num">À prester</th><th className="num">Prestées</th><th className="num">Écart</th>
@@ -319,7 +319,7 @@ function RapportTeletravail({ api, mois }: { api: Api; mois: string }) {
       {!lignes && <p className="vide">Calcul…</p>}
       {lignes?.length === 0 && <p className="vide">Aucun télétravail sur ce mois.</p>}
       {lignes && lignes.length > 0 && (
-        <div className="tableau-defilant">
+        <div className="tableau-defilant" tabIndex={0} role="region" aria-label="Tableau, défilable">
           <table className="tableau">
             <thead><tr><th>Personne</th><th>Service</th><th className="num">Jours TT</th>{avecIndemnite && <th className="num">Indemnité</th>}<th>Dates</th><th>Jours habituels</th></tr></thead>
             <tbody>{visibles.map((l) => (
