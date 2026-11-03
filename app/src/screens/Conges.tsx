@@ -1,11 +1,11 @@
 import Fenetre from '../components/Fenetre'
-import { LienPersonne } from '../lib/navigation'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { IcCheck } from '../components/Icones'
 import Toast from '../components/Toast'
 import type { Api, CodeAbsence, Demande, PersonneVisible, Profil, ServiceSuivi, SaisieDemande, Simulation, Solde, TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
+import FicheDemande from '../components/FicheDemande'
 import { dateCourte, decalerJour, duree, jourBxl } from '../lib/temps'
 
 const STATUTS: Record<Demande['statut'], [string, string]> = {
@@ -19,6 +19,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
 }) {
   const [soldes, setSoldes] = useState<Solde[] | null>(null)
   const [codes, setCodes] = useState<CodeAbsence[]>([])
+  const [tousCodes, setTousCodes] = useState<CodeAbsence[]>([])
   const [mes, setMes] = useState<Demande[] | null>(null)
   const [aValider, setAValider] = useState<Demande[]>([])
   const [vue, setVue] = useState<VueConges>(vueInitiale)
@@ -42,7 +43,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
     } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
   }, [api, onCompteValider])
 
-  useEffect(() => { charger(); api.codesAbsence().then((c) => setCodes(c.filter((x) => x.demandable))).catch(() => {}) }, [api, charger])
+  useEffect(() => { charger(); api.codesAbsence().then((c) => { setTousCodes(c); setCodes(c.filter((x) => x.demandable)) }).catch(() => {}) }, [api, charger])
   useEffect(() => { setVue(vueInitiale) }, [vueInitiale])
   useEffect(() => {
     if (!message) return
@@ -100,9 +101,12 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
       )}
 
       {vue === 'mes' && <>
-        <div className="col-principale pile">
+        {/* PC : deux rangées équilibrées (à venir | soldes, puis nouvelle demande | historique) ; mobile : une colonne */}
+        <div className="col-pleine grille-2">
           <ProchainsConges demandes={mes} enJours={enJours} onVoirAgenda={onVoirAgenda} />
-          {blocSoldes('mobile-seulement')}
+          {blocSoldes('')}
+        </div>
+        <div className="col-pleine grille-2">
           <NouvelleDemande api={api} codes={codes} enJours={enJours}
                            onEnvoyee={async () => { setMessage({ texte: 'Demande envoyée à ton responsable ✅' }); await charger() }}
                            onErreur={(t) => setMessage({ texte: t, erreur: true })} />
@@ -122,7 +126,6 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
             </ul>
           </section>
         </div>
-        <div className="col-laterale pile">{blocSoldes('pc-seulement')}</div>
       </>}
 
       {vue === 'valider' && (
@@ -130,12 +133,13 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
           {aValider.length === 0
             ? <section className="carte vide-grand"><div className="pictogramme"><IcCheck size={26} /></div>
                 <h3>Aucune demande en attente</h3><p className="doux">Les demandes de ton équipe apparaîtront ici.</p></section>
-            : <AValider demandes={aValider} enJours={enJours}
+            : <AValider api={api} codes={tousCodes} demandes={aValider} enJours={enJours}
+                        onMessage={(texte, erreur) => setMessage({ texte, erreur })}
                         onDecider={async (ids, accorder, commentaire) => {
                           try {
                             const n = await api.decider(ids, accorder, commentaire)
-                            setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger()
-                          } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }) }
+                            setMessage({ texte: `${n} demande(s) ${accorder ? 'accordée(s) ✅' : 'refusée(s)'}` }); await charger(); return true
+                          } catch (e) { setMessage({ texte: messageErreur(e), erreur: true }); return false }
                         }} />}
           {['direction', 'admin'].includes(profil.role) && <PreferencesDirection api={api} />}
         </div>
@@ -421,10 +425,14 @@ function LigneDemande({ d, enJours, onAnnuler, api, onMessage }: {
 }
 
 // ---------------------------------------------------------------------------
-function AValider({ demandes, enJours, onDecider }: {
-  demandes: Demande[]; enJours: (m: number) => string
-  onDecider: (ids: string[], accorder: boolean, commentaire?: string) => Promise<void>
+function AValider({ api, codes, demandes, enJours, onDecider, onMessage }: {
+  api: Api; codes: CodeAbsence[]; demandes: Demande[]; enJours: (m: number) => string
+  onDecider: (ids: string[], accorder: boolean, commentaire?: string) => Promise<boolean>
+  onMessage: (t: string, erreur?: boolean) => void
 }) {
+  const [fiche, setFiche] = useState<number | null>(null)
+  // Après une décision, la liste se recharge : on reste sur la demande suivante, ou on ferme s'il n'y en a plus
+  useEffect(() => { setFiche((i) => (i === null ? null : demandes.length ? Math.min(i, demandes.length - 1) : null)) }, [demandes])
   const [choisies, setChoisies] = useState<Set<string>>(new Set())
   const [refus, setRefus] = useState<string | null>(null)   // motif en cours de saisie
   const [enCours, setEnCours] = useState(false)
@@ -443,19 +451,25 @@ function AValider({ demandes, enJours, onDecider }: {
   return (
     <section className="carte a-valider">
       <div className="ligne entre"><h2>À valider</h2><span className="pilule attente">{demandes.length}</span></div>
+      <p className="doux petit" style={{ marginTop: 4 }}>« Ouvrir » affiche le détail (solde, équipe) avant de décider. Ou coche plusieurs demandes pour les traiter d’un coup.</p>
       <ul className="liste">
         {demandes.map((d) => (
           <li key={d.id}>
             <input type="checkbox" id={`v-${d.id}`} checked={choisies.has(d.id)} onChange={() => basculer(d.id)} />
             <label htmlFor={`v-${d.id}`} className="texte-ligne">
-              <LienPersonne id={d.personne_id} nom={`${d.prenom} ${d.nom}`} vers="temps" /> · {d.libelle_absence}
+              <strong>{d.prenom} {d.nom}</strong> · {d.libelle_absence}
               <div className="doux petit">{periode(d)} · {d.type === 'conge_heures' ? duree(d.minutes_decomptees) : enJours(d.minutes_decomptees)}
                 {d.commentaire && ` · « ${d.commentaire} »`}
                 {anciennete(d) >= 3 && <span className="attention"> · en attente depuis {anciennete(d)} j</span>}</div>
             </label>
+            <button className="bouton secondaire petit" onClick={() => setFiche(demandes.indexOf(d))} aria-label={`Ouvrir la demande de ${d.prenom} ${d.nom}`}>Ouvrir</button>
           </li>
         ))}
       </ul>
+      {fiche !== null && demandes[fiche] && (
+        <FicheDemande api={api} demandes={demandes} index={fiche} codes={codes} enJours={enJours} onIndex={setFiche} onFermer={() => setFiche(null)}
+                      onMessage={onMessage} onDecider={(d, accorder, motif) => onDecider([d.id], accorder, motif)} />
+      )}
       {refus === null ? (
         <div className="actions">
           <button className="bouton secondaire" disabled={!ids.length || enCours} onClick={() => setRefus('')}>Refuser</button>

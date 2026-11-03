@@ -98,3 +98,7 @@ En poste / Sans compte / Départ prévu / Parties.
 - Toutes les fenêtres : bouton ✕ (et Échap) ; fiche : bouton « Fermer », « Enregistrer » actif seulement après une modification.
 - Direction : Gestion complète (Suivi RH, Personnes, Rapports, Réglages), comme l'admin RH ; double authentification (option) incluse.
 - RH : encart « Ce mois-ci » dans Suivi RH (absence, maladie, télétravail, demandes en attente, service le plus absent) → lien vers Rapports.
+- ISP : plus de service « ES / ISP » dans la démo (c'était un groupe de filtre de Dinclock) ; chaque ISP est rattaché à son service.
+- Congés (PC) : deux rangées équilibrées (prochains congés | soldes, nouvelle demande | mes demandes), cartes de même hauteur.
+- Demandes à valider : « Ouvrir » → fiche (période, décompte, message, justificatif, solde avant / après, collègues du service
+  absents ces jours-là), Accepter / Refuser (motif) / Fermer, passage à la demande suivante.
