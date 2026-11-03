@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 
+let ouvertes = 0
 const FOCUSABLES = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /** Fenêtre modale accessible : focus sur le premier champ, Échap ferme, Tab reste dans la fenêtre, focus rendu à la fermeture. */
@@ -23,7 +24,12 @@ export function useDialogue<T extends HTMLElement>(onFermer: () => void) {
       else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus() }
     }
     document.addEventListener('keydown', clavier)
-    return () => { document.removeEventListener('keydown', clavier); avant?.focus?.() }
+    // Page derrière bloquée (compteur : deux fenêtres l'une sur l'autre)
+    ouvertes++; document.body.classList.add('fenetre-ouverte')
+    return () => {
+      document.removeEventListener('keydown', clavier); avant?.focus?.()
+      if (--ouvertes === 0) document.body.classList.remove('fenetre-ouverte')
+    }
   }, [])
   return ref
 }

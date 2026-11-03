@@ -22,6 +22,8 @@
   --titre: 'Fraunces Variable', Georgia, serif;
   --corps: 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light;
+  /* Empilement (du bas vers le haut) : contenu < onglets < en-tête < menus < fenêtres < messages */
+  --z-collant: 2; --z-nav: 20; --z-entete: 30; --z-menu: 40; --z-voile: 50; --z-toast: 60;
 }
 
 * { box-sizing: border-box; }
@@ -42,7 +44,7 @@ h1, h2, h3 { font-family: var(--titre); font-weight: 600; margin: 0; letter-spac
 /* ---------- Structure ---------- */
 .app { min-height: 100dvh; display: flex; flex-direction: column; }
 .entete {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 0; z-index: var(--z-entete);
   display: flex; align-items: center; gap: 12px;
   padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
   background: var(--bleu-fonce); color: #fff;
@@ -78,7 +80,7 @@ main.contenu {
 
 /* Navigation basse (mobile) / latérale haute (PC) */
 .nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-nav);
   display: flex; justify-content: space-around;
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   background: var(--carte); border-top: 1px solid var(--bord);
@@ -92,7 +94,7 @@ main.contenu {
 .nav button[aria-current='page'] { color: var(--bleu-fonce); background: #EEF2FA; }
 .nav svg { width: 22px; height: 22px; }
 @media (min-width: 900px) {
-  .nav { position: static; justify-content: center; gap: 8px; border-top: 0; border-bottom: 1px solid var(--bord); padding: 6px 16px; }
+  .nav { position: static; z-index: auto; justify-content: center; gap: 8px; border-top: 0; border-bottom: 1px solid var(--bord); padding: 6px 16px; }
   .nav button { flex-direction: row; gap: 8px; max-width: none; flex: 0 0 auto; padding: 8px 14px; font-size: 15px; }
   .nav svg { width: 18px; height: 18px; }
 }
@@ -208,7 +210,7 @@ main.contenu {
 .notif.non-lue strong::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--jaune); margin-right: 8px; vertical-align: middle; }
 
 /* Fenêtre (correction) */
-.voile { position: fixed; inset: 0; background: rgba(22, 33, 62, .45); z-index: 30; display: grid; place-items: end center; }
+.voile { position: fixed; inset: 0; background: rgba(22, 33, 62, .45); z-index: var(--z-voile); display: grid; place-items: end center; }
 @media (min-width: 600px) { .voile { place-items: center; } }
 .fenetre {
   width: 100%; max-width: 440px; background: var(--carte); border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
@@ -227,7 +229,7 @@ main.contenu {
 
 /* Messages */
 .toast {
-  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 40;
+  position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: var(--z-toast);
   background: var(--texte); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 600; max-width: calc(100% - 32px);
   box-shadow: var(--ombre);
 }
@@ -287,7 +289,7 @@ main.contenu {
 /* Menu du compte + pastilles de navigation */
 .menu-compte { position: relative; }
 .menu {
-  position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 220px;
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: var(--z-menu); min-width: 220px;
   background: var(--carte); color: var(--texte); border-radius: 14px; box-shadow: var(--ombre-flottante); padding: 6px;
   transform-origin: top right; animation: menu-entree .18s var(--courbe-ui);
 }
@@ -758,7 +760,7 @@ code.mdp { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font
 /* ---------- Menu d'export ---------- */
 .export { position: relative; display: inline-block; }
 .export .bouton { gap: 6px; }
-.menu-export { right: 0; left: auto; min-width: 230px; z-index: 25; }
+.menu-export { right: 0; left: auto; min-width: 230px; z-index: var(--z-menu); }
 .menu-export button { display: grid; gap: 1px; }
 .menu-export button .petit { font-weight: 400; }
 
@@ -835,7 +837,7 @@ input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-dat
 
 /* ---------- Fiche d'une personne ---------- */
 .entete-fiche { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; }
-.onglets-fiche { margin: 4px 0 0; position: sticky; top: -20px; z-index: 2; box-shadow: 0 6px 10px -8px rgba(22, 33, 62, .25); }
+.onglets-fiche { margin: 4px 0 0; position: sticky; top: -20px; z-index: var(--z-collant); box-shadow: 0 6px 10px -8px rgba(22, 33, 62, .25); }
 .panneau-fiche { padding-top: 6px; min-height: 240px; }
 .panneau-fiche > .titre-bloc:first-child { margin-top: 14px; }
 .titre-bloc { font-family: var(--corps); font-size: 15px; font-weight: 700; margin: 22px 0 8px; }
@@ -879,3 +881,10 @@ input[type='date']::-webkit-date-and-time-value, input[type='time']::-webkit-dat
 .mini-stats dt { font-size: 13px; color: var(--texte-doux); }
 .mini-stats dd { margin: 2px 0 0; font-family: var(--titre); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .mini-stats dd.texte { font-family: var(--corps); font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+
+/* Menu du compte : l'en-tête le porte au-dessus de tout le contenu (jamais sous les onglets) */
+.entete .menu { z-index: var(--z-menu); }
+/* Fenêtre ouverte : la page derrière ne défile plus */
+body.fenetre-ouverte { overflow: hidden; }
+body.fenetre-ouverte .toast { bottom: auto; top: calc(12px + env(safe-area-inset-top)); }
+.menu.vers-haut { top: auto; bottom: calc(100% + 8px); transform-origin: bottom right; }
