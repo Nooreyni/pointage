@@ -700,6 +700,8 @@ select test.ok((select boni = 180 and depassement = 0 from pointage.journees_set
                'Réglage désactivé : le samedi va en boni');
 select test.connecte('Admin'); set role authenticated; select public.modifier_parametre('jour_non_prevu_a_valider', 1, 'test'); reset role;
 update pointage.parametres set valeur = 60 where cle = 'anti_rebond_s';
+-- Les pointages de test insérés plus haut ne doivent pas compter comme « à l'instant » (sinon le résultat dépend de la vitesse de la machine)
+update pointage.pointages set cree_le = cree_le - interval '1 hour' where personne_id = test.pid('Emma');
 select test.connecte('Emma'); set role authenticated;
 select public.pointer();
 select test.erreur('select public.pointer()', 'Double appui (< 60 s) : refusé avec message', 'déjà de pointer');
