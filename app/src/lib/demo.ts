@@ -453,6 +453,7 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       const recues = transmises.filter((d) => d.vers === persona && d.statut === 'en_attente').map((d) => ({ ...d, je_peux_valider: true }))
       return [...(['chef', 'admin', 'direction'].includes(persona) ? demandes.filter((d) => d.je_peux_valider && d.statut === 'en_attente') : []), ...recues].map(justif)
     },
+    async erreursRecentes() { return [] },
     async decisionsRecentes() {
       return [...demandes, ...transmises, ...congesEquipe].filter((d) => ['accordee', 'refusee'].includes(d.statut) && d.decide_le && d.personne_id !== 'demo')
         .sort((a, b) => (b.decide_le ?? '').localeCompare(a.decide_le ?? ''))
@@ -510,10 +511,16 @@ export function apiDemo(persona: Persona = 'employe'): Api {
     },
     async mouvementsPersonne(personneId) { return [...mvts(personneId)].sort((a, b) => b.date_effet.localeCompare(a.date_effet) || b.id - a.id) },
     async ajusterSolde(personneId, compteur, minutes, motif) {
-      if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
+      if (!['rh', 'admin', 'direction'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
       if (!motif.trim()) throw new Error('Un ajustement doit être motivé')
       const libelle = mvts(personneId).find((m) => m.compteur_code === compteur)?.compteur ?? compteur
       mvts(personneId).push({ id: idMvt++, compteur_code: compteur, compteur: libelle, date_effet: aujourdhui, type: 'ajustement', minutes, motif, par: `${profil.prenom} ${profil.nom}`, cree_le: new Date().toISOString() })
+      journaliser('mouvements_compteur', 'INSERT', ['compteur_code', 'minutes', 'motif'])
+    },
+    async reprendreSolde(personneId, compteur, minutes, dateEffet, motif) {
+      if (!['rh', 'admin', 'direction'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
+      const libelle = compteurs.find((c) => c.code === compteur)?.libelle ?? compteur
+      mvts(personneId).push({ id: idMvt++, compteur_code: compteur, compteur: libelle, date_effet: dateEffet, type: 'ouverture', minutes, motif, par: `${profil.prenom} ${profil.nom}`, cree_le: new Date().toISOString() })
       journaliser('mouvements_compteur', 'INSERT', ['compteur_code', 'minutes', 'motif'])
     },
     async preparerDepart(personneId): Promise<ApercuDepart> {

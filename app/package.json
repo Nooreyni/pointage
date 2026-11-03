@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node e2e/suite.cjs"
+    "e2e": "node e2e/suite.cjs",
+    "e2e:reel": "bash e2e/lancer-reel.sh"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "5.3.0",
@@ -23,6 +24,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "axe-core": "4.10.3",
+    "pg": "8.16.3",
     "playwright": "1.63.0",
     "typescript": "5.9.3",
     "vite": "8.3.5",

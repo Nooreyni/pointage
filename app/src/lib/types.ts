@@ -362,6 +362,8 @@ export interface Api {
   aValider(): Promise<Demande[]>
   /** Demandes accordées ou refusées ces 60 derniers jours, parmi celles que je peux voir */
   decisionsRecentes(): Promise<Demande[]>
+  /** Admin, admin RH : erreurs remontées par l'appli (regroupées) */
+  erreursRecentes(jours?: number): Promise<{ quand: string; qui: string | null; ecran: string | null; message: string; version: string | null; navigateur: string | null; fois: number }[]>
   decider(ids: string[], accorder: boolean, commentaire?: string): Promise<number>
   annulerDemande(id: string, motif?: string): Promise<void>
   // Espace RH
@@ -376,6 +378,8 @@ export interface Api {
   soldesPersonne(personneId: string): Promise<Solde[]>
   mouvementsPersonne(personneId: string): Promise<MouvementCompteur[]>
   ajusterSolde(personneId: string, compteur: string, minutes: number, motif: string): Promise<void>
+  /** Reprise d'un solde (ex. depuis Dinclock) : mouvement « ouverture » à une date */
+  reprendreSolde(personneId: string, compteur: string, minutes: number, dateEffet: string, motif: string): Promise<void>
   preparerDepart(personneId: string, date: string): Promise<ApercuDepart>
   enregistrerDepart(personneId: string, date: string, motif?: string): Promise<{ demandes_annulees: number }>
   annulerDepart(personneId: string): Promise<void>

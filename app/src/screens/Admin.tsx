@@ -9,6 +9,7 @@ import SoldesPersonne from '../components/SoldesPersonne'
 import DepartPersonne from '../components/DepartPersonne'
 import ArriveePersonne from '../components/ArriveePersonne'
 import ImportPersonnes from '../components/ImportPersonnes'
+import ImportSoldes from '../components/ImportSoldes'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import { IcChevron } from '../components/Icones'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
@@ -74,7 +75,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh', 'direction'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
-        {section === 'journal' && <Journal api={api} erreur={erreur} />}
+        {section === 'journal' && <><ErreursAppli api={api} /><Journal api={api} erreur={erreur} /></>}
       </div>
       )}
       <Toast message={message} />
@@ -97,6 +98,7 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
   const [vue, setVue] = useState<FiltrePersonnes>('actives')
   const [fiche, setFiche] = useState<{ id: string | null; onglet?: OngletFiche } | null>(null)
   const [importer, setImport] = useState(false)
+  const [soldes, setSoldes] = useState(false)
   const auj = jourBxl()
   // Fiche demandée depuis un autre écran (nom cliqué, recherche)
   useEffect(() => { if (ficheInitiale) setFiche(ficheInitiale) }, [ficheInitiale])
@@ -119,6 +121,7 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
         <h2>Personnes <span className="doux petit">({groupes.actives.length})</span></h2>
         <span className="ligne">
           <button className="bouton secondaire petit" onClick={() => setImport(true)}>Importer</button>
+          <button className="bouton secondaire petit" onClick={() => setSoldes(true)}>Reprendre des soldes</button>
           <button className="bouton petit" onClick={() => setFiche({ id: null })}>Nouvelle personne</button>
         </span>
       </div>
@@ -131,6 +134,7 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
       </div>
       {importer && <ImportPersonnes api={api} services={services} regimes={regimes} existants={tous.map((p) => p.email.toLowerCase())}
                                     onFermer={() => setImport(false)} onFait={(n) => { if (n) ok(`${n} personne(s) importée(s)`) }} />}
+      {soldes && <ImportSoldes api={api} personnes={tous} onFermer={() => setSoldes(false)} onFait={(n) => { if (n) ok(`${n} solde(s) repris`) }} />}
       {!personnes && <p className="vide">Chargement…</p>}
       {personnes && liste.length === 0 && <p className="vide">Personne ne correspond.</p>}
       <ul className="liste-personnes">{liste.map((p) => (
@@ -811,6 +815,25 @@ const OBJETS: Record<string, string> = {
 const ACTIONS: Record<string, string> = { INSERT: 'Ajout', UPDATE: 'Modification', DELETE: 'Suppression' }
 
 /** Journal : qui a changé quoi et quand (règles, personnes, soldes, congés, pointages…). Lecture seule, rien ne s'efface. */
+// Erreurs remontées automatiquement par l'appli (écran planté chez quelqu'un) : pour l'IT, pendant le pilote surtout
+function ErreursAppli({ api }: { api: Api }) {
+  const [liste, setListe] = useState<Awaited<ReturnType<Api['erreursRecentes']>> | null>(null)
+  useEffect(() => { api.erreursRecentes(7).then(setListe).catch(() => setListe([])) }, [api])
+  if (!liste) return null
+  return (
+    <section className="carte">
+      <div className="ligne entre"><h2>Erreurs de l’appli</h2><span className="doux petit">7 derniers jours</span></div>
+      {liste.length === 0 ? <p className="positif petit" style={{ marginBottom: 0 }}>Aucune erreur signalée.</p> : (
+        <ul className="liste">{liste.map((e, i) => (
+          <li key={i}><span className="texte-ligne"><strong>{e.message}</strong>
+            <div className="doux petit">{e.ecran ?? 'écran inconnu'} · {e.qui ?? '—'} · {new Date(e.quand).toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' })}
+              {e.fois > 1 && ` · ${e.fois} fois`}{e.version && ` · v${e.version}`}</div></span></li>
+        ))}</ul>
+      )}
+    </section>
+  )
+}
+
 function Journal({ api, erreur }: { api: Api; erreur: (e: unknown) => void }) {
   const [objet, setObjet] = useState<string>('')
   const [liste, setListe] = useState<import('../lib/types').Modification[] | null>(null)

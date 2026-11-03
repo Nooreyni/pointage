@@ -50,6 +50,10 @@ cd app && npx playwright install chromium   # une seule fois
 npm run dev                                  # dans un autre terminal
 npm run e2e
 ```
+Même chose sur l'**appli réelle** (base PostgreSQL 16 locale + mini serveur compatible Supabase, 7 comptes) :
+```
+cd app && npm run e2e:reel
+```
 Prérequis : PostgreSQL 16 + paquet `faketime`, Node ≥ 20, Deno 2 (pour le dernier test). Tout tourne aussi automatiquement sur GitHub à chaque envoi (`.github/workflows/tests.yml`).
 
 ## Environnements
@@ -59,3 +63,12 @@ Prérequis : PostgreSQL 16 + paquet `faketime`, Node ≥ 20, Deno 2 (pour le der
 | prod | Organisation Supabase **au nom du CFB** (à créer) | Réelles |
 
 Installation pas à pas : [`docs/deploiement.md`](docs/deploiement.md).
+
+## Documents
+| Document | Pour |
+|---|---|
+| `docs/passation.md` | Reprendre l'outil : architecture, comptes, mise en production, mises à jour, tâches courantes |
+| `docs/pilote.md` | Préparer et juger le pilote (double fonctionnement avec Dinclock, critères go / no-go) |
+| `docs/deploiement.md` | Installation détaillée (notifications, Microsoft, appli) |
+| `scripts/mise-en-production.sh` | Migrations, fonctions, clés, contrôles, appli — relançable |
+| `scripts/verifier-installation.sql` | Contrôle d'une installation (sécurité, tâches, clés, valeurs à confirmer) |

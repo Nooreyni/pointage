@@ -942,6 +942,15 @@ select test.connecte('Lucas'); set role authenticated;
 select test.ok(not exists (select 1 from public.personnes where id = :'pid_log'), 'Accès expiré : plus de visibilité');
 reset role;
 
+-- ===================== Remontée des erreurs de l'appli =====================
+select test.connecte('Sofia'); set role authenticated;
+select public.signaler_erreur('TypeError: x is undefined', 'conges', 'test', 'Chromium');
+select test.erreur('select * from public.erreurs_recentes()', 'Erreurs : lecture réservée', 'réservée');
+reset role;
+select test.connecte('Inès'); set role authenticated;
+select test.ok(exists (select 1 from public.erreurs_recentes() where message like 'TypeError%' and ecran = 'conges'), 'Erreurs : visibles par l''admin RH');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

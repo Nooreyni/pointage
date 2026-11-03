@@ -1,6 +1,7 @@
 # Installation et mise en service — CFB Pointage
 
-Guide pour installer l'outil (CFB ou autre structure). Aucune valeur propre à une installation n'est dans le code :
+Guide pour installer l'outil (CFB ou autre structure). Raccourci : `scripts/mise-en-production.sh` enchaîne les étapes 2 à 4 ;
+voir aussi `docs/passation.md`. Aucune valeur propre à une installation n'est dans le code :
 tout se règle dans la base (paramètres + configuration) ou dans l'écran Admin.
 
 ## 1. Composants
@@ -82,6 +83,6 @@ jours fériés, paramètres (marqués « À confirmer » tant qu'ils sont provis
 
 | Commande | Contenu |
 |---|---|
-| `supabase/tests/run.sh` | Toutes les migrations + 200 scénarios SQL sur un PostgreSQL 16 jetable, horloge figée (paquet `faketime`) |
+| `supabase/tests/run.sh` | Toutes les migrations + 306 scénarios SQL sur un PostgreSQL 16 jetable, horloge figée (paquet `faketime`) |
 | `cd app && npm test` | Calculs, file hors ligne, chiffrement Web Push (vecteur officiel RFC 8291) |
 | `node supabase/functions/envoyer-notifications/integration.test.mjs supabase/functions/envoyer-notifications/index.ts [email]` | Service d'envoi réel (Deno) contre une fausse API et un faux service push qui déchiffre le message |

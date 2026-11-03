@@ -35,6 +35,18 @@ function verifier<T>(r: { data: T | null; error: unknown }): T {
 export function apiSupabase(): Api {
   const sb = supabase!
   let monId: string | null = null
+  // Identifiant de la personne connectée ; si un écran le demande avant la fin du chargement du profil, on l'attend
+  // (sinon une requête partirait avec « personne_id = null » et échouerait)
+  let enAttenteId: Promise<string> | null = null
+  const moi = async (): Promise<string> => {
+    if (monId) return monId
+    enAttenteId ??= (async () => {
+      const p = verifier(await sb.from('mon_profil').select('id').maybeSingle()) as { id: string } | null
+      if (!p) throw new Error('Session expirée ou compte non relié : reconnecte-toi')
+      return (monId = p.id)
+    })().finally(() => { enAttenteId = null })
+    return enAttenteId
+  }
 
   return {
     mode: 'supabase',
@@ -53,7 +65,7 @@ export function apiSupabase(): Api {
     },
 
     async pointages(depuis, jusqua) {
-      return verifier(await sb.from('pointages').select('*').eq('personne_id', monId!)
+      return verifier(await sb.from('pointages').select('*').eq('personne_id', await moi())
         .gte('jour', depuis).lte('jour', jusqua).order('horodatage')) as Pointage[]
     },
 
@@ -76,7 +88,7 @@ export function apiSupabase(): Api {
     },
 
     async journee(jour) {
-      const r = verifier(await sb.rpc('journees', { p_personne_id: monId, p_debut: jour, p_fin: jour })) as Journee[]
+      const r = verifier(await sb.rpc('journees', { p_personne_id: await moi(), p_debut: jour, p_fin: jour })) as Journee[]
       return r[0]
     },
 
@@ -85,7 +97,7 @@ export function apiSupabase(): Api {
     },
 
     async anomalies() {
-      return verifier(await sb.from('anomalies').select('jour, code, libelle').eq('personne_id', monId!)
+      return verifier(await sb.from('anomalies').select('jour, code, libelle').eq('personne_id', await moi())
         .order('jour', { ascending: false })) as Anomalie[]
     },
 
@@ -111,7 +123,7 @@ export function apiSupabase(): Api {
     },
 
     async soldes() {
-      return verifier(await sb.from('soldes').select('*').eq('personne_id', monId!)
+      return verifier(await sb.from('soldes').select('*').eq('personne_id', await moi())
         .order('ordre').order('periode_debut', { ascending: false })) as Solde[]
     },
 
@@ -128,10 +140,13 @@ export function apiSupabase(): Api {
     },
 
     async mesDemandes() {
-      return verifier(await sb.from('demandes').select('*').eq('personne_id', monId!)
+      return verifier(await sb.from('demandes').select('*').eq('personne_id', await moi())
         .order('date_debut', { ascending: false }).limit(50)) as Demande[]
     },
 
+    async erreursRecentes(jours = 7) {
+      return verifier(await sb.rpc('erreurs_recentes', { p_jours: jours })) as Awaited<ReturnType<Api['erreursRecentes']>>
+    },
     async decisionsRecentes() {
       const depuis = new Date(Date.now() - 60 * 86_400_000).toISOString()
       return verifier(await sb.from('demandes').select('*').in('statut', ['accordee', 'refusee']).gte('decide_le', depuis)
@@ -192,6 +207,10 @@ export function apiSupabase(): Api {
     },
     async ajusterSolde(personneId, compteur, minutes, motif) {
       verifier(await sb.rpc('mouvement_solde_rh', { p_personne_id: personneId, p_compteur: compteur, p_minutes: minutes, p_type: 'ajustement', p_motif: motif }))
+    },
+    async reprendreSolde(personneId, compteur, minutes, dateEffet, motif) {
+      verifier(await sb.rpc('mouvement_solde_rh', { p_personne_id: personneId, p_compteur: compteur, p_minutes: minutes, p_type: 'ouverture',
+                                                    p_date_effet: dateEffet, p_motif: motif }))
     },
     async preparerDepart(personneId, date) {
       return verifier(await sb.rpc('preparer_depart', { p_personne: personneId, p_date: date })) as ApercuDepart
