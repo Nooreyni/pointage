@@ -1,0 +1,8 @@
+{
+  "name": "cfb-pointage",
+  "private": true,
+  "description": "Racine du dépôt : l'appli est dans app/. Ce fichier permet de construire depuis la racine (hébergeur).",
+  "scripts": {
+    "build": "npm --prefix app ci && npm --prefix app run build"
+  }
+}

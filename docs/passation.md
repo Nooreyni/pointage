@@ -21,7 +21,10 @@ schéma privé `pointage`.
 
 - **Supabase** : l'organisation doit appartenir au CFB (adresse générique, ex. it@…), avec au moins deux propriétaires.
 - **GitHub** (`Nooreyni/pointage`) : transférer le dépôt vers un compte ou une organisation du CFB (Settings › Transfer).
-- **Cloudflare** : compte au nom du CFB ; projet Pages `cfb-pointage`.
+- **Cloudflare** : compte au nom du CFB ; Worker `pointage` (fichiers statiques, `wrangler.jsonc` à la racine du dépôt).
+  Workers Builds : branche `main`, commande de build `npm run build`, déploiement `npx wrangler deploy` (marche depuis la
+  racine ou depuis `app/`). Sans variables, le build se relie au projet **dev** (`app/.env.production`) ; en production,
+  définir `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_CONNEXION_DEV=0`, `VITE_MODE_DEMO=0` dans les variables de build.
 - **Microsoft Entra ID** (connexion Microsoft, e-mails) : inscription d'application gérée par l'IT du CFB.
 - Aucun secret n'est dans le dépôt. Les clés d'envoi sont dans la table `pointage.configuration` (jamais exposée).
 

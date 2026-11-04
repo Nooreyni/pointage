@@ -1,0 +1,12 @@
+// Hébergement Cloudflare (Workers, fichiers statiques uniquement : aucun code serveur).
+// Build : npm run build (dossier app/dist ; marche depuis la racine du dépôt ou depuis app/) ; déploiement : npx wrangler deploy.
+{
+  "$schema": "./app/node_modules/wrangler/config-schema.json",
+  "name": "pointage",
+  "compatibility_date": "2026-10-13",
+  "assets": {
+    "directory": "./app/dist",
+    // appli d'une seule page : toute adresse inconnue renvoie index.html
+    "not_found_handling": "single-page-application"
+  }
+}
