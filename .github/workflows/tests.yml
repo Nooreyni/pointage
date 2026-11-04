@@ -68,3 +68,19 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Appli réelle sur base locale (7 comptes, pointer, demander, valider, fiches, accès)
         run: npm run e2e:reel
+
+  pwa:
+    runs-on: ubuntu-24.04
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build de production + PWA (installable, préchargement, hors ligne, mise à jour)
+        run: |
+          npm run build
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
+          npm run e2e:pwa

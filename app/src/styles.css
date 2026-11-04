@@ -930,3 +930,12 @@ html { scroll-padding-top: calc(var(--h-entete, 63px) + 12px); }
 }
 /* Barres d'outils : les boutons passent à la ligne au lieu d'élargir la page (mobile) */
 .barre-outils > .ligne { flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+
+/* ---------- PWA ---------- */
+.bandeau-maj { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(90px + env(safe-area-inset-bottom)); z-index: var(--z-toast);
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 14px; max-width: calc(100% - 24px);
+  background: var(--texte); color: #fff; box-shadow: var(--ombre-flottante); font-weight: 600; animation: toast-entree .35s var(--courbe-arrivee); }
+.bandeau-maj .bouton { background: #fff; color: var(--bleu-fonce); flex: none; }
+@media (min-width: 900px) { .bandeau-maj { bottom: 24px; } }
+.etapes-ios { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 15px; }
+.invite-installation { border-color: #C9D6F2; background: #F7F9FE; }

@@ -1,17 +1,27 @@
-// CFB Pointage — service worker (app installable + écran disponible hors ligne)
-const CACHE = 'cfb-pointage-v2'
+// CFB Pointage — service worker : appli installable, tous les écrans disponibles hors ligne, mises à jour sans casse.
+// VERSION et PRECACHE sont remplis au build (vite.config.ts › cfb-precache-pwa) : ne pas modifier ces deux lignes à la main.
+const VERSION = '__VERSION__'
+const PRECACHE = [/* __PRECACHE__ */]
+const CACHE = `cfb-pointage-${VERSION}`
 // Chemins relatifs à l'emplacement de l'appli (racine d'un domaine ou sous-dossier d'un serveur interne)
-const COQUILLE = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png']
 const ACCUEIL = new URL('./index.html', self.registration.scope).href
 
+// Installation : tout l'écran est mis en cache d'avance (un écran jamais ouvert marche aussi hors ligne).
+// La nouvelle version attend : l'appli propose « Mettre à jour » (pas de changement en plein travail).
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(COQUILLE)).then(() => self.skipWaiting()))
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE.length ? PRECACHE : ['./', './index.html'])))
 })
 
+self.addEventListener('message', (e) => {
+  if (e.data === 'METTRE_A_JOUR') self.skipWaiting()
+  if (e.data === 'VERSION' && e.ports[0]) e.ports[0].postMessage(VERSION)
+})
+
+// Activation : on ne garde que le cache de cette version
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((cles) => Promise.all(cles.filter((c) => c !== CACHE).map((c) => caches.delete(c))))
+      .then((cles) => Promise.all(cles.filter((c) => c.startsWith('cfb-pointage-') && c !== CACHE).map((c) => caches.delete(c))))
       .then(() => self.clients.claim()),
   )
 })
@@ -22,18 +32,15 @@ self.addEventListener('fetch', (e) => {
   // API Supabase et autres origines : jamais en cache (données personnelles)
   if (req.method !== 'GET' || url.origin !== self.location.origin) return
 
+  // Pages : réseau d'abord (version à jour), sinon l'écran mis en cache (hors ligne)
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req)
-        .then((rep) => { caches.open(CACHE).then((c) => c.put(ACCUEIL, rep.clone())); return rep })
-        .catch(() => caches.match(ACCUEIL)),
-    )
+    e.respondWith(fetch(req).catch(() => caches.match(ACCUEIL, { ignoreSearch: true, ignoreVary: true })))
     return
   }
-  // Fichiers versionnés (/assets/…-hash.js) : cache d'abord
+  // Fichiers versionnés (assets/…-empreinte.js), icônes, polices : cache d'abord, complété à la volée
   e.respondWith(
-    caches.match(req).then((enCache) => enCache || fetch(req).then((rep) => {
-      if (rep.ok) caches.open(CACHE).then((c) => c.put(req, rep.clone()))
+    caches.match(req, { ignoreSearch: true, ignoreVary: true }).then((enCache) => enCache || fetch(req).then((rep) => {
+      if (rep.ok && url.pathname.includes('/assets/')) { const copie = rep.clone(); caches.open(CACHE).then((c) => c.put(req, copie)) }
       return rep
     })),
   )

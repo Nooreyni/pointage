@@ -72,7 +72,8 @@ export const AIDE: EcranAide[] = [
     { q: 'Changer mon mot de passe', r: 'Carte « Mot de passe » : ton mot de passe actuel, puis le nouveau (8 caractères minimum).' },
     { q: 'Changer mes jours de télétravail', r: 'Carte « Mes jours de télétravail » : coche tes jours. Ton responsable est prévenu.' },
     { q: 'Une information est fausse', r: 'Nom, service ou régime : signale-le à la RH, qui corrige ta fiche.' },
-    { q: 'Installer l’appli sur mon téléphone', r: 'Ouvre le site dans le navigateur › menu › « Ajouter à l’écran d’accueil ». Sur iPhone : Partager › « Sur l’écran d’accueil ».' },
+    { q: 'Installer l’appli sur mon téléphone', r: 'Mon compte › « Appli sur cet appareil » › Installer (Android, PC). Sur iPhone : Safari › Partager › « Sur l’écran d’accueil » (nécessaire pour les rappels).' },
+    { q: '« Nouvelle version disponible »', r: 'Touche « Mettre à jour » quand tu veux : l’appli se recharge en une seconde. Tes pointages faits hors ligne sont gardés.' },
   ] },
 ]
 

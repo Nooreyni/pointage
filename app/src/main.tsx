@@ -8,10 +8,9 @@ import './styles.css'
 import App from './App'
 import Secours from './components/Secours'
 import { installerRemonteeErreurs } from './lib/erreurs'
+import { demarrerPwa } from './lib/pwa'
+import { MiseAJour } from './components/Pwa'
 
 installerRemonteeErreurs()
-createRoot(document.getElementById('root')!).render(<StrictMode><Secours><App /></Secours></StrictMode>)
-
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => { /* PWA facultative */ })
-}
+demarrerPwa()
+createRoot(document.getElementById('root')!).render(<StrictMode><Secours><App /><MiseAJour /></Secours></StrictMode>)

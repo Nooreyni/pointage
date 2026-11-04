@@ -5,6 +5,7 @@ import TeletravailHabituel from '../components/TeletravailHabituel'
 import NotifAppareil from '../components/NotifAppareil'
 import AgendaOutlook from '../components/AgendaOutlook'
 import DoubleAuth from '../components/DoubleAuth'
+import { InstallerAppli } from '../components/Pwa'
 
 const ROLES: Record<Profil['role'], string> = {
   employe: 'Employé·e', rh: 'RH', admin_rh: 'Admin RH', responsable_isp: 'Responsable ISP', direction: 'Direction', admin: 'Admin général',
@@ -52,12 +53,13 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
           <h2>Agenda Outlook</h2>
           <AgendaOutlook api={api} />
         </section>
-        {['admin', 'admin_rh', 'rh'].includes(profil.role) && (
+        {['admin', 'admin_rh', 'rh', 'direction'].includes(profil.role) && (
           <section className="carte">
             <h2>Double authentification</h2>
             <DoubleAuth api={api} />
           </section>
         )}
+        <InstallerAppli />
         <NotifAppareil api={api} />
       </div>
     </main>

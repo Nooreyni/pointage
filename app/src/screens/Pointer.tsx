@@ -1,4 +1,5 @@
 import Bienvenue from '../components/Bienvenue'
+import { InviteInstallation } from '../components/Pwa'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Toast from '../components/Toast'
 import type { Anomalie, Api, Demande, Journee, Pointage, Profil, Sens, TypePointage } from '../lib/types'
@@ -219,6 +220,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
         </section>
 
         {onAide && <Bienvenue profil={profil} onAide={onAide} />}
+        <InviteInstallation />
         {responsable && onAller && !grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
 
         {prochain && (

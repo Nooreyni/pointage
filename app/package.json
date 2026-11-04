@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "node e2e/suite.cjs",
-    "e2e:reel": "bash e2e/lancer-reel.sh"
+    "e2e:reel": "bash e2e/lancer-reel.sh",
+    "e2e:pwa": "node e2e/pwa.cjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "5.3.0",

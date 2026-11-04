@@ -1,8 +1,8 @@
 {
   "name": "CFB Pointage",
   "short_name": "Pointage",
-  "description": "Pointage et congés du Centre Familial de Bruxelles",
-  "lang": "fr",
+  "description": "Pointer, demander ses congés et suivre ses heures — Centre Familial de Bruxelles",
+  "lang": "fr-BE",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -12,51 +12,97 @@
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
   "shortcuts": [
     {
       "name": "Pointer",
+      "short_name": "Pointer",
       "url": "./?onglet=pointer",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Demander un congé",
+      "short_name": "Congés",
+      "url": "./?onglet=conges",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Mes heures",
+      "short_name": "Heures",
       "url": "./?onglet=heures",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Congés",
-      "url": "./?onglet=conges",
-      "icons": [
-        {
-          "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }
   ],
-  "id": "./"
+  "id": "./",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "screenshots/pointer-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Pointer en un appui"
+    },
+    {
+      "src": "screenshots/conges-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Demander un congé et voir ses soldes"
+    },
+    {
+      "src": "screenshots/equipe-pc.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Qui est présent aujourd’hui"
+    }
+  ]
 }
