@@ -42,6 +42,7 @@
 | Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
 | Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
 | Gestion (02/11/2026) | **Direction = mêmes droits que l'admin RH** (suivi RH, personnes, rapports, réglages). La RH crée et modifie les fiches, sauf admin RH / admin général. Personne ne change son propre rôle |
+| Adresses e-mail (04/11/2026) | Domaines du CFB : **centrefamilial.be** et **ceforbxl.be** (avertissement si autre domaine, rien de bloqué) |
 
 ## Conventions techniques
 - **Fuseau** : toute migration qui crée ou recrée une fonction se termine par `select pointage.fixer_fuseau();`

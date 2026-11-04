@@ -14,6 +14,8 @@ import TeletravailHabituel from '../components/TeletravailHabituel'
 import { IcChevron } from '../components/Icones'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
 
+const DOMAINES_CFB = ['centrefamilial.be', 'ceforbxl.be']
+
 export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal'
 type Message = { texte: string; erreur?: boolean }
 
@@ -258,6 +260,9 @@ function Identite({ personne, tous, services, regimes, monRole, api, erreur, ver
   const proposee = !personne && domaine && f.prenom.trim() && f.nom.trim() ? `${normal(f.prenom)}.${normal(f.nom)}@${domaine}` : null
   const homonyme = !personne && f.prenom.trim() && f.nom.trim()
     ? tous.find((p) => sansAccent(p.prenom) === sansAccent(f.prenom.trim()) && sansAccent(p.nom) === sansAccent(f.nom.trim())) : undefined
+  // Adresses du CFB : centrefamilial.be ou ceforbxl.be (simple avertissement, rien n'est bloqué)
+  const domaineSaisi = f.email.trim().toLowerCase().split('@')[1] ?? ''
+  const horsDomaine = !!domaineSaisi && !DOMAINES_CFB.includes(domaineSaisi) && !domaineSaisi.endsWith('.test')
   const emailPris = tous.find((p) => p.id !== personne?.id && p.email.toLowerCase() === f.email.trim().toLowerCase())
 
   return (
@@ -276,6 +281,7 @@ function Identite({ personne, tous, services, regimes, monRole, api, erreur, ver
           <input id="p-email" type="email" value={f.email} required autoComplete="off" inputMode="email" onChange={(e) => maj('email', e.target.value)}
                  placeholder={proposee ?? 'prenom.nom@…'} /></label>
         {proposee && !f.email && <button type="button" className="lien petit suggestion" onClick={() => maj('email', proposee)}>Utiliser {proposee}</button>}
+        {horsDomaine && <p className="attention petit">Adresse hors des domaines du CFB ({DOMAINES_CFB.join(', ')}) : à vérifier.</p>}
         {emailPris && <p className="negatif petit">Adresse déjà utilisée par {emailPris.prenom} {emailPris.nom}.</p>}
         <div className="champs-ligne">
           <label className="champ">Service
