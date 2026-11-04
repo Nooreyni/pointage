@@ -1,4 +1,4 @@
-// PWA sur le build de production (npm run build puis npx vite preview --port 4173) :
+// PWA sur le build de production (VITE_MODE_DEMO=1 npm run build, puis npx vite preview --port 4173) :
 // installabilité (critères de Chrome), préchargement de tous les écrans, fonctionnement hors ligne, mise à jour proposée.
 const { chromium } = require('playwright')
 const fs = require('fs'), path = require('path')

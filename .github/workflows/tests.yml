@@ -80,7 +80,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Build de production + PWA (installable, préchargement, hors ligne, mise à jour)
         run: |
-          npm run build
+          VITE_MODE_DEMO=1 npm run build   # build de production ; la démo sert à parcourir les écrans sans serveur
           npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
           npm run e2e:pwa

@@ -71,7 +71,7 @@ schéma privé `pointage`.
 | `cd app && npm test` | Calculs, file hors ligne, chiffrement Web Push |
 | `npm run dev` puis `npm run e2e` | Démo : 5 rôles × mobile/PC, accessibilité, superposition, aide, validation, fiches |
 | `npm run e2e:reel` | **Appli réelle** sur une base locale (22 parcours) : 7 comptes × mobile/PC, pointer, demander, valider, créer une fiche, reprendre des soldes, accès, réglages |
-| `npm run build`, `npx vite preview --port 4173`, puis `npm run e2e:pwa` | PWA : installable (critères de Chrome), tous les écrans préchargés, hors ligne, mise à jour proposée |
+| `VITE_MODE_DEMO=1 npm run build`, `npx vite preview --port 4173`, puis `npm run e2e:pwa` | PWA : installable (critères de Chrome), tous les écrans préchargés, hors ligne, mise à jour proposée |
 
 `e2e:reel` démarre une base PostgreSQL 16 locale (`e2e/base-locale.sh`), un mini serveur compatible Supabase
 (`e2e/mini-supabase.cjs`, tests uniquement) et l'appli ; il vérifie qu'aucun appel d'API n'échoue. Il ne couvre pas les
