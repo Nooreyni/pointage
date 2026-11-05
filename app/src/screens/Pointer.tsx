@@ -292,11 +292,12 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
             ))}
           </ul>
         </section>
+        {grandEcran && !['direction', 'admin'].includes(profil.role) && <Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} />}
       </div>
 
       <div className="col-laterale pile">
         {grandEcran && secondaires}
-        {!['direction', 'admin'].includes(profil.role) && <Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} />}
+        {!grandEcran && !['direction', 'admin'].includes(profil.role) && <Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} />}
       </div>
 
       {aCorriger && (

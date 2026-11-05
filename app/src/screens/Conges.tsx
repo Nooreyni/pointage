@@ -7,6 +7,7 @@ import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
 import FicheDemande from '../components/FicheDemande'
 import { dateCourte, decalerJour, duree, jourBxl } from '../lib/temps'
+import { Pagination, usePagination } from '../components/Pagination'
 
 const STATUTS: Record<Demande['statut'], [string, string]> = {
   en_attente: ['En attente', 'attente'], accordee: ['Accordée', 'ok'], refusee: ['Refusée', 'ko'], annulee: ['Annulée', 'neutre'],
@@ -21,6 +22,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
   const [codes, setCodes] = useState<CodeAbsence[]>([])
   const [tousCodes, setTousCodes] = useState<CodeAbsence[]>([])
   const [mes, setMes] = useState<Demande[] | null>(null)
+  const pagerMes = usePagination(mes ?? [], 6)
   const [aValider, setAValider] = useState<Demande[]>([])
   const [vue, setVue] = useState<VueConges>(vueInitiale)
   const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
@@ -115,7 +117,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
             {mes === null && <p className="vide">Chargement…</p>}
             {mes?.length === 0 && <p className="vide">Aucune demande pour l’instant.</p>}
             <ul className="liste">
-              {mes?.map((d) => (
+              {pagerMes.items.map((d) => (
                 <LigneDemande key={d.id} d={d} enJours={enJours} api={api}
                               onMessage={async (texte, erreur) => { setMessage({ texte, erreur }); if (!erreur) await charger() }}
                               onAnnuler={async () => {
@@ -124,6 +126,7 @@ export default function Conges({ api, profil, vueInitiale = 'mes', onCompteValid
                               }} />
               ))}
             </ul>
+            <Pagination pager={pagerMes} quoi="demandes" />
           </section>
         </div>
       </>}
@@ -438,7 +441,9 @@ function AValider({ api, codes, demandes, enJours, onDecider, onMessage }: {
   const [refus, setRefus] = useState<string | null>(null)   // motif en cours de saisie
   const [enCours, setEnCours] = useState(false)
 
-  useEffect(() => { setChoisies(new Set(demandes.map((d) => d.id))) }, [demandes])
+  // 15 demandes par page ; la sélection « tout d'un coup » ne porte que sur la page affichée (rien d'invisible n'est décidé)
+  const pager = usePagination(demandes, 15)
+  useEffect(() => { setChoisies(new Set(pager.items.map((d) => d.id))) }, [demandes, pager.page]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const basculer = (id: string) => setChoisies((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const ids = [...choisies]
@@ -454,7 +459,7 @@ function AValider({ api, codes, demandes, enJours, onDecider, onMessage }: {
       <div className="ligne entre"><h2>À valider</h2><span className="pilule attente">{demandes.length}</span></div>
       <p className="doux petit" style={{ marginTop: 4 }}>« Ouvrir » affiche le détail (solde, équipe) avant de décider. Ou coche plusieurs demandes pour les traiter d’un coup.</p>
       <ul className="liste">
-        {demandes.map((d) => (
+        {pager.items.map((d) => (
           <li key={d.id}>
             <input type="checkbox" id={`v-${d.id}`} checked={choisies.has(d.id)} onChange={() => basculer(d.id)} />
             <label htmlFor={`v-${d.id}`} className="texte-ligne">
@@ -467,6 +472,7 @@ function AValider({ api, codes, demandes, enJours, onDecider, onMessage }: {
           </li>
         ))}
       </ul>
+      <Pagination pager={pager} quoi="demandes" />
       {fiche !== null && demandes[fiche] && (
         <FicheDemande api={api} demandes={demandes} index={fiche} codes={codes} enJours={enJours} onIndex={setFiche} onFermer={() => setFiche(null)}
                       onMessage={onMessage} onDecider={(d, accorder, motif) => onDecider([d.id], accorder, motif)} />

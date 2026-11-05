@@ -52,6 +52,7 @@ export const AIDE: EcranAide[] = [
   { id: 'personnes', titre: 'Gestion · Personnes', pour: 'gestion', enBref: 'Créer, modifier et suivre les fiches : identité, horaire, compte, soldes, départ.', questions: [
     { q: 'Une nouvelle personne arrive', r: '« Nouvelle personne » (ou « Importer » pour plusieurs). La fiche reste ouverte : suis les étapes « Arrivée » (compte, congés, télétravail).' },
     { q: 'Créer son compte / mot de passe oublié', r: 'Sa fiche › Compte : un mot de passe est généré ; remets-le en main propre. Il ne sera plus affiché.' },
+    { q: 'Horaires habituels d’une personne', r: 'Sa fiche › Horaire › « Horaires habituels » : un horaire courant ou « Autre ». Sert aux rappels et aux propositions de correction, pas aux heures dues.' },
     { q: 'Passer en 4/5, 3/5…', r: 'Sa fiche › Horaire › « Jours au choix » : coche les jours, l’heure par jour et la date de début.' },
     { q: 'Corriger un solde', r: 'Sa fiche › Soldes › Ajuster un solde (motif obligatoire). L’historique montre qui, quand et pourquoi.' },
     { q: 'Une personne quitte le CFB', r: 'Sa fiche › Départ › Préparer le départ : la date, l’impact, puis Enregistrer. Rien n’est supprimé ; l’accès s’arrête après la date.' },
@@ -70,6 +71,8 @@ export const AIDE: EcranAide[] = [
   ] },
   { id: 'compte', titre: 'Mon compte', enBref: 'Tes informations, tes jours de télétravail, ton mot de passe, ton agenda Outlook et tes notifications.', questions: [
     { q: 'Changer mon mot de passe', r: 'Carte « Mot de passe » : ton mot de passe actuel, puis le nouveau (8 caractères minimum).' },
+    { q: 'Indiquer mes horaires habituels', r: 'Carte « Mes horaires habituels » : un appui sur 8h – 16h, 8h30 – 16h30… ou « Autre » pour saisir tes heures. « Automatique » : l’outil les apprend d’après tes pointages. Ils servent aux rappels, pas au calcul de tes heures.' },
+    { q: 'Revoir le parcours d’accueil', r: 'Mon compte › « Refaire le parcours d’accueil » : horaires, télétravail, appli et rappels en une minute.' },
     { q: 'Changer mes jours de télétravail', r: 'Carte « Mes jours de télétravail » : coche tes jours. Ton responsable est prévenu.' },
     { q: 'Une information est fausse', r: 'Nom, service ou régime : signale-le à la RH, qui corrige ta fiche.' },
     { q: 'Installer l’appli sur mon téléphone', r: 'Mon compte › « Appli sur cet appareil » › Installer (Android, PC). Sur iPhone : Safari › Partager › « Sur l’écran d’accueil » (nécessaire pour les rappels).' },

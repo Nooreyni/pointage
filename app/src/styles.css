@@ -1028,3 +1028,10 @@ select.choix, .outils-personnes select { border: 1px solid var(--bord-fort); bor
 .actions-parcours { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .actions-parcours .espace { flex: 1; }
 .pastille-ok { background: #EAF4D8; color: #3D6609; }
+
+/* ---------- Audit 05/11 (suite) ---------- */
+.tuile-personne .ligne-nom { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tuile-personne .ligne-nom .nom { min-width: 0; }
+.tuile-personne .badge-isp { flex: none; }
+@media (min-width: 1300px) { .grille-personnes:not(.compacte) { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); } }
+@media (min-width: 900px) { .grille-agenda .jour-agenda { min-height: 74px; } }

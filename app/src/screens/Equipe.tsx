@@ -159,9 +159,11 @@ function Tuile({ p, isp, onRappeler, onFiche }: { p: Presence; isp?: boolean; on
     <div className={`tuile-personne etat-${e}`}>
       <span className="initiales">{(p.prenom[0] + p.nom[0]).toUpperCase()}</span>
       <span className="texte">
-        {onFiche ? <button className="nom lien-nom" title="Voir sa fiche de temps" onClick={onFiche}>{p.prenom} {p.nom}</button>
-                 : <span className="nom">{p.prenom} {p.nom}</span>}
-        {isp && <span className="pilule neutre badge-isp" title="Article 60 (CPAS)">ISP</span>}
+        <span className="ligne-nom">
+          {onFiche ? <button className="nom lien-nom" title="Voir sa fiche de temps" onClick={onFiche}>{p.prenom} {p.nom}</button>
+                   : <span className="nom">{p.prenom} {p.nom}</span>}
+          {isp && <span className="pilule neutre badge-isp" title="Article 60 (CPAS)">ISP</span>}
+        </span>
         <span className="etat"><span className={`point ${classeStatut(p.statut)}`} />{p.statut}{p.depuis && e !== 'parti' ? ` · ${heure(p.depuis)}` : ''}</span>
       </span>
       {onRappeler && (

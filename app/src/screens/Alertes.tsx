@@ -39,19 +39,21 @@ export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
   aFaire: { anomalies: number; aValider: number }
 }) {
   const [famille, setFamille] = useState<Famille | null>(null)
+  const [max, setMax] = useState(30)   // les 30 plus récentes, puis « Voir les plus anciennes »
   const nonLues = notifs.filter((n) => !n.lu_le).length
 
   useEffect(() => {
     if (nonLues > 0) { const t = setTimeout(onVu, 2500); return () => clearTimeout(t) }
   }, [nonLues, onVu])
 
+  const filtrees = useMemo(() => notifs.filter((x) => !famille || familleDe(x.type) === famille), [notifs, famille])
   const groupes = useMemo(() => {
     const m = new Map<string, Notif[]>()
-    for (const n of notifs.filter((x) => !famille || familleDe(x.type) === famille)) {
+    for (const n of filtrees.slice(0, max)) {
       const g = groupeDe(n.cree_le); m.set(g, [...(m.get(g) ?? []), n])
     }
     return [...m]
-  }, [notifs, famille])
+  }, [filtrees, max])
   const parFamille = (f: Famille) => notifs.filter((n) => familleDe(n.type) === f).length
 
   return (
@@ -99,6 +101,7 @@ export default function Alertes({ api, notifs, onVu, onAller, aFaire }: {
             </ul>
           </section>
         ))}
+        {filtrees.length > max && <button className="bouton secondaire" onClick={() => setMax((m) => m + 30)}>Voir les plus anciennes ({filtrees.length - max})</button>}
       </div>
 
       <div className="col-laterale pile">
