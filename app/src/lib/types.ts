@@ -13,7 +13,13 @@ export interface Profil {
   minutes_jour: number[] | null
   est_chef_service: boolean
   jours_teletravail?: number[]   // 1 = lundi … 7 = dimanche
+  heure_arrivee?: number | null  // horaires habituels déclarés (minutes depuis minuit) ; null = appris d'après les pointages
+  heure_depart?: number | null
+  accueil_fait_le?: string | null // parcours d'accueil terminé (ou passé)
 }
+
+/** Horaires habituels : déclarés (ou null) et ceux réellement utilisés (déclarés, appris ou par défaut). */
+export interface Horaire { arrivee: number | null; depart: number | null; utilise_arrivee: number; utilise_depart: number; modifiable: boolean }
 
 export interface Pointage {
   id: string
@@ -432,6 +438,9 @@ export interface Api {
   servicesSuivis(): Promise<ServiceSuivi[]>
   teletravailDe(personneId: string): Promise<{ jours: number[]; modifiable: boolean }>
   definirTeletravail(personneId: string, jours: number[]): Promise<void>
+  horaireDe(personneId?: string): Promise<Horaire>
+  definirHoraire(arrivee: number | null, depart: number | null, personneId?: string): Promise<void>
+  terminerAccueil(): Promise<void>
   deposerJustificatif(d: Demande, fichier: File): Promise<void>
   justificatifsManquants(): Promise<Demande[]>
   lienJustificatif(chemin: string): Promise<string>

@@ -951,6 +951,26 @@ select test.connecte('Inès'); set role authenticated;
 select test.ok(exists (select 1 from public.erreurs_recentes() where message like 'TypeError%' and ecran = 'conges'), 'Erreurs : visibles par l''admin RH');
 reset role;
 
+-- ===================== Horaires habituels + parcours d'accueil =====================
+select test.connecte('Sofia'); set role authenticated;
+select public.definir_horaire(510, 990);
+select test.ok((select heure_arrivee = 510 and heure_depart = 990 from public.mon_profil), 'Horaire : chacun déclare le sien (8h30 → 16h30)');
+select test.ok((select (j->>'utilise_arrivee')::int = 510 and (j->>'utilise_depart')::int = 990 and (j->>'modifiable')::boolean from public.horaire_de() j),
+  'Horaire déclaré : prioritaire sur les habitudes apprises (rappels, corrections)');
+select test.erreur('select public.definir_horaire(990, 510)', 'Horaire : départ avant arrivée refusé', 'suivre');
+select test.erreur('select public.definir_horaire(510, null)', 'Horaire : arrivée sans départ refusée', 'départ');
+select test.erreur(format('select public.definir_horaire(480, 960, %L)', 'b0000000-0000-0000-0000-000000000006'), 'Horaire : un collègue ne fixe pas celui d''un autre', 'autorisé');
+select test.ok((select accueil_fait_le is null from public.mon_profil), 'Accueil : proposé tant qu''il n''est pas fait');
+select public.terminer_accueil();
+select test.ok((select accueil_fait_le is not null from public.mon_profil), 'Accueil : terminé ou passé, il n''est plus proposé');
+select public.definir_horaire(null, null);
+select test.ok((select heure_arrivee is null from public.mon_profil), 'Horaire : retour à l''automatique (appris)');
+reset role;
+select test.connecte('Nadia'); set role authenticated;
+select public.definir_horaire(480, 960, 'b0000000-0000-0000-0000-000000000006');
+select test.ok((select heure_arrivee = 480 from public.admin_personnes where id = 'b0000000-0000-0000-0000-000000000006'), 'Horaire : la RH le règle dans la fiche');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

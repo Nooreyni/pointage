@@ -54,6 +54,22 @@ const verifier = (cond, message) => { if (!cond) throw new Error(message) }
     })
   }
 
+  await test('nouvel utilisateur : parcours d’accueil (horaires, étapes passées), plus reproposé ensuite', async () => {
+    const page = await connecter('yanis.peeters@cfb.test', 390)
+    await page.waitForSelector('.parcours', { timeout: 5000 })
+    await page.click('.actions-parcours button:has-text("C’est parti")')
+    await page.click('.puces.horaires button:has-text("8h – 16h")'); await page.waitForSelector('.horaire-habituel :text("Retenu")')
+    await page.click('.actions-parcours button:has-text("Suivant")')
+    for (let i = 0; i < 3; i++) { await page.click('.actions-parcours button:has-text("Passer")'); await page.waitForTimeout(200) }
+    await page.click('.actions-parcours button:has-text("Commencer")'); await page.waitForTimeout(600)
+    verifier(!(await page.$('.parcours')), 'le parcours reste affiché après « Commencer »')
+    await page.reload(); await page.waitForSelector('nav.nav'); await page.waitForTimeout(1000)
+    verifier(!(await page.$('.parcours')), 'le parcours est reproposé alors qu’il est terminé')
+    await page.click('.profil-entete'); await page.click('.menu button:has-text("Mon compte")'); await page.waitForTimeout(800)
+    verifier(/Retenu : 8h – 16h/.test(await page.textContent('#mes-horaires')), 'horaire non retrouvé dans Mon compte')
+    propre(page, 'parcours'); await page.close()
+  })
+
   await test('employée : pointer l’entrée puis la sortie', async () => {
     const page = await connecter('sofia.janssens@cfb.test')
     await page.click('nav.nav button:has-text("Pointer")'); await page.waitForSelector('.bouton-pointer')

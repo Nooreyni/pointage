@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ApercuDepart, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ApercuDepart, Horaire, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -394,6 +394,15 @@ export function apiSupabase(): Api {
     },
     async definirTeletravail(personneId, jours) {
       verifier(await sb.rpc('definir_teletravail', { p_personne: personneId, p_jours: jours }))
+    },
+    async horaireDe(personneId) {
+      return verifier(await sb.rpc('horaire_de', { p_personne: personneId ?? null })) as Horaire
+    },
+    async definirHoraire(arrivee, depart, personneId) {
+      verifier(await sb.rpc('definir_horaire', { p_arrivee: arrivee, p_depart: depart, p_personne: personneId ?? null }))
+    },
+    async terminerAccueil() {
+      verifier(await sb.rpc('terminer_accueil'))
     },
     async servicesSuivis() {
       return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]

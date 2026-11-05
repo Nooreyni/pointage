@@ -6,6 +6,7 @@ import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
 import { IcAgenda, IcAide, IcCalendrier, IcChevronBas, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import AideEcran from '../components/AideEcran'
+import Accueil from '../components/Accueil'
 import { aidePour } from '../lib/aide'
 import Recherche, { type Cible } from '../components/Recherche'
 import { ReglagesContext } from '../lib/reglages'
@@ -54,6 +55,9 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [enLigne, setEnLigne] = useState(navigator.onLine)
   const [menu, setMenu] = useState(false)
+  // Parcours d'accueil : proposé tant qu'il n'est pas fait ; « Plus tard » = jusqu'à la prochaine ouverture de l'appli
+  const [accueilPlusTard, setAccueilPlusTard] = useState(() => { try { return sessionStorage.getItem('cfb.accueil') === 'plus-tard' } catch { return false } })
+  const [accueilForce, setAccueilForce] = useState(false)
   const [attenteDeco, setAttenteDeco] = useState(0)   // pointages pas encore envoyés au moment de se déconnecter
   const [aValider, setAValider] = useState(0)
   const [nbAnomalies, setNbAnomalies] = useState(0)
@@ -282,6 +286,11 @@ export default function Espace({ api, onQuitter, vueDemo }: {
                      else { setSectionAdmin('parametres'); aller('admin') }
                    }} />
       )}
+      {(accueilForce || (!profil.accueil_fait_le && !accueilPlusTard)) && (
+        <Accueil api={api} profil={profil}
+                 onFini={() => { setAccueilForce(false); api.profil().then((p) => setProfil({ ...p })).catch(() => setProfil({ ...profil, accueil_fait_le: new Date().toISOString() })) }}
+                 onPlusTard={() => { setAccueilForce(false); setAccueilPlusTard(true); try { sessionStorage.setItem('cfb.accueil', 'plus-tard') } catch { /* */ } }} />
+      )}
       {aideOuverte && <AideEcran ecran={aidePour(profil).find((e) => e.id === actif)} onFermer={() => setAideOuverte(false)}
                                  onToutVoir={() => { setAideOuverte(false); aller('aide') }} />}
       {attenteDeco > 0 && <ConfirmerDeconnexion n={attenteDeco} onRester={() => setAttenteDeco(0)} onQuitter={() => { setAttenteDeco(0); quitter() }} />}
@@ -290,7 +299,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
                                     aValider={aValider} onAller={(c) => (c === 'conges-valider' ? aller('conges', 'valider') : aller(c))} onAide={() => aller('aide')} />}
       {actif === 'conges' && <Conges api={api} profil={profil} vueInitiale={vueConges} onCompteValider={setAValider} onVoirAgenda={() => aller('agenda')} />}
       {actif === 'agenda' && <Agenda api={api} profil={profil} onDemanderConge={() => aller('conges')} onVoirCompte={() => aller('compte')} />}
-      {actif === 'compte' && <Compte api={api} profil={profil} />}
+      {actif === 'compte' && <Compte api={api} profil={profil} onAccueil={() => setAccueilForce(true)}
+                                     onProfilChange={() => api.profil().then((p) => setProfil({ ...p })).catch(() => {})} />}
       {actif === 'aide' && <Aide profil={profil} onAller={(e) => { if (vues.some(([id]) => id === e)) aller(e as Onglet) }} />}
       {actif === 'bilan' && <Bilan api={api} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'rh' && <Rh api={api} />}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Api, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import TeletravailHabituel from '../components/TeletravailHabituel'
+import HoraireHabituel from '../components/HoraireHabituel'
 import NotifAppareil from '../components/NotifAppareil'
 import AgendaOutlook from '../components/AgendaOutlook'
 import DoubleAuth from '../components/DoubleAuth'
@@ -11,9 +12,10 @@ const ROLES: Record<Profil['role'], string> = {
   employe: 'Employé·e', rh: 'RH', admin_rh: 'Admin RH', responsable_isp: 'Responsable ISP', direction: 'Direction', admin: 'Admin général',
 }
 
-/** Mon compte : mes informations, mes jours de télétravail habituels, mon mot de passe, mes notifications. */
-export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
+/** Mon compte : mes informations, mes horaires et jours de télétravail habituels, mon mot de passe, mes notifications. */
+export default function Compte({ api, profil, onAccueil, onProfilChange }: { api: Api; profil: Profil; onAccueil?: () => void; onProfilChange?: () => void }) {
   const [moyens, setMoyens] = useState<{ motDePasse: boolean; microsoft: boolean } | null>(null)
+  const [mdpOuvert, setMdpOuvert] = useState(false)
   useEffect(() => { api.connexion().then(setMoyens).catch(() => setMoyens({ motDePasse: false, microsoft: false })) }, [api])
   const role = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
 
@@ -21,7 +23,8 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
     <main className="contenu">
       <div className="col-principale pile">
         <section className="carte">
-          <h2>Mon compte</h2>
+          <div className="ligne entre"><h2>Mon compte</h2>
+            {onAccueil && <button className="lien petit" onClick={onAccueil}>Refaire le parcours d’accueil</button>}</div>
           <dl className="infos-compte">
             <div><dt>Nom</dt><dd>{profil.prenom} {profil.nom}</dd></div>
             <div><dt>E-mail</dt><dd>{profil.email}</dd></div>
@@ -32,6 +35,11 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
           <p className="doux petit" style={{ marginBottom: 0 }}>Une info est fausse ? Signale-le à la RH.</p>
         </section>
 
+        <section className="carte" id="mes-horaires">
+          <h2>Mes horaires habituels</h2>
+          <HoraireHabituel api={api} moi minutesJour={profil.minutes_jour} onEnregistre={onProfilChange} />
+        </section>
+
         <section className="carte" id="mes-jours-tt">
           <h2>Mes jours de télétravail</h2>
           <TeletravailHabituel api={api} personneId={profil.id} moi detaille />
@@ -39,15 +47,19 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
       </div>
 
       <div className="col-laterale pile">
+        <NotifAppareil api={api} />
+        <InstallerAppli />
         <section className="carte">
-          <h2>Mot de passe</h2>
+          <div className="ligne entre"><h2>Mot de passe</h2>
+            {moyens?.motDePasse && !mdpOuvert && <button className="bouton secondaire petit" onClick={() => setMdpOuvert(true)}>Changer</button>}</div>
           {!moyens && <p className="vide">Chargement…</p>}
-          {moyens?.motDePasse && <ChangerMotDePasse api={api} />}
+          {moyens?.motDePasse && !mdpOuvert && <p className="doux petit" style={{ margin: 0 }}>Facultatif : garde celui que la RH t’a donné ou change-le quand tu veux.
+            {moyens.microsoft && ' Tu peux aussi te connecter avec Microsoft.'}</p>}
+          {moyens?.motDePasse && mdpOuvert && <ChangerMotDePasse api={api} onFermer={() => setMdpOuvert(false)} />}
           {moyens && !moyens.motDePasse && (
             <p className="petit" style={{ marginBottom: 0 }}>Tu te connectes avec ton compte Microsoft : ton mot de passe se change chez Microsoft
               (Office 365). Pour avoir aussi un mot de passe propre à CFB Pointage, demande-le à la RH.</p>
           )}
-          {moyens?.motDePasse && moyens.microsoft && <p className="doux petit">Tu peux aussi te connecter avec Microsoft.</p>}
         </section>
         <section className="carte">
           <h2>Agenda Outlook</h2>
@@ -59,14 +71,12 @@ export default function Compte({ api, profil }: { api: Api; profil: Profil }) {
             <DoubleAuth api={api} />
           </section>
         )}
-        <InstallerAppli />
-        <NotifAppareil api={api} />
       </div>
     </main>
   )
 }
 
-function ChangerMotDePasse({ api }: { api: Api }) {
+function ChangerMotDePasse({ api, onFermer }: { api: Api; onFermer: () => void }) {
   const [actuel, setActuel] = useState('')
   const [nouveau, setNouveau] = useState('')
   const [confirme, setConfirme] = useState('')
@@ -91,7 +101,6 @@ function ChangerMotDePasse({ api }: { api: Api }) {
   const type = voir ? 'text' : 'password'
   return (
     <form onSubmit={envoyer} className="form-mdp">
-      <p className="doux petit" style={{ marginTop: 0 }}>Facultatif : tu peux garder celui que la RH t’a donné, ou le changer quand tu veux.</p>
       <label className="champ">Mot de passe actuel
         <input id="mdp-actuel" type={type} value={actuel} onChange={(e) => setActuel(e.target.value)} autoComplete="current-password" required /></label>
       <label className="champ">Nouveau mot de passe
@@ -103,7 +112,10 @@ function ChangerMotDePasse({ api }: { api: Api }) {
                aria-invalid={different} /></label>
       {different && <span className="petit negatif">Pas identique au nouveau mot de passe</span>}
       <label className="case-a-cocher petit"><input type="checkbox" checked={voir} onChange={(e) => setVoir(e.target.checked)} />Afficher les mots de passe</label>
-      <button className="bouton large" disabled={enCours}>{enCours ? 'Enregistrement…' : 'Changer mon mot de passe'}</button>
+      <div className="actions">
+        <button type="button" className="bouton secondaire" onClick={onFermer}>Fermer</button>
+        <button className="bouton" disabled={enCours}>{enCours ? 'Enregistrement…' : 'Changer mon mot de passe'}</button>
+      </div>
       {message && <p className={`petit ${message.erreur ? 'negatif' : 'positif'}`} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
     </form>
   )

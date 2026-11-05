@@ -1006,3 +1006,25 @@ select.choix, .outils-personnes select { border: 1px solid var(--bord-fort); bor
   .entete .outils-entete + .menu-compte { margin-left: 2px; padding-left: 0; border-left: 0; }
 }
 @media (max-width: 420px) { .entete .cloche { width: 36px; height: 36px; } }
+
+/* ---------- Horaires habituels ---------- */
+.horaire-habituel { display: grid; gap: 10px; }
+.puces.horaires { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; margin: 0; padding: 0; max-width: none; }
+.horaire-libre { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+.horaire-libre .champ { margin: 0; flex: 0 1 140px; }
+
+/* ---------- Parcours d'accueil ---------- */
+.fenetre.parcours { max-width: 560px; display: grid; gap: 12px; }
+.parcours .entete-fenetre h2 { margin: 2px 0 0; }
+.progression-parcours { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; }
+.progression-parcours li { flex: 1; height: 4px; border-radius: 2px; background: var(--bord); }
+.progression-parcours li.fait { background: var(--bleu); }
+.progression-parcours li.actif { background: var(--bleu); opacity: .45; }
+.intro-parcours { margin: 0; }
+.corps-parcours { display: grid; gap: 10px; min-height: 120px; align-content: start; }
+.corps-parcours > .carte { border: 0; padding: 0; box-shadow: none; background: none; }
+.corps-parcours > .carte > h2, .corps-parcours > .carte > .ligne > h2 { display: none; }
+.corps-parcours > .carte > .ligne { justify-content: flex-end; }
+.actions-parcours { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.actions-parcours .espace { flex: 1; }
+.pastille-ok { background: #EAF4D8; color: #3D6609; }

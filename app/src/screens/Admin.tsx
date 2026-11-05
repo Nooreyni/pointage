@@ -11,6 +11,7 @@ import ArriveePersonne from '../components/ArriveePersonne'
 import ImportPersonnes from '../components/ImportPersonnes'
 import ImportSoldes from '../components/ImportSoldes'
 import TeletravailHabituel from '../components/TeletravailHabituel'
+import HoraireHabituel from '../components/HoraireHabituel'
 import { IcChevron } from '../components/Icones'
 import { Pagination, usePagination } from '../components/Pagination'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
@@ -227,6 +228,8 @@ function FichePersonne({ personne, ongletInitial, tous, services, regimes, monRo
           <h3 className="titre-bloc">Régime de travail</h3>
           <RegimePersonne personne={personne} regimes={regimes} api={api} verrouille={verrouille} erreur={erreur}
                           onFait={(t) => recharger(t)} />
+          <h3 className="titre-bloc">Horaires habituels</h3>
+          <HoraireHabituel api={api} personneId={personne.id} moi={false} />
           <h3 className="titre-bloc">Télétravail habituel</h3>
           <TeletravailHabituel api={api} personneId={personne.id} moi={false} sansEtiquette />
         </>}

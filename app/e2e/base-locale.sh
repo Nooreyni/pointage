@@ -22,5 +22,6 @@ $P -f ../supabase/seed.sql
 # Comptes de connexion (mot de passe unique des tests, voir mini-supabase.cjs) ; l'anti double appui gênerait les parcours rapides
 $P -c "insert into auth.users (email, email_confirmed_at, raw_app_meta_data) select email, now(), '{\"provider\":\"email\",\"providers\":[\"email\"]}' from pointage.personnes;
        update pointage.personnes p set auth_user_id = u.id from auth.users u where u.email = p.email;   -- comme attacher_compte (création par la RH)
-       update pointage.parametres set valeur = 0 where cle = 'anti_rebond_s';"
+       update pointage.parametres set valeur = 0 where cle = 'anti_rebond_s';
+       update pointage.personnes set accueil_fait_le = now() where email <> 'yanis.peeters@cfb.test';   -- Yanis : parcours d'accueil testé"
 echo "Base locale prête : postgresql://postgres@localhost:$PORT/postgres"

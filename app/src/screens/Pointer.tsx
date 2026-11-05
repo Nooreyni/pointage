@@ -164,8 +164,9 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   const boniJour = actifs.length && aPrester > 0 ? direct.preste - aPrester : null
   const aRegler = anomalies.filter((a) => a.code !== 'semaine_max')
   const semaines = anomalies.filter((a) => a.code === 'semaine_max')
-  const hEntree = heureHabituelle(historique, 'entree', regles.heure_entree_defaut)
-  const hSortie = heureHabituelle(historique, 'sortie', regles.heure_sortie_defaut)
+  // Horaires déclarés (Mon compte) en priorité, sinon appris d'après les pointages, sinon réglage par défaut
+  const hEntree = profil.heure_arrivee ?? heureHabituelle(historique, 'entree', regles.heure_entree_defaut)
+  const hSortie = profil.heure_depart ?? heureHabituelle(historique, 'sortie', regles.heure_sortie_defaut)
 
   // Blocs secondaires : sous la pointeuse sur mobile, dans la colonne de droite sur PC (pas de grand vide à droite)
   const secondaires = (

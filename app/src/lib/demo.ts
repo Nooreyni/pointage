@@ -118,10 +118,13 @@ export function calculerJournee(jour: string, pts: Pointage[], absence = 0): Jou
 }
 
 export function apiDemo(persona: Persona = 'employe'): Api {
+  const horaires = new Map<string, { arrivee: number | null; depart: number | null }>()
   const aujourdhui = jourBxl()
   // Jour de télétravail habituel : mercredi pour l'employée, vendredi pour le chef (exemples)
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME,
-                 jours_teletravail: persona === 'employe' ? [3] : persona === 'chef' ? [5] : [] as number[] }
+                 jours_teletravail: persona === 'employe' ? [3] : persona === 'chef' ? [5] : [] as number[],
+                 // démo : parcours d'accueil déjà fait (il se rouvre depuis Mon compte › « Refaire le parcours d'accueil »)
+                 accueil_fait_le: '2026-01-01T08:00:00Z' as string | null }
   const profil: Profil = persona === 'chef'
     ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'SAF', est_chef_service: true }
     : persona === 'admin'
@@ -798,6 +801,21 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       if (personneId === profil.id) profil.jours_teletravail = tri
       else teletravail.set(personneId, tri)
     },
+    async horaireDe(personneId) {
+      const id = personneId ?? profil.id
+      const d = id === profil.id ? { arrivee: profil.heure_arrivee ?? null, depart: profil.heure_depart ?? null } : horaires.get(id) ?? { arrivee: null, depart: null }
+      return { ...d, utilise_arrivee: d.arrivee ?? 510, utilise_depart: d.depart ?? 1020,
+               modifiable: id === profil.id || ['chef', 'rh', 'admin', 'direction'].includes(persona) }
+    },
+    async definirHoraire(arrivee, depart, personneId) {
+      const id = personneId ?? profil.id
+      if (id !== profil.id && !['chef', 'rh', 'admin', 'direction'].includes(persona)) throw new Error('Non autorisé')
+      if ((arrivee === null) !== (depart === null)) throw new Error('Indique l’heure d’arrivée et l’heure de départ')
+      if (arrivee !== null && depart !== null && depart <= arrivee) throw new Error('L’heure de départ doit suivre l’heure d’arrivée')
+      if (id === profil.id) Object.assign(profil, { heure_arrivee: arrivee, heure_depart: depart })
+      else horaires.set(id, { arrivee, depart })
+    },
+    async terminerAccueil() { profil.accueil_fait_le ??= new Date().toISOString() },
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
       return services.map((x) => ({ service_id: x.id, nom: x.nom, suivi: suivis.has(x.id),
