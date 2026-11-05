@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { IcAttention, IcCheck } from '../components/Icones'
+import { IcAttention, IcCheck, IcChevron } from '../components/Icones'
+import { Pagination, usePagination } from '../components/Pagination'
 import Toast from '../components/Toast'
 import { LienPersonne, useNav } from '../lib/navigation'
 import type { AnomalieRH, Api, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
@@ -63,7 +64,12 @@ export default function Rh({ api }: { api: Api }) {
       jours: gens.reduce((t, g) => t + g.liste.length, 0) })).sort((a, b) => b.jours - a.jours || a.nom.localeCompare(b.nom))
   }, [anomalies, parId, filtre])
   const nbPersonnes = parService.reduce((t, s) => t + s.gens.length, 0)
-  const visibles = parService.filter((s) => !service || s.nom === service)
+  const nbJours = parService.reduce((t, s) => t + s.jours, 0)
+  // Une ligne par personne (pas une ligne par jour) : lisible même avec une centaine de personnes
+  const gens = useMemo(() => parService.filter((s) => !service || s.nom === service).flatMap((s) => s.gens)
+    .sort((a, b) => b.liste.length - a.liste.length || a.personne.nom.localeCompare(b.personne.nom)), [parService, service])
+  const pager = usePagination(gens, 15, `${service}|${filtre}`)
+  const [deplie, setDeplie] = useState<string | null>(null)
 
   async function rappeler(ids: string[]) {
     try {
@@ -111,8 +117,9 @@ export default function Rh({ api }: { api: Api }) {
         )}
         <section className="carte">
           <div className="ligne entre barre-outils">
-            <h2>Pointages à régulariser</h2>
-            <input id="filtre-anomalies" className="recherche" placeholder="Rechercher une personne…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+            <h2>Pointages à régulariser {nbPersonnes > 0 && <span className="doux petit">({nbPersonnes} pers. · {nbJours} j)</span>}</h2>
+            <input id="filtre-anomalies" type="search" className="recherche" placeholder="Rechercher une personne…" aria-label="Rechercher une personne"
+                   value={filtre} onChange={(e) => setFiltre(e.target.value)} />
           </div>
           {parService.length > 1 && (
             <div className="filtres" role="group" aria-label="Filtrer par service">
@@ -125,44 +132,52 @@ export default function Rh({ api }: { api: Api }) {
           )}
           {anomalies === null && <p className="vide">Chargement…</p>}
           {anomalies !== null && parService.length === 0 && <p className="vide">Aucune anomalie sur les 2 derniers mois</p>}
-        </section>
-
-        {visibles.map(({ nom, gens, jours }) => (
-          <section key={nom} className="carte">
-            <div className="entete-service">
-              <span className="nom-service">{nom}</span>
-              <span className="doux petit">{gens.length} personne(s) · {jours} jour(s)</span>
-              <button className="bouton secondaire petit" onClick={() => rappeler(gens.map((g) => g.personne.id))}>Rappeler le service</button>
-            </div>
-            {gens.map(({ personne, liste }) => (
-              <div key={personne.id} className="groupe-anomalies">
-                <div className="ligne entre">
-                  <span className="nom-personne"><LienPersonne id={personne.id} nom={`${personne.prenom} ${personne.nom}`} vers="temps" />
-                    {personne.type === 'isp' && <span className="pilule neutre">ISP</span>}</span>
-                  <span className="ligne">
-                    <span className="pilule attente">{liste.length} j</span>
-                    <button className="lien petit" onClick={() => rappeler([personne.id])}>Rappeler</button>
-                  </span>
-                </div>
-                <ul className="liste compacte">
-                  {liste.map((a) => (
-                    <li key={a.jour + a.code}>
-                      <span className="texte-ligne">{dateCourte(a.jour)} · <span className="doux">{
-                        a.code === 'absent' ? 'aucun pointage' : a.code === 'semaine_max' ? 'maximum hebdomadaire dépassé (semaine)' : 'sortie manquante'}</span></span>
-                      {a.code !== 'semaine_max' && (
-                        <button className="lien petit" onClick={() => setAction({ type: 'pointage', personne, jour: a.jour, incomplet: a.code !== 'absent' })}>
-                          {a.code === 'absent' ? 'Ajouter les heures' : 'Ajouter la sortie'}</button>
-                      )}
-                      {a.code === 'absent' && (
-                        <button className="lien petit" onClick={() => setAction({ type: 'absence', personne, jour: a.jour })}>Encoder une absence</button>
+          {gens.length > 0 && (
+            <>
+              <div className="ligne entre petit outils-liste">
+                <span className="doux">Trié par nombre de jours. Un appui sur « Jours » montre le détail.</span>
+                <button className="bouton secondaire petit" onClick={() => rappeler(gens.map((g) => g.personne.id))}>
+                  Rappeler {service ? `le service ${service}` : 'tout le monde'} ({gens.length})</button>
+              </div>
+              <ul className="liste-anomalies">
+                {pager.items.map(({ personne, liste }) => {
+                  const ouvert = deplie === personne.id
+                  return (
+                    <li key={personne.id} className={ouvert ? 'ouvert' : ''}>
+                      <div className="ligne-anomalie">
+                        <span className="qui"><LienPersonne id={personne.id} nom={`${personne.prenom} ${personne.nom}`} vers="temps" />
+                          {personne.type === 'isp' && <span className="pilule neutre">ISP</span>}
+                          <span className="doux petit">{personne.service}</span></span>
+                        <span className="doux petit periode">{liste.length > 1 ? `${dateCourte(liste[liste.length - 1].jour)} → ${dateCourte(liste[0].jour)}` : dateCourte(liste[0].jour)}</span>
+                        <button className="pilule attente bouton-pilule" aria-expanded={ouvert} onClick={() => setDeplie(ouvert ? null : personne.id)}
+                                title="Voir les jours">{liste.length} j<IcChevron size={12} className={`chevron-mini ${ouvert ? 'ouvert' : ''}`} /></button>
+                        <button className="lien petit" onClick={() => rappeler([personne.id])}>Rappeler</button>
+                      </div>
+                      {ouvert && (
+                        <ul className="liste compacte jours-anomalies">
+                          {liste.map((a) => (
+                            <li key={a.jour + a.code}>
+                              <span className="texte-ligne">{dateCourte(a.jour)} · <span className="doux">{
+                                a.code === 'absent' ? 'aucun pointage' : a.code === 'semaine_max' ? 'maximum hebdomadaire dépassé (semaine)' : 'sortie manquante'}</span></span>
+                              {a.code !== 'semaine_max' && (
+                                <button className="lien petit" onClick={() => setAction({ type: 'pointage', personne, jour: a.jour, incomplet: a.code !== 'absent' })}>
+                                  {a.code === 'absent' ? 'Ajouter les heures' : 'Ajouter la sortie'}</button>
+                              )}
+                              {a.code === 'absent' && (
+                                <button className="lien petit" onClick={() => setAction({ type: 'absence', personne, jour: a.jour })}>Encoder une absence</button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </section>
-        ))}
+                  )
+                })}
+              </ul>
+              <Pagination pager={pager} quoi="personnes" />
+            </>
+          )}
+        </section>
 
       </div>
 

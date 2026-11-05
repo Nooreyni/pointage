@@ -3,6 +3,7 @@ import type { Api, LigneMensuelle } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { telecharger, type Format } from '../lib/export'
 import Export from '../components/Export'
+import { Pagination, usePagination } from '../components/Pagination'
 import { duree, jourBxl } from '../lib/temps'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -30,6 +31,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
     regul: a.regul + l.jours_non_justifies + l.jours_incomplets, personnesRegul: a.personnesRegul + (l.jours_non_justifies + l.jours_incomplets > 0 ? 1 : 0) }),
     { prevus: 0, presents: 0, tt: 0, regul: 0, personnesRegul: 0 })
   const plusieursServices = new Set((lignes ?? []).map((l) => l.service)).size > 1
+  const pager = usePagination(visibles, 25, `${choix}|${filtre}|${aRegler}`)
 
   function exporter(format: Format) {
     if (!lignes) return
@@ -76,7 +78,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
                   <th className="num">Jours pointés</th><th className="num">Heures</th><th className="num masque-mobile">Boni</th>
                   <th className="num">Absences</th><th className="num masque-mobile">Télétravail</th><th className="num">À régulariser</th>
                 </tr></thead>
-                <tbody>{visibles.map((l) => {
+                <tbody>{pager.items.map((l) => {
                   const regul = l.jours_non_justifies + l.jours_incomplets
                   const abs = l.conges + l.maladie + l.autres_absences
                   return (
@@ -96,6 +98,7 @@ export default function Bilan({ api, onOuvrirFiche }: { api: Api; onOuvrirFiche?
               </table>
             </div>
           )}
+          <Pagination pager={pager} quoi="personnes" />
           <p className="doux petit" style={{ marginBottom: 0 }}>Jusqu’à hier. Clique sur un nom pour voir sa fiche de temps jour par jour. L’export contient le détail (congés, maladie, autres absences).</p>
         </section>
       </div>

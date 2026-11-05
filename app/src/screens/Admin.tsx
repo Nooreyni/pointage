@@ -12,6 +12,7 @@ import ImportPersonnes from '../components/ImportPersonnes'
 import ImportSoldes from '../components/ImportSoldes'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import { IcChevron } from '../components/Icones'
+import { Pagination, usePagination } from '../components/Pagination'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
 
 const DOMAINES_CFB = ['centrefamilial.be', 'ceforbxl.be']
@@ -114,7 +115,13 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
     parties: tous.filter(partie),
   }
   const q = sansAccent(filtre)
-  const liste = groupes[vue].filter((p) => sansAccent(`${p.prenom} ${p.nom} ${p.email} ${p.service} ${ROLES[p.role]}`).includes(q))
+  const [fService, setFService] = useState('')
+  const [fRole, setFRole] = useState('')
+  const liste = groupes[vue].filter((p) => (!fService || p.service === fService) && (!fRole || p.role === fRole)
+    && sansAccent(`${p.prenom} ${p.nom} ${p.email} ${p.service} ${ROLES[p.role]}`).includes(q))
+  const nomsServices = [...new Set(tous.map((p) => p.service))].sort((a, b) => a.localeCompare(b))
+  const roles = [...new Set(tous.map((p) => p.role))]
+  const pager = usePagination(liste, 25, `${vue}|${filtre}|${fService}|${fRole}`)
   const ouverte = fiche?.id ? tous.find((p) => p.id === fiche.id) ?? null : null
 
   return (
@@ -127,8 +134,18 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
           <button className="bouton petit" onClick={() => setFiche({ id: null })}>Nouvelle personne</button>
         </span>
       </div>
-      <input id="filtre-personnes" type="search" className="recherche pleine" placeholder="Rechercher un nom, un service, un rôle…" aria-label="Rechercher"
-             value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+      <div className="outils-personnes">
+        <input id="filtre-personnes" type="search" className="recherche pleine" placeholder="Rechercher un nom, un e-mail…" aria-label="Rechercher"
+               value={filtre} onChange={(e) => setFiltre(e.target.value)} />
+        <select aria-label="Service" value={fService} onChange={(e) => setFService(e.target.value)}>
+          <option value="">Tous les services</option>
+          {nomsServices.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select aria-label="Rôle" value={fRole} onChange={(e) => setFRole(e.target.value)}>
+          <option value="">Tous les rôles</option>
+          {roles.map((r) => <option key={r} value={r}>{ROLES[r]}</option>)}
+        </select>
+      </div>
       <div className="filtres" role="group" aria-label="Filtrer">
         {([['actives', 'En poste'], ['sans_compte', 'Sans compte'], ['depart', 'Départ prévu'], ['parties', 'Parties']] as [FiltrePersonnes, string][])
           .filter(([id]) => id === 'actives' || groupes[id].length > 0)
@@ -139,7 +156,7 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
       {soldes && <ImportSoldes api={api} personnes={tous} onFermer={() => setSoldes(false)} onFait={(n) => { if (n) ok(`${n} solde(s) repris`) }} />}
       {!personnes && <p className="vide">Chargement…</p>}
       {personnes && liste.length === 0 && <p className="vide">Personne ne correspond.</p>}
-      <ul className="liste-personnes">{liste.map((p) => (
+      <ul className="liste-personnes">{pager.items.map((p) => (
         <li key={p.id}>
           <button className="ligne-personne" onClick={() => setFiche({ id: p.id })}>
             <span className="qui"><strong>{p.nom} {p.prenom}</strong><span className="doux petit">{p.email}</span></span>
@@ -151,6 +168,7 @@ export function Personnes({ personnes, services, regimes, monRole, api, ok, erre
           </button>
         </li>
       ))}</ul>
+      <Pagination pager={pager} quoi="personnes" />
       {fiche && (fiche.id === null || ouverte) && (
         <FichePersonne key={fiche.id ?? 'nouvelle'} personne={ouverte} ongletInitial={fiche.onglet} tous={tous} services={services} regimes={regimes}
                        monRole={monRole} api={api} onFermer={() => setFiche(null)} erreur={erreur}
@@ -657,7 +675,7 @@ function Parametres({ api, profil, erreur, setMessage }: { api: Api; profil: Pro
         <label className="case-a-cocher petit"><input type="checkbox" checked={aConfirmer} onChange={(e) => setAConfirmer(e.target.checked)} />Seulement les valeurs à confirmer</label>
         <p className="doux petit" style={{ margin: 0 }}>Active ou coupe une fonction avec son interrupteur ; ses réglages apparaissent juste en dessous. Chaque changement est enregistré dans le journal (qui, quand).</p>
       </section>
-      <div className="grille-cartes">
+      <div className="grille-cartes maconnerie">
         {categories.map((c) => {
           const items = racines.filter((p) => (p.categorie || 'Autres') === c && visible(p)).sort((a, b) => (a.ordre ?? 100) - (b.ordre ?? 100) || a.libelle.localeCompare(b.libelle))
           if (!items.length) return null
@@ -845,20 +863,27 @@ function Journal({ api, erreur }: { api: Api; erreur: (e: unknown) => void }) {
   const [liste, setListe] = useState<import('../lib/types').Modification[] | null>(null)
   const [ouvert, setOuvert] = useState<number | null>(null)
   useEffect(() => { setListe(null); api.journal(300, objet || null).then(setListe).catch((e) => { setListe([]); erreur(e) }) }, [api, objet, erreur])
+  const [cherche, setCherche] = useState('')
+  const qj = sansAccent(cherche)
+  const filtres = (liste ?? []).filter((m) => !qj || sansAccent(`${m.qui} ${OBJETS[m.objet] ?? m.objet} ${JSON.stringify(m.apres ?? m.avant ?? {})}`).includes(qj))
+  const pager = usePagination(filtres, 20, `${objet}|${cherche}`)
   const resume = (v: Record<string, unknown> | null) => (v ? (v.prenom && v.nom ? `${v.prenom} ${v.nom}` : (v.cle ?? v.libelle ?? v.nom ?? '') as string) : '')
   return (
     <section className="carte">
       <div className="ligne entre barre-outils">
         <h2>Journal des modifications</h2>
-        <select id="journal-objet" aria-label="Type d’élément" value={objet} onChange={(e) => setObjet(e.target.value)}>
-          <option value="">Tout</option>
-          {Object.entries(OBJETS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-        </select>
+        <span className="ligne outils-journal">
+          <input type="search" className="recherche" placeholder="Qui, quoi…" aria-label="Chercher dans le journal" value={cherche} onChange={(e) => setCherche(e.target.value)} />
+          <select id="journal-objet" className="choix" aria-label="Type d’élément" value={objet} onChange={(e) => setObjet(e.target.value)}>
+            <option value="">Tout</option>
+            {Object.entries(OBJETS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </span>
       </div>
-      <p className="doux petit">Chaque changement est enregistré avec son auteur et ne peut pas être effacé. Les 300 plus récents.</p>
+      <p className="doux petit">Chaque changement est enregistré avec son auteur et ne peut pas être effacé. Les 300 plus récents, 20 par page.</p>
       {!liste && <p className="vide">Chargement…</p>}
-      {liste?.length === 0 && <p className="vide">Aucune modification.</p>}
-      <ul className="liste">{liste?.map((m) => (
+      {liste && filtres.length === 0 && <p className="vide">Aucune modification.</p>}
+      <ul className="liste">{pager.items.map((m) => (
         <li key={m.id} className="ligne-journal">
           <span className="texte-ligne">
             <strong>{ACTIONS[m.action]} · {OBJETS[m.objet] ?? m.objet}</strong> {resume(m.apres ?? m.avant) && <span>{resume(m.apres ?? m.avant)}</span>}
@@ -873,6 +898,7 @@ function Journal({ api, erreur }: { api: Api; erreur: (e: unknown) => void }) {
           {m.action === 'UPDATE' && m.avant && <button className="lien petit" aria-expanded={ouvert === m.id} onClick={() => setOuvert(ouvert === m.id ? null : m.id)}>{ouvert === m.id ? 'Masquer' : 'Détail'}</button>}
         </li>
       ))}</ul>
+      <Pagination pager={pager} quoi="modifications" />
     </section>
   )
 }

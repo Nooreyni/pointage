@@ -45,6 +45,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   const [remarque, setRemarque] = useState<string | null>(null)
   const [voirTypes, setVoirTypes] = useState(false)
   const [enCours, setEnCours] = useState(false)
+  const [tousJours, setTousJours] = useState(false)       // tous les jours à régulariser dépliés
   const [message, setMessage] = useState<Message | null>(null)
   const [aCorriger, setACorriger] = useState<Anomalie | null>(null)
   const [versionFile, setVersionFile] = useState(0)          // file hors ligne modifiée
@@ -166,6 +167,53 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   const hEntree = heureHabituelle(historique, 'entree', regles.heure_entree_defaut)
   const hSortie = heureHabituelle(historique, 'sortie', regles.heure_sortie_defaut)
 
+  // Blocs secondaires : sous la pointeuse sur mobile, dans la colonne de droite sur PC (pas de grand vide à droite)
+  const secondaires = (
+    <>
+      {responsable && onAller && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
+      {aRegler.length > 0 && (
+        <section className="carte a-regulariser">
+          <div className="ligne entre"><h2>À régulariser <span className="doux petit">({aRegler.length} jour{aRegler.length > 1 ? 's' : ''})</span></h2>
+            <span className="pastille-icone attention"><IcAttention /></span></div>
+          <ul className={`liste ${tousJours ? 'defilante' : ''}`}>
+            {(tousJours ? aRegler : aRegler.slice(0, 4)).map((a) => (
+              <li key={a.jour}>
+                <span className="texte-ligne"><strong>{dateCourte(a.jour)}</strong> · {a.code === 'absent' ? 'aucun pointage' : 'sortie manquante'}
+                  <div className="doux petit">{a.code === 'absent' ? 'Tu étais présent ? Ajoute tes heures.' : `Tu pars d’habitude vers ${hhmm(hSortie)}.`}</div></span>
+                <button className="bouton petit" onClick={() => setACorriger(a)}>Corriger</button>
+              </li>
+            ))}
+          </ul>
+          {aRegler.length > 4 && <button className="lien petit" aria-expanded={tousJours} onClick={() => setTousJours((v) => !v)}>
+            {tousJours ? 'Réduire' : `Voir les ${aRegler.length - 4} autres jours`}</button>}
+        </section>
+      )}
+      {semaines.map((a) => (
+        <section key={`s-${a.jour}`} className="carte anomalie info">
+          <span className="pastille-icone info"><IcErreur /></span>
+          <div className="texte-ligne"><strong>Semaine du {dateCourte(a.jour)} : maximum hebdomadaire dépassé</strong>
+          <div className="doux petit">Signalé à ton responsable et à la RH. Rien à corriger de ton côté.</div></div>
+        </section>
+      ))}
+      {prochain && (
+        <section className="carte prochain-conge">
+          <div className="ligne entre">
+            <div className="texte-ligne">
+              <span className="doux petit">Prochain congé</span>
+              <div><strong>{prochain.libelle_absence}</strong> · {prochain.date_debut === prochain.date_fin ? dateCourte(prochain.date_debut)
+                : `${dateCourte(prochain.date_debut)} → ${dateCourte(prochain.date_fin)}`}{prochain.demi ? ` (${prochain.demi === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
+            </div>
+            <span className={`pilule grande ${prochain.statut === 'accordee' ? 'ok' : 'attente'}`}>{prochain.statut === 'accordee' ? <><IcCheck size={14} />Accordé</> : 'En attente'}</span>
+          </div>
+          {onVoirAgenda && <button className="lien petit" onClick={onVoirAgenda}>Voir mon agenda →</button>}
+        </section>
+      )}
+
+      {onAide && <Bienvenue profil={profil} onAide={onAide} />}
+      <InviteInstallation />
+    </>
+  )
+
   return (
     <main className="contenu">
       <div className="col-principale pile">
@@ -219,44 +267,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
           </div>
         </section>
 
-        {onAide && <Bienvenue profil={profil} onAide={onAide} />}
-        <InviteInstallation />
-        {responsable && onAller && !grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
-
-        {prochain && (
-          <section className="carte prochain-conge">
-            <div className="ligne entre">
-              <div className="texte-ligne">
-                <span className="doux petit">Prochain congé</span>
-                <div><strong>{prochain.libelle_absence}</strong> · {prochain.date_debut === prochain.date_fin ? dateCourte(prochain.date_debut)
-                  : `${dateCourte(prochain.date_debut)} → ${dateCourte(prochain.date_fin)}`}{prochain.demi ? ` (${prochain.demi === 'matin' ? 'matin' : 'après-midi'})` : ''}</div>
-              </div>
-              <span className={`pilule grande ${prochain.statut === 'accordee' ? 'ok' : 'attente'}`}>{prochain.statut === 'accordee' ? <><IcCheck size={14} />Accordé</> : 'En attente'}</span>
-            </div>
-            {onVoirAgenda && <button className="lien petit" onClick={onVoirAgenda}>Voir mon agenda →</button>}
-          </section>
-        )}
-
-        {aRegler.slice(0, 3).map((a) => (
-          <section key={a.jour} className="carte anomalie">
-            <div className="ligne entre">
-              <span className="pastille-icone attention"><IcAttention /></span>
-              <div className="texte-ligne">
-                <strong>{dateCourte(a.jour)} : {a.code === 'absent' ? 'aucun pointage' : 'sortie manquante'}</strong>
-                <div className="doux petit">{a.code === 'absent' ? 'Tu étais présent ? Ajoute tes heures.' : `Tu pars d’habitude vers ${hhmm(hSortie)}.`}</div>
-              </div>
-              <button className="bouton" onClick={() => setACorriger(a)}>Corriger</button>
-            </div>
-          </section>
-        ))}
-        {semaines.map((a) => (
-          <section key={`s-${a.jour}`} className="carte anomalie info">
-            <span className="pastille-icone info"><IcErreur /></span>
-            <div className="texte-ligne"><strong>Semaine du {dateCourte(a.jour)} : maximum hebdomadaire dépassé</strong>
-            <div className="doux petit">Signalé à ton responsable et à la RH. Rien à corriger de ton côté.</div></div>
-          </section>
-        ))}
-        {aRegler.length > 3 && <p className="doux petit">+ {aRegler.length - 3} autre(s) jour(s) à régulariser</p>}
+        {!grandEcran && secondaires}
 
         <section className="carte">
           <h2>Mes pointages du jour</h2>
@@ -283,7 +294,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
       </div>
 
       <div className="col-laterale pile">
-        {responsable && onAller && grandEcran && <ActionsDuJour api={api} profil={profil} aValider={aValider ?? 0} onAller={onAller} />}
+        {grandEcran && secondaires}
         {!['direction', 'admin'].includes(profil.role) && <Equipe api={api} profil={profil} compact onVoirTout={onVoirEquipe} />}
       </div>
 

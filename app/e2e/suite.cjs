@@ -118,6 +118,28 @@ const verifier = (cond, message) => { if (!cond) throw new Error(message) }
     await page.close()
   })
 
+  // 7. Longues listes (pensé pour ~100 personnes) : pagination, une ligne par personne, pas de trou dans les réglages
+  await test('densité : pagination, une ligne par personne, réglages sans trous', async () => {
+    const page = await ouvrir('admin', 1600, 'personnes'); await page.waitForTimeout(600)
+    const n = (await page.$$('.liste-personnes > li')).length
+    verifier(n > 0 && n <= 25, `${n} personnes affichées d’un coup (25 max)`)
+    verifier(await page.$('.pagination'), 'pagination absente sur Personnes')
+    await page.click('.sous-nav button:has-text("Suivi RH")'); await page.waitForSelector('.liste-anomalies')
+    const noms = await page.$$eval('.liste-anomalies > li .qui', (l) => l.map((x) => x.firstElementChild.textContent))
+    verifier(new Set(noms).size === noms.length, 'une même personne apparaît sur plusieurs lignes')
+    verifier(!(await page.$('.jours-anomalies')), 'les jours doivent être repliés par défaut')
+    await page.click('.bouton-pilule >> nth=0'); verifier(await page.waitForSelector('.jours-anomalies'), 'les jours ne se déplient pas')
+    await page.click('.sous-nav button:has-text("Réglages")'); await page.click('button:has-text("Paramètres") >> nth=0'); await page.waitForTimeout(600)
+    const ecarts = await page.$$eval('.grille-cartes.maconnerie > .carte', (l) => {
+      const parX = {}
+      for (const c of l) { const r = c.getBoundingClientRect(), x = Math.round(r.left); parX[x] = parX[x] || []; parX[x].push([r.top, r.bottom]) }
+      return Object.values(parX).map((v) => v.sort((a, b) => a[0] - b[0]).slice(1).map((x, i) => Math.round(x[0] - v[i][1])))
+    })
+    verifier(ecarts.length === 2 && ecarts.flat().every((g) => g <= 24), `écarts entre cartes : ${JSON.stringify(ecarts)}`)
+    verifier(!page.erreurs.length, `erreur JavaScript : ${page.erreurs[0]}`)
+    await page.close()
+  })
+
   await navigateur.close()
   console.log(`\n${reussis} réussi(s), ${echecs.length} échec(s)`)
   process.exit(echecs.length ? 1 : 0)
