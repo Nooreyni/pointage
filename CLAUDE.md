@@ -43,6 +43,7 @@
 | Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
 | Gestion (02/11/2026) | **Direction = mêmes droits que l'admin RH** (suivi RH, personnes, rapports, réglages). La RH crée et modifie les fiches, sauf admin RH / admin général. Personne ne change son propre rôle |
 | Organisation (05/11/2026) | **Équipe sociale = un seul service** : les groupes / secteurs de terrain ne sont pas des services. Le **VAD s'appelle « Coordination »**. Le responsable ISP peut aussi être chef d'un service. Les aides familiales ne pointent pas dans l'outil. La RH compte plusieurs admin RH |
+| Personnes sans compte (05/11/2026) | Tout le personnel peut être importé d'avance. **Sans compte de connexion, une personne n'apparaît nulle part** (équipe, récaps, anomalies, rapports, rappels, clôture, congés annuels), sauf dans Gestion › Personnes. Elle apparaît dès que son compte est créé |
 | Adresses e-mail (04/11/2026) | Domaines du CFB : **centrefamilial.be** et **ceforbxl.be** (avertissement si autre domaine, rien de bloqué) |
 
 ## Conventions techniques
