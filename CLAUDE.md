@@ -21,7 +21,7 @@
 | Sujet | Règle |
 |---|---|
 | IP | **Adresse IP stockée** (comme Dinclock) + indicateur réseau CFB / externe. **Pas** d'infos appareil, **pas** de géolocalisation. Durée de conservation : à décider par Ousmane |
-| Hiérarchie | Direction → chefs de service, équipe RH (3 RH + 1 admin RH) et services sans équipe (logistique, SIPP…) → employés des services |
+| Hiérarchie | Direction → chefs de service, équipe RH (admin RH et RH) et services sans équipe (logistique, SIPP…) → employés des services |
 | Validation congés | **Décentralisée** : le N+1 accepte ou refuse, **c'est définitif**. La RH ne fait que constater |
 | N+1 | Employé → son chef de service. Chef de service, RH, admin RH, services sans équipe → la direction |
 | Direction | Peut accepter/refuser **pour tout le monde**. Par défaut ne reçoit que ses N-1 ; reçoit les demandes d'un service si son chef est absent. Peut régler quels types / quelles personnes lui remontent |
@@ -42,6 +42,7 @@
 | Hébergement | Pas d'abonnement Azure au CFB → front sur Cloudflare Pages (gratuit) |
 | Admin général | Rôle `admin` (IT) : **tous les droits** — voir, valider, corriger, clôturer, rapports, paramètres |
 | Gestion (02/11/2026) | **Direction = mêmes droits que l'admin RH** (suivi RH, personnes, rapports, réglages). La RH crée et modifie les fiches, sauf admin RH / admin général. Personne ne change son propre rôle |
+| Organisation (05/11/2026) | **Équipe sociale = un seul service** : les groupes / secteurs de terrain ne sont pas des services. Le **VAD s'appelle « Coordination »**. Le responsable ISP peut aussi être chef d'un service. Les aides familiales ne pointent pas dans l'outil. La RH compte plusieurs admin RH |
 | Adresses e-mail (04/11/2026) | Domaines du CFB : **centrefamilial.be** et **ceforbxl.be** (avertissement si autre domaine, rien de bloqué) |
 
 ## Conventions techniques

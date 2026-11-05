@@ -4,7 +4,7 @@ import { messageErreur } from '../lib/supabase'
 import { telecharger } from '../lib/export'
 import Fenetre from './Fenetre'
 
-const COLONNES = ['prenom', 'nom', 'email', 'service', 'role', 'date_entree', 'regime', 'matricule']
+const COLONNES = ['prenom', 'nom', 'email', 'service', 'role', 'date_entree', 'regime', 'matricule', 'type', 'partenaire_isp']
 const ROLES: Record<string, Role> = { employe: 'employe', 'employé': 'employe', rh: 'rh', 'admin rh': 'admin_rh', admin_rh: 'admin_rh', direction: 'direction',
   'responsable isp': 'responsable_isp', responsable_isp: 'responsable_isp', admin: 'admin' }
 const sa = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
@@ -42,14 +42,17 @@ export default function ImportPersonnes({ api, services, regimes, existants, onF
       const regime = regimes.find((x) => x.actif && sa(x.libelle) === sa(col(r, 'regime'))) ?? (col(r, 'regime') ? undefined : regimes.find((x) => x.actif))
       const role = ROLES[sa(col(r, 'role') || 'employe')]
       const email = col(r, 'email').toLowerCase(), date = versDate(col(r, 'date_entree'))
+      // Colonnes facultatives : type (interne / isp) et CPAS partenaire (obligatoire pour un ISP)
+      const isp = sa(col(r, 'type')) === 'isp', partenaire = col(r, 'partenaire_isp')
       const erreurs = [
         !col(r, 'prenom') || !col(r, 'nom') ? 'nom ou prénom manquant' : '',
         !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? 'e-mail invalide' : existants.includes(email) ? 'existe déjà' : '',
         !service ? `service « ${col(r, 'service')} » inconnu` : '', !role ? `rôle « ${col(r, 'role')} » inconnu` : '',
-        !regime ? `régime « ${col(r, 'regime')} » inconnu` : '', !col(r, 'date_entree') ? 'date d’entrée manquante' : !/^\d{4}-\d{2}-\d{2}$/.test(date) ? 'date d’entrée invalide' : '',
+        !regime ? `régime « ${col(r, 'regime')} » inconnu` : '', isp && !partenaire ? 'ISP : CPAS partenaire manquant' : '',
+        !col(r, 'date_entree') ? 'date d’entrée manquante' : !/^\d{4}-\d{2}-\d{2}$/.test(date) ? 'date d’entrée invalide' : '',
       ].filter(Boolean)
       const saisie: SaisiePersonne = { id: null, prenom: col(r, 'prenom'), nom: col(r, 'nom'), email, service_id: service?.id ?? '', role: role ?? 'employe',
-        type: 'interne', partenaire_isp: null, matricule: col(r, 'matricule') || null, date_entree: date, date_sortie: null, regime_id: regime?.id ?? null }
+        type: isp ? 'isp' : 'interne', partenaire_isp: isp ? partenaire : null, matricule: col(r, 'matricule') || null, date_entree: date, date_sortie: null, regime_id: regime?.id ?? null }
       return { saisie, erreurs, service: service?.nom ?? col(r, 'service'), regime: regime?.libelle ?? col(r, 'regime') }
     })
   }, [brut, services, regimes, existants])
@@ -59,10 +62,11 @@ export default function ImportPersonnes({ api, services, regimes, existants, onF
     <Fenetre titre="Importer des personnes" onFermer={onFermer} large>
       {!brut && <>
         <p className="petit" style={{ marginTop: 0 }}>Un fichier CSV (Excel : « Enregistrer sous… CSV »), une ligne par personne. Colonnes : {COLONNES.join(', ')}.
-          Le rôle par défaut est « employé » ; le régime par défaut est le premier régime actif.</p>
+          Le rôle par défaut est « employé » ; le régime par défaut est le premier régime actif.
+          Facultatif : type « isp » avec le CPAS partenaire. Les colonnes en plus sont ignorées.</p>
         <div className="ligne">
           <label className="bouton">Choisir le fichier<input type="file" accept=".csv,text/csv" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) setBrut(lireCsv(await f.text())) }} /></label>
-          <button className="lien petit" onClick={() => telecharger([COLONNES, ['Sofia', 'Janssens', 'sofia.janssens@cfb.be', services[0]?.nom ?? 'SAF', 'employe', '01/09/2024', regimes[0]?.libelle ?? '', '']], 'modele-import-personnes', 'csv')}>
+          <button className="lien petit" onClick={() => telecharger([COLONNES, ['Sofia', 'Janssens', 'sofia.janssens@cfb.be', services[0]?.nom ?? 'SAF', 'employe', '01/09/2024', regimes[0]?.libelle ?? '', '', 'interne', '']], 'modele-import-personnes', 'csv')}>
             Télécharger le modèle</button>
         </div>
       </>}
