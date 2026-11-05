@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AdminService, Api, Regime, Role, SaisiePersonne } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
-import { jourBxl } from '../lib/temps'
 import { telecharger } from '../lib/export'
 import Fenetre from './Fenetre'
 
@@ -42,12 +41,12 @@ export default function ImportPersonnes({ api, services, regimes, existants, onF
       const service = services.find((s) => sa(s.nom) === sa(col(r, 'service')))
       const regime = regimes.find((x) => x.actif && sa(x.libelle) === sa(col(r, 'regime'))) ?? (col(r, 'regime') ? undefined : regimes.find((x) => x.actif))
       const role = ROLES[sa(col(r, 'role') || 'employe')]
-      const email = col(r, 'email').toLowerCase(), date = versDate(col(r, 'date_entree') || jourBxl())
+      const email = col(r, 'email').toLowerCase(), date = versDate(col(r, 'date_entree'))
       const erreurs = [
         !col(r, 'prenom') || !col(r, 'nom') ? 'nom ou prénom manquant' : '',
         !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? 'e-mail invalide' : existants.includes(email) ? 'existe déjà' : '',
         !service ? `service « ${col(r, 'service')} » inconnu` : '', !role ? `rôle « ${col(r, 'role')} » inconnu` : '',
-        !regime ? `régime « ${col(r, 'regime')} » inconnu` : '', !/^\d{4}-\d{2}-\d{2}$/.test(date) ? 'date d’entrée invalide' : '',
+        !regime ? `régime « ${col(r, 'regime')} » inconnu` : '', !col(r, 'date_entree') ? 'date d’entrée manquante' : !/^\d{4}-\d{2}-\d{2}$/.test(date) ? 'date d’entrée invalide' : '',
       ].filter(Boolean)
       const saisie: SaisiePersonne = { id: null, prenom: col(r, 'prenom'), nom: col(r, 'nom'), email, service_id: service?.id ?? '', role: role ?? 'employe',
         type: 'interne', partenaire_isp: null, matricule: col(r, 'matricule') || null, date_entree: date, date_sortie: null, regime_id: regime?.id ?? null }
