@@ -174,7 +174,8 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     const g = o === 'agenda' || o === 'heures' ? 'mois' : o === 'rh' || o === 'personnes' || o === 'rapports' || o === 'admin' ? 'gestion' : o === 'equipe' || o === 'bilan' ? 'equipe' : null
     if (g) setDernieres((d) => ({ ...d, [g]: o }))
   }
-  const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider') : aller(d))
+  const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider')
+    : d.startsWith('fiche:') ? naviguer({ vers: 'personne', id: d.slice(6), onglet: 'identite' }) : aller(d as Onglet))
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
   // Vues autorisées pour ce rôle (liens, recherche) …

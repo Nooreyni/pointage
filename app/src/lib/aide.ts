@@ -13,6 +13,7 @@ export const AIDE: EcranAide[] = [
   { id: 'pointer', titre: 'Pointer', enBref: 'Pointer ton arrivée et ton départ en un appui, voir ta journée et ce qui reste à faire.', questions: [
     { q: 'Comment pointer ?', r: 'Un appui sur le grand bouton : « Pointer mon entrée », puis le même bouton pour la sortie. La pause de midi est déduite toute seule, ne la pointe pas.' },
     { q: 'J’ai oublié de pointer.', r: 'Un encadré « à régulariser » apparaît sous le bouton : « Corriger », indique l’heure, c’est enregistré. Ton responsable en est informé.' },
+    { q: 'Qui régularise un jour « À régulariser » ?', r: 'Toi d’abord : « À régulariser » › Corriger (validé tout de suite, ton responsable est informé). Si tu étais absent·e (maladie, congé…), c’est la RH qui l’encode. La RH peut aussi ajouter des heures pour toi (Gestion › Suivi RH).' },
     { q: 'Je suis en télétravail.', r: 'Un jour de télétravail habituel, le pointage passe en « Télétravail » tout seul. Un autre jour : « Type » sous le bouton, puis « Télétravail ».' },
     { q: 'Je n’ai pas de réseau.', r: 'Pointe quand même : c’est gardé sur l’appareil et envoyé dès le retour du réseau, avec l’heure réelle du pointage.' },
     { q: 'À quoi sert « À traiter » ?', r: 'Ce qui t’attend aujourd’hui : demandes à valider, personnes à rappeler, jours à régulariser. Un appui t’y emmène.', pour: 'responsable' },
@@ -45,6 +46,7 @@ export const AIDE: EcranAide[] = [
   ] },
   { id: 'rh', titre: 'Gestion · Suivi RH', pour: 'gestion', enBref: 'Le quotidien RH : indicateurs du mois, pointages à régulariser, congés à constater, clôture.', questions: [
     { q: 'Régulariser un pointage', r: 'Sous « Pointages à régulariser » : « Ajouter la sortie », « Ajouter les heures » ou « Encoder une absence ». C’est tracé dans le journal.' },
+    { q: 'Une personne signale une info fausse', r: 'Carte « Infos à corriger » (et une alerte) : ouvre sa fiche, corrige, puis « Corrigé » ; la personne est prévenue.' },
     { q: 'Encoder une maladie', r: 'Carte « Encoder une absence » › Nouvelle absence. L’absence est accordée directement.' },
     { q: 'Clôturer le mois', r: 'Carte « Clôture du mois » : les points à vérifier s’affichent avant. Après clôture, plus de correction possible sur ce mois.' },
     { q: 'Attribuer les congés de l’année', r: 'Carte « Congés annuels » › Voir la proposition (au prorata du régime) › Attribuer. Sans risque de doublon.' },
@@ -70,6 +72,7 @@ export const AIDE: EcranAide[] = [
     { q: 'Recevoir les rappels sur mon téléphone', r: 'Active les notifications sur cet appareil (bouton en haut des alertes). Sinon, un e-mail est envoyé en secours.' },
   ] },
   { id: 'compte', titre: 'Mon compte', enBref: 'Tes informations, tes jours de télétravail, ton mot de passe, ton agenda Outlook et tes notifications.', questions: [
+    { q: 'Une info sur ma fiche est fausse', r: 'Mon compte › « Signaler à la RH » : choisis ce qui est faux (service, régime…). La RH reçoit une alerte, corrige ta fiche, et tu es prévenu·e.' },
     { q: 'Changer mon mot de passe', r: 'Carte « Mot de passe » : ton mot de passe actuel, puis le nouveau (8 caractères minimum).' },
     { q: 'Indiquer mes horaires habituels', r: 'Carte « Mes horaires habituels » : un appui sur 8h – 16h, 8h30 – 16h30… ou « Autre » pour saisir tes heures. « Automatique » : l’outil les apprend d’après tes pointages. Ils servent aux rappels, pas au calcul de tes heures.' },
     { q: 'Revoir le parcours d’accueil', r: 'Mon compte › « Refaire le parcours d’accueil » : horaires, télétravail, appli et rappels en une minute.' },

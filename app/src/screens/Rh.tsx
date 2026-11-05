@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { IcAttention, IcCheck, IcChevron } from '../components/Icones'
 import { Pagination, usePagination } from '../components/Pagination'
+import { libelleChamp } from '../components/SignalerInfo'
 import Toast from '../components/Toast'
 import { LienPersonne, useNav } from '../lib/navigation'
-import type { AnomalieRH, Api, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
+import type { AnomalieRH, Api, Signalement, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
   TypeDemande } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
@@ -182,6 +183,7 @@ export default function Rh({ api }: { api: Api }) {
       </div>
 
       <div className="col-laterale pile">
+        <InfosACorriger api={api} onMessage={(texte, e) => setMessage({ texte, erreur: e })} />
         <Cloture mois={mois} setMois={setMois} etat={etat} onCloturer={async () => {
           try {
             const r = await api.cloturer(mois)
@@ -493,6 +495,30 @@ function Manquants({ api, onMessage }: { api: Api; onMessage: (t: string, erreur
               onMessage(n ? 'Rappel envoyé ✅' : 'Déjà rappelé récemment')
             } catch (e) { onMessage(messageErreur(e), true) }
           }}>Rappeler</button>
+        </li>
+      ))}</ul>
+    </section>
+  )
+}
+
+/** Signalements « une info est fausse » envoyés depuis Mon compte : ouvrir la fiche, corriger, puis « Corrigé ». */
+function InfosACorriger({ api, onMessage }: { api: Api; onMessage: (t: string, erreur?: boolean) => void }) {
+  const [liste, setListe] = useState<Signalement[] | null>(null)
+  const charger = useCallback(() => { api.signalementsOuverts().then(setListe).catch(() => setListe([])) }, [api])
+  useEffect(() => { charger() }, [charger])
+  if (!liste?.length) return null
+  return (
+    <section className="carte infos-a-corriger">
+      <div className="ligne entre"><h2>Infos à corriger</h2><span className="pilule attente">{liste.length}</span></div>
+      <p className="doux petit" style={{ marginTop: 4 }}>Signalées par les personnes depuis Mon compte. Ouvre la fiche, corrige, puis « Corrigé » : la personne est prévenue.</p>
+      <ul className="liste">{liste.map((x) => (
+        <li key={x.id}>
+          <span className="texte-ligne"><LienPersonne id={x.personne_id!} nom={`${x.prenom} ${x.nom}`} /> · <strong>{libelleChamp(x.champ)}</strong>
+            {x.message && <div className="doux petit">« {x.message} »</div>}
+            <div className="doux petit">{x.service} · {dateCourte(jourBxl(new Date(x.cree_le)))}</div></span>
+          <button className="bouton secondaire petit" onClick={async () => {
+            try { await api.traiterSignalement(x.id); onMessage('Marqué comme corrigé ✅ (la personne est prévenue)'); charger() } catch (e) { onMessage(messageErreur(e), true) }
+          }}>Corrigé</button>
         </li>
       ))}</ul>
     </section>

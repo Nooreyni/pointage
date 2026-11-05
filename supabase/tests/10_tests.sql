@@ -971,6 +971,28 @@ select public.definir_horaire(480, 960, 'b0000000-0000-0000-0000-000000000006');
 select test.ok((select heure_arrivee = 480 from public.admin_personnes where id = 'b0000000-0000-0000-0000-000000000006'), 'Horaire : la RH le règle dans la fiche');
 reset role;
 
+-- ===================== Signaler une info fausse à la RH =====================
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur($$select public.signaler_info('autre', '  ')$$, 'Signalement « autre » sans précision refusé', 'Précise');
+select test.erreur($$select public.signaler_info('salaire')$$, 'Signalement : champ inconnu refusé', 'Choisis');
+select test.ok(public.signaler_info('service', 'Je suis au SAF depuis septembre') >= 1, 'Signalement : envoyé à la RH');
+select test.ok((select count(*) = 1 and bool_and(traite_le is null) from public.mes_signalements()), 'Signalement : visible par son auteur');
+select test.erreur('select * from public.signalements_ouverts()', 'Signalements : liste réservée à la RH', 'réservée');
+reset role;
+select test.ok(test.notifs('Nadia', 'info_fausse') = 1 and test.notifs('Inès', 'info_fausse') = 1, 'Signalement : RH et admin RH alertées');
+select test.ok((select lien = test.pid('Sofia')::text from pointage.notifications where type = 'info_fausse' limit 1), 'Signalement : l''alerte ouvre la fiche');
+select test.connecte('Nadia'); set role authenticated;
+select id as sig from public.signalements_ouverts() where prenom = 'Sofia' \gset
+select public.traiter_signalement(:sig);
+select test.ok(not exists (select 1 from public.signalements_ouverts() where id = :sig), 'Signalement : « Corrigé » le retire de la liste');
+select test.erreur(format('select public.traiter_signalement(%s)', :sig), 'Signalement : pas traité deux fois', 'déjà traité');
+reset role;
+select test.ok(test.notifs('Sofia', 'info_corrigee') = 1, 'Signalement : la personne est prévenue');
+select test.connecte('Sofia'); set role authenticated;
+select public.signaler_info('nom'); select public.signaler_info('email'); select public.signaler_info('role'); select public.signaler_info('regime');
+select test.erreur($$select public.signaler_info('horaire')$$, 'Signalement : 5 par jour maximum', '5 signalements');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

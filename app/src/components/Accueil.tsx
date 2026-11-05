@@ -7,6 +7,7 @@ import TeletravailHabituel from './TeletravailHabituel'
 import NotifAppareil from './NotifAppareil'
 import { InstallerAppli } from './Pwa'
 import { bienvenue } from '../lib/aide'
+import SignalerInfo from './SignalerInfo'
 
 const ROLES: Record<Profil['role'], string> = {
   employe: 'Employé·e', rh: 'RH', admin_rh: 'Admin RH', responsable_isp: 'Responsable ISP', direction: 'Direction', admin: 'Admin général',
@@ -14,7 +15,7 @@ const ROLES: Record<Profil['role'], string> = {
 
 type Etape = { id: string; titre: string; intro: string }
 const ETAPES: Etape[] = [
-  { id: 'infos', titre: 'Tes informations', intro: 'Vérifie que tout est juste. Une erreur ? La RH la corrige : tu n’as rien à faire ici.' },
+  { id: 'infos', titre: 'Tes informations', intro: 'Vérifie que tout est juste. Une erreur ? « Signaler à la RH » : elle corrige ta fiche.' },
   { id: 'horaires', titre: 'Tes horaires habituels', intro: 'À quelle heure arrives-tu et pars-tu d’habitude ? Ça sert à te rappeler de pointer au bon moment. Pas sûr·e ? « Automatique » : l’outil apprendra tout seul.' },
   { id: 'teletravail', titre: 'Tes jours de télétravail', intro: 'Coche tes jours habituels (aucun si tu n’en fais pas). Ces jours-là, ton pointage passe en « Télétravail » tout seul.' },
   { id: 'appli', titre: 'L’appli sur ton téléphone', intro: 'Une icône sur l’écran d’accueil pour pointer en un appui. Sur iPhone, c’est nécessaire pour recevoir les rappels.' },
@@ -60,7 +61,7 @@ export default function Accueil({ api, profil, onFini, onPlusTard }: { api: Api;
               <div><dt>Rôle</dt><dd>{role}</dd></div>
               <div><dt>Régime</dt><dd>{profil.regime ?? '—'}</dd></div>
             </dl>
-            <p className="doux petit" style={{ margin: 0 }}>{e.intro}</p>
+            <SignalerInfo api={api} />
           </>}
           {e.id === 'horaires' && <HoraireHabituel api={api} moi minutesJour={profil.minutes_jour}
                                                    onEnregistre={() => setFaites((f) => new Set(f).add('horaires'))} />}

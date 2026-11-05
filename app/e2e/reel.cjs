@@ -70,6 +70,21 @@ const verifier = (cond, message) => { if (!cond) throw new Error(message) }
     propre(page, 'parcours'); await page.close()
   })
 
+  await test('info fausse : l’employée la signale, la RH la voit, ouvre la fiche et la marque corrigée', async () => {
+    const sofia = await connecter('sofia.janssens@cfb.test')
+    await sofia.click('.profil-entete'); await sofia.click('.menu button:has-text("Mon compte")'); await sofia.waitForTimeout(600)
+    await sofia.click('button:has-text("Signaler à la RH")'); await sofia.click('.fenetre .puce:has-text("Service")')
+    await sofia.fill('.fenetre textarea', 'Je suis au CEFOR depuis octobre'); await sofia.click('.fenetre button:has-text("Envoyer à la RH")')
+    await sofia.waitForSelector('.signaler-info :text("En attente à la RH")', { timeout: 5000 })
+    propre(sofia, 'signalement'); await sofia.close()
+    const rh = await connecter('nadia.benali@cfb.test')
+    await rh.click('nav.nav button:has-text("Gestion")'); await rh.waitForSelector('.infos-a-corriger', { timeout: 8000 })
+    verifier(/CEFOR depuis octobre/.test(await rh.textContent('.infos-a-corriger')), 'signalement absent du Suivi RH')
+    await rh.click('.infos-a-corriger button:has-text("Corrigé")'); await rh.waitForTimeout(800)
+    verifier(!(await rh.$('.infos-a-corriger')), 'le signalement reste affiché après « Corrigé »')
+    propre(rh, 'traitement'); await rh.close()
+  })
+
   await test('employée : pointer l’entrée puis la sortie', async () => {
     const page = await connecter('sofia.janssens@cfb.test')
     await page.click('nav.nav button:has-text("Pointer")'); await page.waitForSelector('.bouton-pointer')

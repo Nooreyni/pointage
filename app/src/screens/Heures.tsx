@@ -123,7 +123,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
                     <tr key={j.jour} className={j.prevues === 0 && !pts.length ? 'repos' : ''}>
                       <td><strong>{dateCourte(j.jour)}</strong></td>
                       <td className="num">{j.prevues ? duree(j.prevues) : '—'}</td>
-                      <td className="cellule-pointages">
+                      <td className="cellule-pointages"><div className="puces-pointages">
                         {pts.map((p) => (
                           <span key={p.id} className={`puce-pointage ${p.sens}`} title={`${p.sens === 'entree' ? 'Entrée' : 'Sortie'} · ${p.type_code}${p.differe ? ' · différé' : ''}`}>
                             {p.sens === 'entree' ? <IcEntree size={12} /> : <IcSortie size={12} />}{heure(p.horodatage)}{p.source === 'correction' && <IcCorrection />}{p.differe && <IcDiffere />}
@@ -131,7 +131,7 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
                         ))}
                         {absence && <span className="pilule neutre">{absence.libelle_absence}{absence.type === 'conge_demi_jour' ? ' (½)' : ''}</span>}
                         {!pts.length && !absence && j.prevues > 0 && <span className="doux petit">aucun pointage</span>}
-                      </td>
+                      </div></td>
                       <td className="num">{j.preste ? duree(j.preste) : '—'}</td>
                       <td className={`num ${j.boni < 0 ? 'negatif' : j.boni > 0 ? 'positif' : ''}`}>{j.boni ? duree(j.boni, true) : '—'}</td>
                       <td><span className={`pilule ${st.classe}`}>{st.texte}</span></td>

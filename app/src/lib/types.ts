@@ -18,6 +18,10 @@ export interface Profil {
   accueil_fait_le?: string | null // parcours d'accueil terminé (ou passé)
 }
 
+export type ChampSignale = 'nom' | 'email' | 'service' | 'role' | 'regime' | 'horaire' | 'autre'
+export interface Signalement { id: number; champ: ChampSignale; message: string | null; cree_le: string; traite_le?: string | null
+  personne_id?: string; prenom?: string; nom?: string; service?: string }
+
 /** Horaires habituels : déclarés (ou null) et ceux réellement utilisés (déclarés, appris ou par défaut). */
 export interface Horaire { arrivee: number | null; depart: number | null; utilise_arrivee: number; utilise_depart: number; modifiable: boolean }
 
@@ -441,6 +445,10 @@ export interface Api {
   horaireDe(personneId?: string): Promise<Horaire>
   definirHoraire(arrivee: number | null, depart: number | null, personneId?: string): Promise<void>
   terminerAccueil(): Promise<void>
+  signalerInfo(champ: ChampSignale, message?: string): Promise<number>
+  mesSignalements(): Promise<Signalement[]>
+  signalementsOuverts(): Promise<Signalement[]>
+  traiterSignalement(id: number): Promise<void>
   deposerJustificatif(d: Demande, fichier: File): Promise<void>
   justificatifsManquants(): Promise<Demande[]>
   lienJustificatif(chemin: string): Promise<string>

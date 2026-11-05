@@ -3,6 +3,7 @@ import type { Api, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import HoraireHabituel from '../components/HoraireHabituel'
+import SignalerInfo from '../components/SignalerInfo'
 import NotifAppareil from '../components/NotifAppareil'
 import AgendaOutlook from '../components/AgendaOutlook'
 import DoubleAuth from '../components/DoubleAuth'
@@ -32,7 +33,7 @@ export default function Compte({ api, profil, onAccueil, onProfilChange }: { api
             <div><dt>Rôle</dt><dd>{role}</dd></div>
             <div><dt>Régime</dt><dd>{profil.regime ?? '—'}</dd></div>
           </dl>
-          <p className="doux petit" style={{ marginBottom: 0 }}>Une info est fausse ? Signale-le à la RH.</p>
+          <SignalerInfo api={api} />
         </section>
 
         <section className="carte" id="mes-horaires">

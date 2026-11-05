@@ -577,7 +577,8 @@ p, li, td, .texte-ligne { overflow-wrap: anywhere; }
 @media (min-width: 900px) { .fiche-tuiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .tableau.fiche td { vertical-align: middle; }
 .tableau.fiche tr.repos td { color: var(--texte-doux); background: var(--fond); }
-.cellule-pointages { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; white-space: normal !important; min-width: 180px; }
+.cellule-pointages { white-space: normal !important; min-width: 180px; }
+.cellule-pointages .puces-pointages { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .puce-pointage { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 8px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .legende-icone { display: inline-flex; align-items: center; gap: 4px; }
 .puce-pointage.entree { background: #EAF4D8; color: #3D6609; }
@@ -1035,3 +1036,27 @@ select.choix, .outils-personnes select { border: 1px solid var(--bord-fort); bor
 .tuile-personne .badge-isp { flex: none; }
 @media (min-width: 1300px) { .grille-personnes:not(.compacte) { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); } }
 @media (min-width: 900px) { .grille-agenda .jour-agenda { min-height: 74px; } }
+
+/* ---------- Page Aide : sommaire + une rubrique à la fois ---------- */
+.entete-aide { display: grid; gap: 10px; }
+.frequentes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sommaire-aide { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.sommaire-aide::-webkit-scrollbar { display: none; }
+.sommaire-aide .rubrique { flex: none; display: flex; align-items: center; gap: 8px; border: 1px solid var(--bord); background: var(--carte);
+  border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--texte); white-space: nowrap; }
+.sommaire-aide .rubrique[aria-current='true'] { background: var(--bleu-fonce); border-color: var(--bleu-fonce); color: #fff; }
+.sommaire-aide .rubrique[aria-current='true'] .doux { color: rgba(255, 255, 255, .75); }
+.sommaire-aide .rubrique:disabled { opacity: .45; }
+@media (min-width: 900px) {
+  main.page-aide { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+  .page-aide .entete-aide { grid-column: 1 / -1; }
+  .sommaire-aide { grid-column: 1; flex-direction: column; overflow: visible; position: sticky; top: calc(var(--h-entete, 60px) + 64px);
+    background: var(--carte); border: 1px solid var(--bord); border-radius: var(--rayon); padding: 8px; gap: 2px; }
+  .sommaire-aide .rubrique { border: 0; border-radius: 10px; justify-content: space-between; white-space: normal; text-align: left; background: none; }
+  .sommaire-aide .rubrique:hover:not(:disabled) { background: var(--fond); }
+  .sommaire-aide .rubrique[aria-current='true'] { background: var(--fond); color: var(--bleu-fonce); box-shadow: inset 3px 0 0 var(--bleu); }
+  .sommaire-aide .rubrique[aria-current='true'] .doux { color: var(--texte-doux); }
+  .page-aide .contenu-aide { grid-column: 2; }
+}
+.puces.choix-signal { justify-content: flex-start; flex-wrap: wrap; margin: 0 0 12px; max-width: none; }
+.signaler-info { display: grid; gap: 6px; margin-top: 4px; }

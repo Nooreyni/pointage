@@ -1,6 +1,6 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
-import type { Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { Acces, Signalement, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
   ApercuDepart, LigneCpas, LigneMensuelle, Modification, MouvementCompteur, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
@@ -119,6 +119,9 @@ export function calculerJournee(jour: string, pts: Pointage[], absence = 0): Jou
 
 export function apiDemo(persona: Persona = 'employe'): Api {
   const horaires = new Map<string, { arrivee: number | null; depart: number | null }>()
+  // Exemple de signalement à traiter (démo RH / admin)
+  const signalements: Signalement[] = [{ id: 1, champ: 'service', message: 'Je suis passée au CEFOR depuis le 1er octobre', cree_le: new Date(Date.now() - 86_400_000).toISOString(),
+    traite_le: null, personne_id: 'p2', prenom: 'Sofia', nom: 'Janssens', service: 'SAF' }]
   const aujourdhui = jourBxl()
   // Jour de télétravail habituel : mercredi pour l'employée, vendredi pour le chef (exemples)
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME,
@@ -816,6 +819,21 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       else horaires.set(id, { arrivee, depart })
     },
     async terminerAccueil() { profil.accueil_fait_le ??= new Date().toISOString() },
+    async signalerInfo(champ, message) {
+      if (champ === 'autre' && !message?.trim()) throw new Error('Précise ce qui est faux')
+      signalements.unshift({ id: Date.now(), champ, message: message?.trim() || null, cree_le: new Date().toISOString(), traite_le: null,
+                             personne_id: profil.id, prenom: profil.prenom, nom: profil.nom, service: profil.service })
+      return 2
+    },
+    async mesSignalements() { return signalements.filter((x) => x.personne_id === profil.id).slice(0, 5) },
+    async signalementsOuverts() {
+      if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
+      return signalements.filter((x) => !x.traite_le)
+    },
+    async traiterSignalement(id) {
+      const x = signalements.find((y) => y.id === id); if (!x || x.traite_le) throw new Error('Signalement introuvable ou déjà traité')
+      x.traite_le = new Date().toISOString()
+    },
     async servicesSuivis() {
       if (!['direction', 'admin'].includes(persona)) throw new Error('Action réservée à : direction, admin')
       return services.map((x) => ({ service_id: x.id, nom: x.nom, suivi: suivis.has(x.id),
