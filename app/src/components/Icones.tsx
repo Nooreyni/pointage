@@ -1,7 +1,7 @@
 // Icônes de l'appli : un seul jeu (Lucide, licence ISC), un seul trait (2 px), tailles fixes.
 // Les noms Ic… restent ceux utilisés dans les écrans.
 import {
-  Bell, BellRing, BriefcaseBusiness, Calendar, CalendarDays, ChartColumn, Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleHelp,
+  Bell, BellRing, BriefcaseBusiness, Calendar, CalendarDays, ChartColumn, Check, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, CircleHelp,
   Clock, FileClock, Hourglass, LogIn, LogOut, Paperclip, Pencil, Search, Settings, TreePalm, TriangleAlert, Users, X, type LucideIcon,
 } from 'lucide-react'
 
@@ -42,3 +42,4 @@ export const IcMicrosoft = () => (
     <rect x="1" y="11" width="9" height="9" fill="#00A4EF" /><rect x="11" y="11" width="9" height="9" fill="#FFB900" />
   </svg>
 )
+export const IcChevronBas = ic(ChevronDown, 16)

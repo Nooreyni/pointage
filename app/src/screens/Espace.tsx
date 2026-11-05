@@ -4,7 +4,7 @@ import type { Persona } from '../lib/demo'
 import { messageErreur } from '../lib/supabase'
 import { definirProprietaire, enAttente, synchroniser } from '../lib/file'
 import { desactiverPush } from '../lib/push'
-import { IcAgenda, IcAide, IcCalendrier, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
+import { IcAgenda, IcAide, IcCalendrier, IcChevronBas, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import AideEcran from '../components/AideEcran'
 import { aidePour } from '../lib/aide'
 import Recherche, { type Cible } from '../components/Recherche'
@@ -215,15 +215,21 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       <header className="entete">
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
         <div className="espace" />
-        <button className="cloche bouton-recherche" aria-label="Rechercher (Ctrl + K)" title="Rechercher (Ctrl + K)" onClick={() => setRechercheOuverte(true)}><IcLoupe /></button>
-        <button className="cloche bouton-aide" aria-label="Aide sur cet écran (?)" title="Aide sur cet écran (?)" onClick={() => setAideOuverte(true)}><IcAide /></button>
-        {api.mode !== 'demo' && <span className="badge-role" title="Ton rôle dans l’application">{libelleRole}</span>}
-        <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} onClick={() => aller('alertes')}>
-          <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues}</span>}
-        </button>
+        <div className="outils-entete">
+          <button className="cloche bouton-recherche" aria-label="Rechercher (Ctrl + K)" title="Rechercher (Ctrl + K)" onClick={() => setRechercheOuverte(true)}><IcLoupe /></button>
+          <button className="cloche bouton-aide" aria-label="Aide sur cet écran (?)" title="Aide sur cet écran (?)" onClick={() => setAideOuverte(true)}><IcAide /></button>
+          <button className="cloche" aria-label={`Alertes (${nonLues} non lues)`} title="Alertes" onClick={() => aller('alertes')}>
+            <IcCloche />{nonLues > 0 && <span className="pastille">{nonLues > 99 ? '99+' : nonLues}</span>}
+          </button>
+        </div>
         <div className="menu-compte">
-          <button className="avatar" aria-expanded={menu} aria-label={`Compte de ${profil.prenom} ${profil.nom}`}
-                  onClick={() => setMenu((m) => !m)}>{initiales}</button>
+          {/* Un seul bloc « qui suis-je » : initiales, nom et rôle (le rôle n'est plus une pastille isolée) */}
+          <button className="profil-entete" aria-expanded={menu} aria-haspopup="menu" aria-label={`Compte de ${profil.prenom} ${profil.nom} (${libelleRole})`}
+                  title={`${profil.prenom} ${profil.nom} · ${libelleRole}`} onClick={() => setMenu((m) => !m)}>
+            <span className="avatar">{initiales}</span>
+            <span className="qui-entete"><strong>{profil.prenom} {profil.nom}</strong><span>{libelleRole}</span></span>
+            <IcChevronBas size={16} className="chevron-profil" />
+          </button>
           {menu && (
             <div className="menu" role="menu">
               <div className="menu-nom"><strong>{profil.prenom} {profil.nom}</strong><span className="doux petit">{libelleRole} · {profil.service}</span></div>
