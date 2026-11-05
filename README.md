@@ -1,5 +1,7 @@
 # CFB Pointage
 
+**Appli en ligne (projet dev, données fictives)** : https://pointage.nooreyni35.workers.dev
+
 Application de pointage et de congés (PWA mobile + PC) du Centre Familial de Bruxelles, remplaçante de Dinclock.
 Conçue pour être **réinstallée ailleurs sans recoder** : toutes les règles sont des paramètres (Admin → Paramètres).
 

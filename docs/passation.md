@@ -21,7 +21,7 @@ schéma privé `pointage`.
 
 - **Supabase** : l'organisation doit appartenir au CFB (adresse générique, ex. it@…), avec au moins deux propriétaires.
 - **GitHub** (`Nooreyni/pointage`) : transférer le dépôt vers un compte ou une organisation du CFB (Settings › Transfer).
-- **Cloudflare** : compte au nom du CFB ; Worker `pointage` (fichiers statiques, `wrangler.jsonc` à la racine du dépôt).
+- **Cloudflare** : compte au nom du CFB ; Worker `pointage` (dev : https://pointage.nooreyni35.workers.dev, compte personnel à transférer) (fichiers statiques, `wrangler.jsonc` à la racine du dépôt).
   Workers Builds : branche `main`, commande de build `npm run build`, déploiement `npx wrangler deploy` (marche depuis la
   racine ou depuis `app/`). Sans variables, le build se relie au projet **dev** (`app/.env.production`) ; en production,
   définir `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_CONNEXION_DEV=0`, `VITE_MODE_DEMO=0` dans les variables de build.
