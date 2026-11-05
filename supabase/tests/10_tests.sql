@@ -993,6 +993,25 @@ select public.signaler_info('nom'); select public.signaler_info('email'); select
 select test.erreur($$select public.signaler_info('horaire')$$, 'Signalement : 5 par jour maximum', '5 signalements');
 reset role;
 
+-- ===================== Personnes importées sans compte : invisibles tant que le compte n'existe pas =====================
+select test.connecte('Nadia'); set role authenticated;
+select public.enregistrer_personne(null, 'Iris', 'Sanscompte', 'iris.sanscompte@cfb.test', 'a0000000-0000-0000-0000-000000000002',
+  p_date_entree => '2026-01-05', p_regime_id => 1::smallint) as pid_iris \gset
+select test.ok(exists (select 1 from public.admin_personnes where id = :'pid_iris' and not compte_lie), 'Sans compte : visible dans Gestion › Personnes');
+select test.ok(not exists (select 1 from public.personnes where id = :'pid_iris'), 'Sans compte : absente des listes de personnes');
+select test.ok(not exists (select 1 from public.presence_jour() where personne_id = :'pid_iris'), 'Sans compte : absente de l''équipe du jour');
+select test.ok(not exists (select 1 from public.anomalies where personne_id = :'pid_iris'), 'Sans compte : aucun jour « à régulariser »');
+select test.ok(not exists (select 1 from public.rapport_mensuel(date_trunc('month', pointage.aujourdhui())::date) where personne_id = :'pid_iris'), 'Sans compte : absente du récap du mois');
+select test.ok(not exists (select 1 from public.proposition_conges(2027) where personne_id = :'pid_iris'), 'Sans compte : pas de congés annuels proposés');
+reset role;
+-- Compte créé (comme le fait la fonction serveur après « Créer son compte »)
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ('iris.sanscompte@cfb.test', now(), '{"provider":"email","providers":["email"]}');
+update pointage.personnes p set auth_user_id = u.id from auth.users u where u.email = p.email and p.id = :'pid_iris';
+select test.connecte('Nadia'); set role authenticated;
+select test.ok(exists (select 1 from public.personnes where id = :'pid_iris'), 'Compte créé : la personne apparaît');
+select test.ok(exists (select 1 from public.presence_jour() where personne_id = :'pid_iris'), 'Compte créé : dans l''équipe du jour');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0
