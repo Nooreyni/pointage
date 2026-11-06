@@ -1069,6 +1069,18 @@ select public.traiter_avis((select max(id) from public.avis_recus()));
 select test.ok((select count(*) filter (where traite_le is null) = 1 from public.avis_recus()), 'Avis : « Traité » les range');
 reset role;
 
+-- ===================== Suivi du lancement =====================
+update auth.users set last_sign_in_at = now() where id = (select auth_user_id from pointage.personnes where id = test.pid('Sofia'));
+select test.connecte('Inès'); set role authenticated;
+select test.ok((select count(*) > 0 from public.suivi_adoption()), 'Suivi du lancement : liste des personnes avec compte');
+select test.ok((select derniere_connexion is not null from public.suivi_adoption() where prenom = 'Sofia'), 'Suivi du lancement : dernière connexion connue');
+select test.ok((select bool_and(personne_id is not null) and count(*) = count(distinct personne_id) from public.suivi_adoption()), 'Suivi du lancement : une ligne par personne');
+select test.ok((select sum(sans_compte) >= 0 and sum(avec_compte) > 0 from public.sans_compte_par_service()), 'Suivi du lancement : comptes manquants par service');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur('select * from public.suivi_adoption()', 'Suivi du lancement : réservé à la RH, la direction et l''admin', 'réservée');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

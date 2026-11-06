@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react'
 export type CibleNav =
   | { vers: 'personne'; id: string; onglet?: OngletFiche }
   | { vers: 'temps'; id: string }
-  | { vers: 'reglages'; section: 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal' | 'avis' }
+  | { vers: 'reglages'; section: 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal' | 'avis' | 'lancement' }
   | { vers: 'onglet'; onglet: string }
 export type OngletFiche = 'identite' | 'travail' | 'compte' | 'soldes' | 'depart'
 

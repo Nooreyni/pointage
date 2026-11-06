@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ApercuDepart, Avis, Horaire, SanteSysteme, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ApercuDepart, Avis, ComptesService, LigneAdoption, Horaire, SanteSysteme, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -418,6 +418,12 @@ export function apiSupabase(): Api {
     },
     async santeSysteme() {
       return verifier(await sb.rpc('sante_systeme')) as SanteSysteme
+    },
+    async suiviAdoption() {
+      return verifier(await sb.rpc('suivi_adoption')) as LigneAdoption[]
+    },
+    async sansCompteParService() {
+      return verifier(await sb.rpc('sans_compte_par_service')) as ComptesService[]
     },
     async donnerAvis(type, message, ecran, parametre) {
       return verifier(await sb.rpc('donner_avis', { p_type: type, p_message: message ?? null, p_ecran: ecran ?? null, p_parametre: parametre ?? null })) as number

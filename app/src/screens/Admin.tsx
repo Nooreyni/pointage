@@ -16,11 +16,14 @@ import { IcChevron } from '../components/Icones'
 import { Pagination, usePagination } from '../components/Pagination'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
 import { FenetreAvis, LIBELLES_AVIS, quand } from '../components/Avis'
+import Lancement from './Lancement'
+import Export from '../components/Export'
+import { telecharger, type Format } from '../lib/export'
 import type { Avis } from '../lib/types'
 
 const DOMAINES_CFB = ['centrefamilial.be', 'ceforbxl.be']
 
-export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal' | 'avis'
+export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal' | 'avis' | 'lancement'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -62,6 +65,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
   const sections: [Section, string][] = [
     ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
     ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'], ['journal', 'Journal'],
+    ['lancement', 'Lancement'],
     ...(estAdmin ? [['avis', 'Avis des testeurs'] as [Section, string]] : []),
   ]
 
@@ -82,6 +86,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh', 'direction'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
+        {section === 'lancement' && <Lancement api={api} personnes={personnes ?? []} erreur={erreur} setMessage={setMessage} onComptes={charger} />}
         {section === 'avis' && estAdmin && <AvisTesteurs api={api} personnes={personnes ?? []} erreur={erreur} setMessage={setMessage} onTesteurs={charger} />}
         {section === 'journal' && <><div className="grille-cartes"><EtatSysteme api={api} /><ErreursAppli api={api} /></div><Journal api={api} erreur={erreur} /></>}
       </div>
@@ -960,6 +965,7 @@ function AvisTesteurs({ api, personnes, erreur, setMessage, onTesteurs }: {
 }) {
   const [liste, setListe] = useState<Avis[] | null>(null)
   const [tout, setTout] = useState(false)
+  const [vueAvis, setVueAvis] = useState<'liste' | 'synthese'>('liste')
   const [ajout, setAjout] = useState('')
   const charger = useCallback(() => { api.avisRecus().then(setListe).catch(erreur) }, [api, erreur])
   useEffect(() => { charger() }, [charger])
@@ -972,6 +978,11 @@ function AvisTesteurs({ api, personnes, erreur, setMessage, onTesteurs }: {
     try { await api.definirTesteur(id, actif); setMessage({ texte: actif ? 'Testeur ajouté : la visite guidée s’ouvrira à sa prochaine connexion' : 'Testeur retiré' }); setAjout(''); onTesteurs() } catch (e) { erreur(e) }
   }
   const traiter = async (a: Avis, traite: boolean) => { try { await api.traiterAvis(a.id, traite); charger() } catch (e) { erreur(e) } }
+  const exporter = (format: Format) => telecharger(
+    [['Date', 'Personne', 'Rôle', 'Type', 'Écran', 'Réglage', 'Message', 'Traité le'],
+     ...(liste ?? []).map((a) => [quand(a.cree_le), `${a.prenom} ${a.nom}`, ROLES[a.role as Role] ?? a.role ?? '', LIBELLES_AVIS[a.type], a.ecran ?? '',
+       a.parametre_libelle ?? a.parametre ?? '', a.message ?? '', a.traite_le ? quand(a.traite_le) : ''])],
+    `avis-testeurs-${new Date().toISOString().slice(0, 10)}`, format, 'Avis des testeurs')
 
   return (
     <div className="grille-cartes">
@@ -996,8 +1007,16 @@ function AvisTesteurs({ api, personnes, erreur, setMessage, onTesteurs }: {
       <section className="carte col-pleine">
         <div className="ligne entre barre-outils">
           <h2>Avis reçus {ouverts.length > 0 && <span className="pilule attente">{ouverts.length} à traiter</span>}</h2>
-          <label className="case-a-cocher petit"><input type="checkbox" checked={tout} onChange={(e) => setTout(e.target.checked)} />Voir aussi les avis traités</label>
+          <span className="ligne">
+            <div className="segments compact" role="radiogroup" aria-label="Affichage">
+              <button type="button" role="radio" aria-checked={vueAvis === 'liste'} onClick={() => setVueAvis('liste')}>Liste</button>
+              <button type="button" role="radio" aria-checked={vueAvis === 'synthese'} onClick={() => setVueAvis('synthese')}>Synthèse</button>
+            </div>
+            <Export disabled={!liste?.length} onExporter={exporter} />
+          </span>
         </div>
+        {vueAvis === 'synthese' ? <SyntheseAvis avis={liste ?? []} /> : <>
+        <label className="case-a-cocher petit"><input type="checkbox" checked={tout} onChange={(e) => setTout(e.target.checked)} />Voir aussi les avis traités</label>
         {liste === null ? <div className="squelette">Chargement…</div> : !affiches.length ? <p className="doux petit">Aucun avis {tout ? '' : 'à traiter'} pour l’instant.</p> : (
           <ul className="liste-avis">
             {pager.items.map((a) => (
@@ -1015,7 +1034,63 @@ function AvisTesteurs({ api, personnes, erreur, setMessage, onTesteurs }: {
           </ul>
         )}
         <Pagination pager={pager} quoi="avis" />
+        </>}
       </section>
+    </div>
+  )
+}
+
+/**
+ * Synthèse des avis (tous, traités compris) : d'abord les réglages commentés (confirmés / à changer, avec les
+ * valeurs proposées), puis les écrans (problèmes, idées, questions, satisfaits). Pour préparer la réunion de retour.
+ */
+function SyntheseAvis({ avis }: { avis: Avis[] }) {
+  if (!avis.length) return <p className="doux petit">Aucun avis pour l’instant.</p>
+  const reglages = new Map<string, { libelle: string; ok: Avis[]; changer: Avis[] }>()
+  const ecrans = new Map<string, Record<'probleme' | 'idee' | 'question' | 'ok', Avis[]>>()
+  for (const a of avis) {
+    if (a.parametre) {
+      const r = reglages.get(a.parametre) ?? { libelle: a.parametre_libelle ?? a.parametre, ok: [], changer: [] }
+      if (a.type === 'reglage_ok') r.ok.push(a); else r.changer.push(a)
+      reglages.set(a.parametre, r)
+    } else if (a.type === 'probleme' || a.type === 'idee' || a.type === 'question' || a.type === 'ok') {
+      const k = a.ecran ?? 'Autre'
+      const e = ecrans.get(k) ?? { probleme: [], idee: [], question: [], ok: [] }
+      e[a.type].push(a); ecrans.set(k, e)
+    }
+  }
+  const noms = (l: Avis[]) => [...new Set(l.map((a) => a.prenom))].join(', ')
+  const triReglages = [...reglages.values()].sort((x, y) => y.changer.length - x.changer.length || x.libelle.localeCompare(y.libelle))
+  const triEcrans = [...ecrans.entries()].sort((x, y) => (y[1].probleme.length + y[1].idee.length) - (x[1].probleme.length + x[1].idee.length))
+  return (
+    <div className="pile synthese-avis">
+      {triReglages.length > 0 && <>
+        <h3>Réglages commentés <span className="doux petit">({triReglages.length})</span></h3>
+        <ul className="liste-avis">
+          {triReglages.map((r) => (
+            <li key={r.libelle}>
+              <div className="ligne entre"><strong>{r.libelle}</strong>
+                <span className="ligne">{r.ok.length > 0 && <span className="pilule ok" title={noms(r.ok)}>{r.ok.length} confirmé{r.ok.length > 1 ? 's' : ''}</span>}
+                  {r.changer.length > 0 && <span className="pilule attente" title={noms(r.changer)}>{r.changer.length} à changer</span>}</span></div>
+              {r.changer.map((a) => <p key={a.id} className="petit" style={{ margin: 0 }}>« {a.message} » <span className="doux">— {a.prenom}</span></p>)}
+            </li>
+          ))}
+        </ul>
+      </>}
+      {triEcrans.length > 0 && <>
+        <h3>Par écran <span className="doux petit">({triEcrans.length})</span></h3>
+        <ul className="liste-avis">
+          {triEcrans.map(([ecran, e]) => (
+            <li key={ecran}>
+              <div className="ligne entre"><strong>{ecran}</strong>
+                <span className="ligne">{(['probleme', 'idee', 'question', 'ok'] as const).filter((t) => e[t].length).map((t) => (
+                  <span key={t} className={`pilule ${t === 'probleme' ? 'attente' : t === 'ok' ? 'ok' : 'neutre'}`}>{e[t].length} · {LIBELLES_AVIS[t]}</span>))}</span></div>
+              {[...e.probleme, ...e.idee, ...e.question].filter((a) => a.message).map((a) => (
+                <p key={a.id} className="petit" style={{ margin: 0 }}><span className="doux">{LIBELLES_AVIS[a.type]} :</span> {a.message} <span className="doux">— {a.prenom}</span></p>))}
+            </li>
+          ))}
+        </ul>
+      </>}
     </div>
   )
 }

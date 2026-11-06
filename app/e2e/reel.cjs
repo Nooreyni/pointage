@@ -138,6 +138,23 @@ const verifier = (cond, message) => { if (!cond) throw new Error(message) }
     propre(page, 'fiche'); await page.close()
   })
 
+  await test('admin RH : lancement — suivi, création des comptes en lot, fiches de connexion', async () => {
+    const page = await connecter('ines.leroy@cfb.test')
+    await page.click('nav.nav button:has-text("Gestion")'); await page.click('.sous-nav button:has-text("Réglages")'); await page.waitForTimeout(600)
+    await page.click('[role=tablist][aria-label=Réglages] button:has-text("Lancement")'); await page.waitForSelector('.tuiles-lancement'); await page.waitForTimeout(800)
+    verifier(/Qui relancer/.test(await page.textContent('main')), 'suivi du lancement absent')
+    const puces = await page.$$('section:has(h2:has-text("Créer des comptes")) .puce')
+    verifier(puces.length > 0, 'aucune personne sans compte (la fiche créée juste avant devrait en être une)')
+    await puces[puces.length - 1].click(); await page.waitForTimeout(300)
+    await page.click('section:has(h2:has-text("Créer des comptes")) .bouton:has-text("Créer")')
+    await page.waitForSelector('.fiche-connexion', { timeout: 15000 })
+    verifier(/Test-CFB-2026/.test(await page.textContent('.fiches-connexion')), 'mot de passe absent de la fiche')
+    verifier(!!(await page.$('.fiche-connexion svg.qr')), 'QR code absent')
+    await page.click('.barre-fiches button:has-text("Fermer")'); await page.waitForTimeout(800)
+    verifier(/Tout le monde a un compte/.test(await page.textContent('main')), 'les comptes n’ont pas tous été créés')
+    propre(page, 'lancement'); await page.close()
+  })
+
   await test('RH : reprendre des soldes depuis un fichier (Dinclock)', async () => {
     const page = await connecter('nadia.benali@cfb.test')
     await page.click('nav.nav button:has-text("Gestion")'); await page.click('.sous-nav button:has-text("Personnes")'); await page.waitForSelector('.liste-personnes li')

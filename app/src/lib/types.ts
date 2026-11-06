@@ -19,6 +19,12 @@ export interface Profil {
   testeur?: boolean               // teste l'outil avant le pilote : visite guidée + bouton « Mon avis »
 }
 
+export interface LigneAdoption {
+  personne_id: string; prenom: string; nom: string; service: string; role: string; testeur: boolean
+  compte_cree_le: string | null; derniere_connexion: string | null; accueil_fait_le: string | null
+  appareils: number; dernier_pointage: string | null; pointages_7j: number; avis: number
+}
+export interface ComptesService { service_id: string; service: string; sans_compte: number; avec_compte: number }
 export type TypeAvis = 'probleme' | 'idee' | 'question' | 'ok' | 'reglage_ok' | 'reglage_changer'
 export interface Avis {
   id: number; type: TypeAvis; ecran: string | null; parametre: string | null; message: string | null; cree_le: string; traite_le: string | null
@@ -459,6 +465,8 @@ export interface Api {
   signalementsOuverts(): Promise<Signalement[]>
   traiterSignalement(id: number): Promise<void>
   santeSysteme(): Promise<SanteSysteme>
+  suiviAdoption(): Promise<LigneAdoption[]>
+  sansCompteParService(): Promise<ComptesService[]>
   donnerAvis(type: TypeAvis, message?: string, ecran?: string, parametre?: string): Promise<number>
   mesAvis(): Promise<Avis[]>
   avisRecus(): Promise<Avis[]>

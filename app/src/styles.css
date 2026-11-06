@@ -1086,3 +1086,49 @@ select.choix, .outils-personnes select { border: 1px solid var(--bord-fort); bor
 .liste-avis li.traite { opacity: .6; }
 .app-testeur .contenu { padding-bottom: 96px; }
 @media (max-width: 899px) { .app-testeur .contenu { padding-bottom: 150px; } }
+
+/* Lancement : suivi d'adoption, création de comptes en lot */
+@media (min-width: 900px) { .tuiles.tuiles-lancement { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.col-case { width: 36px; }
+.col-case input { width: 18px; height: 18px; }
+.actions-selection { flex-wrap: wrap; gap: 8px; }
+.liste-cases { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; max-height: 340px; overflow-y: auto; }
+@media (min-width: 900px) { .liste-cases { grid-template-columns: 1fr 1fr; } }
+.liste-cases .case-a-cocher { padding: 6px 4px; }
+
+/* Fiches de connexion : aperçu à l'écran, 4 par page A4 à l'impression */
+.fiches-connexion { position: fixed; inset: 0; z-index: var(--z-voile); background: var(--fond); overflow-y: auto; }
+.barre-fiches {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  background: var(--carte); border-bottom: 1px solid var(--bord);
+}
+.pages-fiches { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; padding: 16px max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left)); max-width: 1000px; margin: 0 auto; }
+.fiche-connexion {
+  background: #fff; color: #16213E; border: 1px dashed #9AA4BF; border-radius: 12px; padding: 18px 20px;
+  display: grid; gap: 12px; align-content: start; break-inside: avoid;
+}
+.fiche-connexion header { display: grid; gap: 2px; }
+.fiche-connexion .marque-fiche { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #223A87; }
+.fiche-connexion h2 { margin: 0; font-family: var(--titre); font-size: 22px; }
+.corps-fiche { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.corps-fiche ol { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 14.5px; }
+.corps-fiche dl { margin: 6px 0 4px; display: grid; gap: 4px; }
+.corps-fiche dl div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px; }
+.corps-fiche dt { color: #5B6683; font-size: 13px; }
+.corps-fiche dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.corps-fiche dd.mdp { font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: 17px; letter-spacing: .04em; }
+.fiche-connexion .doux { color: #5B6683; }
+.fiche-connexion footer { font-size: 12px; color: #5B6683; border-top: 1px solid #E2E7F1; padding-top: 8px; }
+.qr { display: block; }
+@media (max-width: 480px) { .corps-fiche { grid-template-columns: 1fr; } }
+@media print {
+  body.impression-fiches #root { display: none; }
+  body.impression-fiches .fiches-connexion { position: static; overflow: visible; background: #fff; }
+  body.impression-fiches .barre-fiches { display: none; }
+  body.impression-fiches .pages-fiches { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; padding: 0; max-width: none; }
+  body.impression-fiches .fiche-connexion { height: 128mm; overflow: hidden; }
+  body.impression-fiches .fiche-connexion:nth-child(4n) { break-after: page; }
+  @page { size: A4; margin: 10mm; }
+}
+.barre-fiches .texte-ligne { display: grid; gap: 2px; min-width: 0; flex: 1 1 260px; }

@@ -99,6 +99,7 @@ http.createServer(async (req, res) => {
         ? await pool.query('select id, email, email_confirmed_at from auth.users where email = $1', [email])
         : await pool.query('select id, email, email_confirmed_at from auth.users where id = $1', [String(b.refresh_token || '').slice(2)])
       if (!r.rows[0] || (email !== null && b.password !== MDP)) return repondre(res, 400, { error: 'invalid_grant', error_description: 'Invalid login credentials', msg: 'Invalid login credentials' })
+      if (email !== null) await pool.query('update auth.users set last_sign_in_at = now() where id = $1', [r.rows[0].id])
       return repondre(res, 200, session(r.rows[0]))
     }
     if (u.pathname === '/auth/v1/user') {
@@ -108,6 +109,25 @@ http.createServer(async (req, res) => {
     }
     if (u.pathname === '/auth/v1/logout') return repondre(res, 204)
     if (u.pathname.startsWith('/auth/v1/factors')) return repondre(res, 501, { msg: 'Double authentification non simulée en test local' })
+    // --- Fonction gerer-comptes (création de compte par la RH) : mêmes contrôles que la vraie, mot de passe de test
+    if (u.pathname === '/functions/v1/gerer-comptes' && req.method === 'POST') {
+      if (!claims) return repondre(res, 401, { erreur: 'Non connecté' })
+      const { personne_id } = await corps(req)
+      let p
+      try { p = await rpc(claims, 'preparer_compte', { p_personne: personne_id }) } catch (e) { return repondre(res, 403, { erreur: e.message }) }
+      let compte = p.compte
+      if (!compte) {
+        const n = await pool.query(`insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ($1, now(), '{"provider":"email","providers":["email"]}') returning id`, [p.email])
+        compte = n.rows[0].id
+      }
+      // Comme la vraie fonction : appel avec la clé service (jeton « service_role »)
+      const c = await pool.connect()
+      try {
+        await c.query('begin'); await c.query(`select set_config('request.jwt.claims', '{"role":"service_role"}', true)`)
+        await c.query('select public.attacher_compte($1, $2, $3)', [p.personne_id, compte, p.acteur]); await c.query('commit')
+      } catch (e) { await c.query('rollback').catch(() => {}); throw e } finally { c.release() }
+      return repondre(res, 200, { email: p.email, nom: p.nom, mot_de_passe: MDP, cree: !p.compte })
+    }
     // --- Fonctions serveur et fichiers : non simulés
     if (u.pathname.startsWith('/functions/v1/') || u.pathname.startsWith('/storage/v1/')) return repondre(res, 501, { erreur: 'Non disponible en test local' })
     // --- API de données (sous-ensemble PostgREST)

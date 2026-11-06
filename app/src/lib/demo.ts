@@ -1,6 +1,6 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
-import type { Avis, Acces, Signalement, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { Avis, ComptesService, LigneAdoption, Acces, Signalement, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
   ApercuDepart, LigneCpas, LigneMensuelle, Modification, MouvementCompteur, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
@@ -839,6 +839,27 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return { ok: true, problemes: [], verifie_le: new Date().toISOString(),
                avertissements: [{ code: 'sans_canal', titre: '3 notification(s) non délivrée(s) sur 24 h', detail: '2 personne(s) sans notifications activées ni e-mail de secours' }],
                derniers_passages: { 'cfb-envoi': il(3), 'cfb-rappels': il(11), 'cfb-surveillance': il(42), 'cfb-conservation': il(600), 'cfb-anonymisation': il(576) } }
+    },
+    async suiviAdoption() {
+      exigerGestion()
+      const il = (j: number, h = 8) => new Date(Date.now() - j * 86_400_000 - h * 3_600_000).toISOString()
+      return adminP.filter((a) => a.compte_lie && !a.date_sortie).map((a, i): LigneAdoption => {
+        const jamais = i % 9 === 4, sansPointage = !jamais && i % 7 === 3
+        return { personne_id: a.id, prenom: a.prenom, nom: a.nom, service: a.service, role: a.role, testeur: false,
+                 compte_cree_le: il(12), derniere_connexion: jamais ? null : il(i % 4), accueil_fait_le: jamais || i % 5 === 1 ? null : il(10),
+                 appareils: jamais || i % 3 === 0 ? 0 : 1, dernier_pointage: jamais || sansPointage ? null : il(i % 3, 1),
+                 pointages_7j: jamais || sansPointage ? 0 : 6 + (i % 5), avis: i % 11 === 2 ? 1 : 0 }
+      })
+    },
+    async sansCompteParService() {
+      exigerGestion()
+      const m = new Map<string, ComptesService>()
+      for (const a of adminP.filter((x) => !x.date_sortie)) {
+        const c = m.get(a.service_id) ?? { service_id: a.service_id, service: a.service, sans_compte: 0, avec_compte: 0 }
+        if (a.compte_lie) c.avec_compte++; else c.sans_compte++
+        m.set(a.service_id, c)
+      }
+      return [...m.values()].sort((x, y) => x.service.localeCompare(y.service))
     },
     async donnerAvis(type, message, ecran, parametre) {
       if (['probleme', 'idee', 'question', 'reglage_changer'].includes(type) && !message?.trim()) throw new Error('Écris quelques mots')

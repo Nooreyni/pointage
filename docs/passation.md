@@ -25,7 +25,7 @@ schéma privé `pointage`.
   Workers Builds : branche `main`, commande de build `npm run build`, déploiement `npx wrangler deploy` (marche depuis la
   racine ou depuis `app/`). Sans variables, le build se relie au projet **dev** (`app/.env.production`) ; en production,
   définir `VITE_SUPABASE_URL`, `VITE_SUPABASE_KEY`, `VITE_CONNEXION_DEV=0`, `VITE_MODE_DEMO=0` dans les variables de build.
-- **Microsoft Entra ID** (connexion Microsoft, e-mails) : inscription d'application gérée par l'IT du CFB.
+- **Microsoft Entra ID** (connexion Microsoft, e-mails) : inscription d'application gérée par l'IT du CFB — pas à pas dans `docs/connexion-microsoft.md` (secrets valables 24 mois : à renouveler).
 - Aucun secret n'est dans le dépôt. Les clés d'envoi sont dans la table `pointage.configuration` (jamais exposée).
 
 ## 3. Mise en production (première fois)
@@ -63,6 +63,7 @@ schéma privé `pointage`.
 | Qui a modifié quoi | Gestion › Réglages › Journal |
 | Notifications qui ne partent plus | `select pointage.reveiller_envoi();` puis `select status_code, content from net._http_response order by id desc limit 3;` |
 | Restaurer | Supabase › Database › Backups (plan Pro : quotidien ; PITR en option) |
+| Lancer un service (comptes, fiches, relances) | Réglages › Lancement : créer les comptes d'un service en une fois et imprimer les fiches de connexion (QR) ; voir qui ne s'est jamais connecté, ne pointe pas ou n'a pas les notifications, et le relancer |
 | Faire tester l'outil (avant un lancement, un nouveau service) | Réglages › Avis des testeurs : désigner les testeurs, lire leurs avis, « Traité ». Le testeur a une visite guidée, un bouton « Mon avis » et « Commenter » sur chaque réglage |
 | L'outil tourne-t-il bien ? | Réglages › Journal › « État du système » (tâches planifiées, envois, erreurs). Vérifié toutes les heures (`cfb-surveillance`) ; alerte à l'admin général si problème, une fois par jour et par problème |
 | Un écran plante chez quelqu'un | Réglages › Journal › « Erreurs de l'appli » (remontées automatiquement, 7 derniers jours) |
