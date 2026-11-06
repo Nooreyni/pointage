@@ -1012,6 +1012,21 @@ select test.ok(exists (select 1 from public.personnes where id = :'pid_iris'), '
 select test.ok(exists (select 1 from public.presence_jour() where personne_id = :'pid_iris'), 'Compte créé : dans l''équipe du jour');
 reset role;
 
+-- ===================== Chef de service sans compte : les demandes remontent à la direction =====================
+insert into pointage.services (nom, parent_id) values ('Service test sans chef actif', 'a0000000-0000-0000-0000-000000000001');
+insert into pointage.personnes (prenom, nom, email, role, type, service_id, date_entree)
+select 'Chef', 'Sanscompte', 'chef.sanscompte@cfb.test', 'employe', 'interne', id, '2026-01-05' from pointage.services where nom = 'Service test sans chef actif';
+insert into pointage.personnes (prenom, nom, email, role, type, service_id, date_entree)
+select 'Agent', 'Aveccompte', 'agent.aveccompte@cfb.test', 'employe', 'interne', id, '2026-01-05' from pointage.services where nom = 'Service test sans chef actif';
+insert into pointage.responsables_service (service_id, personne_id)
+select s.id, p.id from pointage.services s, pointage.personnes p where s.nom = 'Service test sans chef actif' and p.email = 'chef.sanscompte@cfb.test';
+select test.ok((select array_agg(v) = array[test.pid('Claire')] from pointage.valideurs_n1(test.pid('Agent'), pointage.aujourdhui()) v),
+  'Chef sans compte : la demande remonte à la direction');
+insert into auth.users (email, email_confirmed_at, raw_app_meta_data) values ('chef.sanscompte@cfb.test', now(), '{"provider":"email","providers":["email"]}');
+update pointage.personnes p set auth_user_id = u.id from auth.users u where u.email = p.email and p.email = 'chef.sanscompte@cfb.test';
+select test.ok((select array_agg(v) = array[test.pid('Chef')] from pointage.valideurs_n1(test.pid('Agent'), pointage.aujourdhui()) v),
+  'Chef avec compte : la demande va au chef');
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

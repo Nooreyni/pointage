@@ -4,13 +4,6 @@ import { IcMicrosoft } from '../components/Icones'
 
 const COMPTES_DEV = [
   ['adminit.cfb@centrefamilial.be', 'Admin général (tous les droits)'],
-  ['sofia.janssens@cfb.test', 'Sofia — employée (Administration)'],
-  ['yanis.peeters@cfb.test', 'Yanis — employé temps partiel'],
-  ['marc.dupont@cfb.test', 'Marc — chef de service'],
-  ['jordan.kabongo@cfb.test', 'Jordan — ISP'],
-  ['nadia.benali@cfb.test', 'Nadia — RH'],
-  ['ines.leroy@cfb.test', 'Inès — admin RH'],
-  ['claire.lambert@cfb.test', 'Claire — direction'],
 ]
 
 export default function Connexion({ onDemo }: { onDemo: () => void }) {
