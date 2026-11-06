@@ -4,12 +4,13 @@ import type { Api, Notif } from '../lib/types'
 import { dateCourte, decalerJour, heure, jourBxl } from '../lib/temps'
 import NotifAppareil from '../components/NotifAppareil'
 
-export type Destination = 'pointer' | 'conges' | 'conges-valider' | 'rh' | 'equipe' | 'compte' | `fiche:${string}`
-type Famille = 'pointage' | 'conges' | 'equipe'
+export type Destination = 'pointer' | 'conges' | 'conges-valider' | 'rh' | 'equipe' | 'compte' | 'reglages-journal' | `fiche:${string}`
+type Famille = 'pointage' | 'conges' | 'equipe' | 'systeme'
 
-const FAMILLES: Record<Famille, string> = { pointage: 'Pointages', conges: 'Congés', equipe: 'Mon équipe' }
+const FAMILLES: Record<Famille, string> = { pointage: 'Pointages', conges: 'Congés', equipe: 'Mon équipe', systeme: 'Système' }
 
 function familleDe(type: string): Famille {
+  if (type === 'alerte_technique') return 'systeme'
   if (['demande_a_traiter', 'demande_decidee', 'demande_annulee', 'relance_demande'].includes(type)) return 'conges'
   if (['fin_mois_equipe', 'correction_pointage', 'pointage_differe', 'info_fausse'].includes(type)) return 'equipe'
   return 'pointage'
@@ -24,6 +25,7 @@ function action(n: Notif): [string, Destination] | null {
     case 'fin_mois_equipe': case 'correction_pointage': case 'pointage_differe': return ['Voir l’équipe', 'equipe']
     case 'info_fausse': return n.lien ? ['Ouvrir sa fiche', `fiche:${n.lien}`] : null
     case 'info_corrigee': return ['Mon compte', 'compte']
+    case 'alerte_technique': return ['Voir l’état', 'reglages-journal']
     default: return null
   }
 }

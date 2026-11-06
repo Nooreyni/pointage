@@ -175,6 +175,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
     if (g) setDernieres((d) => ({ ...d, [g]: o }))
   }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider')
+    : d === 'reglages-journal' ? naviguer({ vers: 'reglages', section: 'journal' })
     : d.startsWith('fiche:') ? naviguer({ vers: 'personne', id: d.slice(6), onglet: 'identite' }) : aller(d as Onglet))
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()

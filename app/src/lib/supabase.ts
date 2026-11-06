@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ApercuDepart, Horaire, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ApercuDepart, Horaire, SanteSysteme, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -415,6 +415,9 @@ export function apiSupabase(): Api {
     },
     async traiterSignalement(id) {
       verifier(await sb.rpc('traiter_signalement', { p_id: id }))
+    },
+    async santeSysteme() {
+      return verifier(await sb.rpc('sante_systeme')) as SanteSysteme
     },
     async servicesSuivis() {
       return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]

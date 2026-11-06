@@ -4,12 +4,11 @@ import { Pagination, usePagination } from '../components/Pagination'
 import { libelleChamp } from '../components/SignalerInfo'
 import Toast from '../components/Toast'
 import { LienPersonne, useNav } from '../lib/navigation'
-import type { AnomalieRH, Api, Signalement, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges,
-  TypeDemande } from '../lib/types'
+import type { AnomalieRH, Api, Signalement, StatsDirection, CodeAbsence, Demande, EtatCloture, HeureAValider, Personne, PropositionConges } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import Justificatif from '../components/Justificatif'
-import { dateCourte, duree, hhmm, isoBxl, jourBxl } from '../lib/temps'
-import Fenetre from '../components/Fenetre'
+import { dateCourte, duree, isoBxl, jourBxl } from '../lib/temps'
+import { FenetreAbsence, FenetrePointage } from '../components/Regularisation'
 
 type Message = { texte: string; erreur?: boolean }
 type Action = { type: 'pointage' | 'absence'; personne?: Personne; jour?: string; incomplet?: boolean } | null
@@ -380,99 +379,6 @@ function CongesAnnuels({ api, onFait, onErreur }: { api: Api; onFait: (n: number
 
 // ---------------------------------------------------------------------------
 
-const enMinutes = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
-
-function FenetrePointage({ personne, jour, incomplet, onFermer, onValider }: {
-  personne: Personne; jour: string; incomplet: boolean; onFermer: () => void
-  onValider: (c: ['entree' | 'sortie', number][], motif: string) => Promise<void>
-}) {
-  const [entree, setEntree] = useState(hhmm(510))
-  const [sortie, setSortie] = useState(hhmm(1020))
-  const [motif, setMotif] = useState('')
-  const [enCours, setEnCours] = useState(false)
-  return (
-    <Fenetre titre={`${personne.prenom} ${personne.nom} — ${dateCourte(jour)}`} onFermer={onFermer}>
-      <form onSubmit={async (e) => {
-        e.preventDefault(); setEnCours(true)
-        await onValider(incomplet ? [['sortie', enMinutes(sortie)]] : [['entree', enMinutes(entree)], ['sortie', enMinutes(sortie)]], motif)
-        setEnCours(false)
-      }}>
-        <p className="doux petit">Correction RH : ajoutée immédiatement et tracée dans le journal d’audit.</p>
-        {!incomplet && <label className="champ">Entrée<input id="rh-entree" type="time" value={entree} onChange={(e) => setEntree(e.target.value)} required /></label>}
-        <label className="champ">Sortie<input id="rh-sortie" type="time" value={sortie} onChange={(e) => setSortie(e.target.value)} required /></label>
-        <label className="champ">Motif<input id="rh-motif" value={motif} maxLength={500} placeholder="Ex. confirmé par le chef de service"
-                                              onChange={(e) => setMotif(e.target.value)} /></label>
-        <div className="actions">
-          <button type="button" className="bouton secondaire" onClick={onFermer}>Annuler</button>
-          <button className="bouton" disabled={enCours || (!incomplet && enMinutes(sortie) <= enMinutes(entree))}>{enCours ? 'Envoi…' : 'Enregistrer'}</button>
-        </div>
-      </form>
-    </Fenetre>
-  )
-}
-
-function FenetreAbsence({ personnes, codes, personne, jour, onFermer, onValider }: {
-  personnes: Personne[]; codes: CodeAbsence[]; personne?: Personne; jour?: string; onFermer: () => void
-  onValider: (personneId: string, s: { type: TypeDemande; code_absence: string; debut: string; fin: string;
-                                         demi: 'matin' | 'apres_midi' | null; minutes: number | null; commentaire: string | null }) => Promise<void>
-}) {
-  const [personneId, setPersonneId] = useState(personne?.id ?? '')
-  const [code, setCode] = useState('MAL')
-  const [type, setType] = useState<TypeDemande>('conge_jours')
-  const [debut, setDebut] = useState(jour ?? jourBxl())
-  const [fin, setFin] = useState(jour ?? jourBxl())
-  const [demi, setDemi] = useState<'matin' | 'apres_midi'>('matin')
-  const [heures, setHeures] = useState('02:00')
-  const [commentaire, setCommentaire] = useState('')
-  const [enCours, setEnCours] = useState(false)
-  // Codes encodés par la RH d'abord (maladie, AT…), puis les autres
-  const tries = [...codes].sort((a, b) => Number(a.demandable) - Number(b.demandable) || a.ordre - b.ordre)
-
-  return (
-    <Fenetre titre="Encoder une absence" onFermer={onFermer}>
-      <form onSubmit={async (e) => {
-        e.preventDefault(); setEnCours(true)
-        await onValider(personneId, { type, code_absence: code, debut, fin: type === 'conge_jours' ? (fin < debut ? debut : fin) : debut,
-                                      demi: type === 'conge_demi_jour' ? demi : null,
-                                      minutes: type === 'conge_heures' ? enMinutes(heures) : null, commentaire: commentaire.trim() || null })
-        setEnCours(false)
-      }}>
-        <label className="champ">Personne
-          <select id="abs-personne" value={personneId} onChange={(e) => setPersonneId(e.target.value)} required>
-            <option value="" disabled>Choisir…</option>
-            {personnes.map((p) => <option key={p.id} value={p.id}>{p.nom} {p.prenom} — {p.service}</option>)}
-          </select>
-        </label>
-        <label className="champ">Motif
-          <select id="abs-code" value={code} onChange={(e) => setCode(e.target.value)}>
-            {tries.map((c) => <option key={c.code} value={c.code}>{c.libelle}{c.code_court ? ` (${c.code_court})` : ''}</option>)}
-          </select>
-        </label>
-        <div className="segments" role="radiogroup" aria-label="Durée">
-          {([['conge_jours', 'Jour(s)'], ['conge_demi_jour', '½ journée'], ['conge_heures', 'Heures']] as const).map(([v, l]) => (
-            <button key={v} type="button" role="radio" aria-checked={type === v} onClick={() => setType(v)}>{l}</button>
-          ))}
-        </div>
-        <div className="champs-ligne">
-          <label className="champ">{type === 'conge_jours' ? 'Du' : 'Le'}
-            <input id="abs-debut" type="date" value={debut} required onChange={(e) => { setDebut(e.target.value); if (fin < e.target.value) setFin(e.target.value) }} /></label>
-          {type === 'conge_jours' && <label className="champ">Au<input id="abs-fin" type="date" value={fin} min={debut} required onChange={(e) => setFin(e.target.value)} /></label>}
-          {type === 'conge_demi_jour' && <label className="champ">Moment
-            <select id="abs-demi" value={demi} onChange={(e) => setDemi(e.target.value as 'matin' | 'apres_midi')}>
-              <option value="matin">Matin</option><option value="apres_midi">Après-midi</option></select></label>}
-          {type === 'conge_heures' && <label className="champ">Durée<input id="abs-heures" type="time" value={heures} onChange={(e) => setHeures(e.target.value)} /></label>}
-        </div>
-        <label className="champ">Commentaire (facultatif)
-          <input id="abs-commentaire" value={commentaire} maxLength={1000} placeholder="Ex. certificat reçu le 03/11" onChange={(e) => setCommentaire(e.target.value)} /></label>
-        <p className="doux petit">Le motif est visible par la RH, la direction et le N+1. Les collègues voient seulement « Absent ».</p>
-        <div className="actions">
-          <button type="button" className="bouton secondaire" onClick={onFermer}>Annuler</button>
-          <button className="bouton" disabled={enCours || !personneId}>{enCours ? 'Envoi…' : 'Encoder'}</button>
-        </div>
-      </form>
-    </Fenetre>
-  )
-}
 
 
 // Absences accordées dont le justificatif requis manque (3 derniers mois) : joindre ou relancer la personne

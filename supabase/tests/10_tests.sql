@@ -1027,6 +1027,24 @@ update pointage.personnes p set auth_user_id = u.id from auth.users u where u.em
 select test.ok((select array_agg(v) = array[test.pid('Chef')] from pointage.valideurs_n1(test.pid('Agent'), pointage.aujourdhui()) v),
   'Chef avec compte : la demande va au chef');
 
+-- ===================== Surveillance : l'IT est prévenue des pannes silencieuses =====================
+select test.ok((pointage.verifier_sante(now())->>'ok')::boolean, 'Surveillance : tout va bien au départ');
+insert into pointage.erreurs_appli (personne_id, ecran, message) select test.pid('Sofia'), 'pointer', 'TypeError ' || g from generate_series(1, 10) g;
+select test.ok(not (pointage.verifier_sante(now())->>'ok')::boolean, 'Surveillance : une rafale d''erreurs est un problème');
+select test.ok(pointage.surveiller(now()) >= 1, 'Surveillance : alerte envoyée');
+select test.ok(test.notifs('Admin', 'alerte_technique') = 1, 'Surveillance : l''admin général est alerté');
+select pointage.surveiller(now());
+select test.ok(test.notifs('Admin', 'alerte_technique') = 1, 'Surveillance : pas de doublon dans la journée');
+insert into pointage.notifications (personne_id, type, cle, titre, envoi_termine_le, envoi_erreur)
+values (test.pid('Sofia'), 'test', 'test-sans-canal', 'x', now(), 'aucun canal disponible (ni appareil ni e-mail)');
+select test.ok(jsonb_array_length(pointage.verifier_sante(now())->'avertissements') = 1, 'Surveillance : notifications sans canal signalées (avertissement)');
+select test.connecte('Inès'); set role authenticated;
+select test.ok(not (public.sante_systeme()->>'ok')::boolean, 'Surveillance : état visible par l''admin RH');
+reset role;
+select test.connecte('Sofia'); set role authenticated;
+select test.erreur('select public.sante_systeme()', 'Surveillance : état réservé à l''admin et l''admin RH', 'réservée');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

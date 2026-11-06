@@ -63,6 +63,7 @@ schéma privé `pointage`.
 | Qui a modifié quoi | Gestion › Réglages › Journal |
 | Notifications qui ne partent plus | `select pointage.reveiller_envoi();` puis `select status_code, content from net._http_response order by id desc limit 3;` |
 | Restaurer | Supabase › Database › Backups (plan Pro : quotidien ; PITR en option) |
+| L'outil tourne-t-il bien ? | Réglages › Journal › « État du système » (tâches planifiées, envois, erreurs). Vérifié toutes les heures (`cfb-surveillance`) ; alerte à l'admin général si problème, une fois par jour et par problème |
 | Un écran plante chez quelqu'un | Réglages › Journal › « Erreurs de l'appli » (remontées automatiquement, 7 derniers jours) |
 | Reprendre les soldes de Dinclock | Gestion › Personnes › Reprendre des soldes (CSV : email ; compteur ; solde ; date) |
 

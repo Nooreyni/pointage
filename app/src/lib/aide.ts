@@ -24,7 +24,7 @@ export const AIDE: EcranAide[] = [
   ] },
   { id: 'heures', titre: 'Mon mois · Heures', enBref: 'Ta fiche de temps : heures prestées, boni, absences et le détail jour par jour.', questions: [
     { q: 'Qu’est-ce que le boni ?', r: 'La différence entre ce que tu as presté et ce que ton régime prévoit. Positif : tu as plus presté ; négatif : moins.' },
-    { q: 'Un jour est « À régulariser ».', r: 'Il manque un pointage ce jour-là. Corrige-le depuis l’écran Pointer, ou demande à la RH s’il s’agit d’une absence.' },
+    { q: 'Un jour est « À régulariser ».', r: 'Il manque un pointage ce jour-là. Appuie sur « À régulariser » dans le tableau pour indiquer tes heures, ou demande à la RH s’il s’agit d’une absence.' },
     { q: 'Exporter ou imprimer', r: 'Boutons « Imprimer » et « Exporter » (Excel, CSV, XML) au-dessus du tableau jour par jour.' },
     { q: 'Voir la fiche d’une personne de mon équipe', r: 'Le menu « Moi » en haut de la fiche permet de choisir une personne de ton équipe.', pour: 'responsable' },
   ] },
@@ -45,7 +45,7 @@ export const AIDE: EcranAide[] = [
     { q: 'Exporter le récap', r: 'Bouton « Exporter » : Excel, CSV ou XML.' },
   ] },
   { id: 'rh', titre: 'Gestion · Suivi RH', pour: 'gestion', enBref: 'Le quotidien RH : indicateurs du mois, pointages à régulariser, congés à constater, clôture.', questions: [
-    { q: 'Régulariser un pointage', r: 'Sous « Pointages à régulariser » : « Ajouter la sortie », « Ajouter les heures » ou « Encoder une absence ». C’est tracé dans le journal.' },
+    { q: 'Régulariser un pointage', r: 'Sous « Pointages à régulariser » : « Ajouter la sortie », « Ajouter les heures » ou « Encoder une absence ». Aussi depuis la fiche de temps d’une personne (Mon mois › Heures) : appuie sur « À régulariser ». C’est tracé dans le journal.' },
     { q: 'Une personne signale une info fausse', r: 'Carte « Infos à corriger » (et une alerte) : ouvre sa fiche, corrige, puis « Corrigé » ; la personne est prévenue.' },
     { q: 'Encoder une maladie', r: 'Carte « Encoder une absence » › Nouvelle absence. L’absence est accordée directement.' },
     { q: 'Clôturer le mois', r: 'Carte « Clôture du mois » : les points à vérifier s’affichent avant. Après clôture, plus de correction possible sur ce mois.' },
@@ -67,6 +67,7 @@ export const AIDE: EcranAide[] = [
     { q: 'Changer une règle', r: 'Paramètres : chaque fonction a son interrupteur ou sa valeur. « À confirmer » signale une valeur provisoire.' },
     { q: 'Désigner un chef de service', r: 'Services › le service › coche le ou les chefs.' },
     { q: 'Qui a modifié quoi ?', r: 'Journal : toutes les modifications, avec l’auteur et la date.' },
+    { q: 'L’outil fonctionne-t-il bien ?', r: 'Journal › « État du système » : tâches automatiques, envois des notifications, erreurs. Vérifié toutes les heures ; en cas de problème, l’admin général reçoit une alerte (une fois par jour et par problème).' },
   ] },
   { id: 'alertes', titre: 'Alertes', enBref: 'Tes notifications : décisions sur tes demandes, rappels, oublis de pointage.', questions: [
     { q: 'Recevoir les rappels sur mon téléphone', r: 'Active les notifications sur cet appareil (bouton en haut des alertes). Sinon, un e-mail est envoyé en secours.' },

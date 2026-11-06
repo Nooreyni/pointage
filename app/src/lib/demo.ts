@@ -826,6 +826,13 @@ export function apiDemo(persona: Persona = 'employe'): Api {
       return 2
     },
     async mesSignalements() { return signalements.filter((x) => x.personne_id === profil.id).slice(0, 5) },
+    async santeSysteme() {
+      if (!['admin', 'rh'].includes(persona)) throw new Error('Action réservée à : admin, admin_rh')
+      const il = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
+      return { ok: true, problemes: [], verifie_le: new Date().toISOString(),
+               avertissements: [{ code: 'sans_canal', titre: '3 notification(s) non délivrée(s) sur 24 h', detail: '2 personne(s) sans notifications activées ni e-mail de secours' }],
+               derniers_passages: { 'cfb-envoi': il(3), 'cfb-rappels': il(11), 'cfb-surveillance': il(42), 'cfb-conservation': il(600), 'cfb-anonymisation': il(576) } }
+    },
     async signalementsOuverts() {
       if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
       return signalements.filter((x) => !x.traite_le)

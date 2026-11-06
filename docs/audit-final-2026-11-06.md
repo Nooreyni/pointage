@@ -123,10 +123,12 @@ automatiques Supabase, test de charge, relecture du dépôt et des documents. No
 9. Format Partena ; inscription Entra ID (connexion Microsoft + e-mails).
 10. Avis juridique : information du personnel, règlement de travail, conservation des IP.
 
-**Améliorations proposées (je peux les faire)**
-- Changement de mot de passe **obligatoire** à la première connexion.
-- **Alerte à l'IT** si l'envoi des notifications ou une tâche planifiée échoue.
-- « À régulariser » cliquable dans la fiche de temps (RH) ; carte « Bienvenue » masquée après le parcours d'accueil.
+**Améliorations proposées**
+- Changement de mot de passe **obligatoire** à la première connexion — non retenu pour l'instant.
+- ✅ (06/11) **Alerte à l'IT** si l'envoi des notifications ou une tâche planifiée échoue : vérification toutes les heures
+  (`cfb-surveillance`), alerte à l'admin général, « État du système » dans Réglages › Journal (migration 39). Couvre R7.
+- ✅ (06/11) « À régulariser » cliquable dans la fiche de temps (soi-même, RH, direction, admin) ; carte « Bienvenue »
+  masquée une fois le parcours d'accueil terminé.
 
 ## 5. Preuves
 
@@ -140,3 +142,5 @@ automatiques Supabase, test de charge, relecture du dépôt et des documents. No
 | Typage TypeScript | 0 erreur |
 | Dépendances vulnérables | 0 |
 | Migrations dev = dépôt | 38 / 38 |
+
+_Mise à jour 06/11 après les améliorations : tests SQL 346 / 346, migrations dev = dépôt 39 / 39, e2e démo 17 / 17, e2e réel 24 / 24._

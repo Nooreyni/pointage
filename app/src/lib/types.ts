@@ -18,6 +18,8 @@ export interface Profil {
   accueil_fait_le?: string | null // parcours d'accueil terminé (ou passé)
 }
 
+export interface ProblemeSante { code: string; titre: string; detail?: string }
+export interface SanteSysteme { ok: boolean; problemes: ProblemeSante[]; avertissements: ProblemeSante[]; derniers_passages: Record<string, string | null>; verifie_le: string }
 export type ChampSignale = 'nom' | 'email' | 'service' | 'role' | 'regime' | 'horaire' | 'autre'
 export interface Signalement { id: number; champ: ChampSignale; message: string | null; cree_le: string; traite_le?: string | null
   personne_id?: string; prenom?: string; nom?: string; service?: string }
@@ -449,6 +451,7 @@ export interface Api {
   mesSignalements(): Promise<Signalement[]>
   signalementsOuverts(): Promise<Signalement[]>
   traiterSignalement(id: number): Promise<void>
+  santeSysteme(): Promise<SanteSysteme>
   deposerJustificatif(d: Demande, fichier: File): Promise<void>
   justificatifsManquants(): Promise<Demande[]>
   lienJustificatif(chemin: string): Promise<string>

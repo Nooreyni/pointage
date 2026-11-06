@@ -10,7 +10,7 @@ import { IcAttention, IcCheck, IcChevron, IcEntree, IcErreur, IcSortie } from '.
 import Equipe from './Equipe'
 import ActionsDuJour, { type CibleAction } from '../components/ActionsDuJour'
 import NotifAppareil from '../components/NotifAppareil'
-import { useDialogue } from '../components/useDialogue'
+import { Correction } from '../components/Regularisation'
 
 // Valeurs de secours tant que les paramètres serveur ne sont pas chargés
 const DEFAUTS = { pause_midi_min: 30, pause_seuil_min: 360, heure_entree_defaut: 510, heure_sortie_defaut: 1020 }
@@ -210,7 +210,7 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
         </section>
       )}
 
-      {onAide && <Bienvenue profil={profil} onAide={onAide} />}
+      {onAide && !profil.accueil_fait_le && <Bienvenue profil={profil} onAide={onAide} />}
       <InviteInstallation />
     </>
   )
@@ -315,38 +315,6 @@ export default function Pointer({ api, profil, enLigne, onVoirEquipe, onVoirMois
   )
 }
 
-function Correction({ anomalie, hEntree, hSortie, onFermer, onValider }: {
-  anomalie: Anomalie; hEntree: number; hSortie: number
-  onFermer: () => void; onValider: (c: [Sens, number][], motif: string) => Promise<void>
-}) {
-  const absent = anomalie.code === 'absent'
-  const [entree, setEntree] = useState(hhmm(hEntree))
-  const [sortie, setSortie] = useState(hhmm(hSortie))
-  const [motif, setMotif] = useState('')
-  const [enCours, setEnCours] = useState(false)
-  const min = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + m }
-  const dialogue = useDialogue<HTMLFormElement>(onFermer)
-
-  return (
-    <div className="voile" role="dialog" aria-modal="true" aria-labelledby="titre-correction" onClick={onFermer}>
-      <form className="fenetre" ref={dialogue} onClick={(e) => e.stopPropagation()} onSubmit={async (e) => {
-        e.preventDefault(); setEnCours(true)
-        await onValider(absent ? [['entree', min(entree)], ['sortie', min(sortie)]] : [['sortie', min(sortie)]], motif)
-        setEnCours(false)
-      }}>
-        <h2 id="titre-correction">Corriger le {dateCourte(anomalie.jour)}</h2>
-        <p className="doux petit">Heure proposée d’après tes habitudes. La correction est validée tout de suite ; ton responsable est informé.</p>
-        {absent && <label className="champ">Heure d’entrée<input type="time" value={entree} onChange={(e) => setEntree(e.target.value)} required /></label>}
-        <label className="champ">Heure de sortie<input type="time" value={sortie} onChange={(e) => setSortie(e.target.value)} required /></label>
-        <label className="champ">Motif (facultatif)<input value={motif} maxLength={500} placeholder="Ex. oubli en partant" onChange={(e) => setMotif(e.target.value)} /></label>
-        <div className="actions">
-          <button type="button" className="bouton secondaire" onClick={onFermer}>Annuler</button>
-          <button className="bouton" disabled={enCours || (absent && min(sortie) <= min(entree))}>{enCours ? 'Envoi…' : 'Enregistrer'}</button>
-        </div>
-      </form>
-    </div>
-  )
-}
 
 /** Vrai au-dessus de 900 px (deux colonnes) : décide où placer le bloc « À traiter ». */
 function useGrandEcran() {

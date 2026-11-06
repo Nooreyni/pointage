@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { IcCorrection, IcDiffere, IcEntree, IcSortie } from '../components/Icones'
-import type { Api, Demande, Journee, PersonneVisible, Pointage, Profil } from '../lib/types'
+import type { Api, CodeAbsence, Demande, Journee, Personne, PersonneVisible, Pointage, Profil } from '../lib/types'
 import { messageErreur } from '../lib/supabase'
 import { telecharger, type Format } from '../lib/export'
 import Export from '../components/Export'
 import TeletravailHabituel from '../components/TeletravailHabituel'
 import { useNav } from '../lib/navigation'
-import { dateCourte, decalerJour, duree, heure, jourBxl } from '../lib/temps'
+import { dateCourte, decalerJour, duree, heure, isoBxl, jourBxl } from '../lib/temps'
+import { Correction, FenetreAbsence, FenetrePointage } from '../components/Regularisation'
+import Fenetre from '../components/Fenetre'
+import Toast from '../components/Toast'
 
 const MOIS = new Intl.DateTimeFormat('fr-BE', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 const nomMois = (iso: string) => MOIS.format(new Date(`${iso}T12:00:00Z`))
@@ -29,6 +32,15 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
   const [lignes, setLignes] = useState<Ligne[] | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [toutVoir, setToutVoir] = useState(false)
+  // Régulariser un jour depuis la fiche : soi-même (correction d'oubli) ou la gestion (heures / absence)
+  const [action, setAction] = useState<{ type: 'choix' | 'moi' | 'pointage' | 'absence'; jour: string; incomplet: boolean } | null>(null)
+  const [version, setVersion] = useState(0)
+  const [codes, setCodes] = useState<CodeAbsence[]>([])
+  const [message, setMessage] = useState<{ texte: string; erreur?: boolean } | null>(null)
+  const gestion = ['rh', 'admin_rh', 'admin', 'direction'].includes(profil.role)
+  // Heures proposées pour corriger : horaires déclarés, sinon appris d'après les pointages (comme l'écran Pointer)
+  const [habitude, setHabitude] = useState<[number, number]>([profil.heure_arrivee ?? 510, profil.heure_depart ?? 1020])
+  useEffect(() => { api.horaireDe().then((h) => setHabitude([h.utilise_arrivee, h.utilise_depart])).catch(() => {}) }, [api])
 
   useEffect(() => { api.personnesVisibles().then(setPersonnes).catch(() => setPersonnes([])) }, [api])
   useEffect(() => { if (personneInitiale) setQui(personneInitiale) }, [personneInitiale])
@@ -46,7 +58,11 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
       })
       .catch((e) => { if (actif) setErreur(messageErreur(e)) })
     return () => { actif = false }
-  }, [api, qui, choixMois])
+  }, [api, qui, choixMois, version])
+  useEffect(() => { if (gestion) api.codesAbsence().then(setCodes).catch(() => setCodes([])) }, [api, gestion])
+  useEffect(() => { if (!message) return; const t = setTimeout(() => setMessage(null), message.erreur ? 6000 : 3500); return () => clearTimeout(t) }, [message])
+  const reussi = (texte: string) => { setAction(null); setMessage({ texte }); setVersion((v) => v + 1) }
+  const echec = (e: unknown) => setMessage({ texte: messageErreur(e), erreur: true })
 
   const autres = personnes.filter((p) => p.id !== profil.id)
   const nav = useNav()
@@ -134,7 +150,10 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
                       </div></td>
                       <td className="num">{j.preste ? duree(j.preste) : '—'}</td>
                       <td className={`num ${j.boni < 0 ? 'negatif' : j.boni > 0 ? 'positif' : ''}`}>{j.boni ? duree(j.boni, true) : '—'}</td>
-                      <td><span className={`pilule ${st.classe}`}>{st.texte}</span></td>
+                      <td>{st.regulariser && (qui === profil.id || gestion)
+                        ? <button className={`pilule ${st.classe} bouton-pilule`} title="Régulariser ce jour"
+                                  onClick={() => setAction({ type: qui === profil.id ? 'moi' : 'choix', jour: j.jour, incomplet: j.nb_pointages > 0 })}>{st.texte} ›</button>
+                        : <span className={`pilule ${st.classe}`}>{st.texte}</span>}</td>
                     </tr>
                   )
                 })}</tbody>
@@ -146,13 +165,43 @@ export default function Heures({ api, profil, personneInitiale }: { api: Api; pr
           </p>
         </section>
       </div>
+
+      {action?.type === 'moi' && (
+        <Correction anomalie={{ jour: action.jour, code: action.incomplet ? 'pointages_incomplets' : 'absent', libelle: '' }}
+                    hEntree={habitude[0]} hSortie={habitude[1]} onFermer={() => setAction(null)}
+                    onValider={async (corrections, motif) => {
+                      try { for (const [sens, min] of corrections) await api.corriger(isoBxl(action.jour, min), sens, motif || undefined); reussi('Correction enregistrée ✅ (ton responsable est informé)') }
+                      catch (e) { echec(e) }
+                    }} />
+      )}
+      {action?.type === 'choix' && (
+        <Fenetre titre={`Régulariser le ${dateCourte(action.jour)}`} onFermer={() => setAction(null)}>
+          <p className="doux petit" style={{ marginTop: 0 }}>{nomQui} · {action.incomplet ? 'sortie manquante' : 'aucun pointage'}. La correction est tracée dans le journal.</p>
+          <div className="actions">
+            {!action.incomplet && <button className="bouton secondaire" onClick={() => setAction({ ...action, type: 'absence' })}>Encoder une absence</button>}
+            <button className="bouton" onClick={() => setAction({ ...action, type: 'pointage' })}>{action.incomplet ? 'Ajouter la sortie' : 'Ajouter les heures'}</button>
+          </div>
+        </Fenetre>
+      )}
+      {action?.type === 'pointage' && (
+        <FenetrePointage personne={({ id: qui, prenom: (personnes.find((x) => x.id === qui) ?? profil).prenom, nom: (personnes.find((x) => x.id === qui) ?? profil).nom, service: (personnes.find((x) => x.id === qui) ?? profil).service } as Personne)} jour={action.jour} incomplet={action.incomplet} onFermer={() => setAction(null)}
+          onValider={async (corrections, motif) => {
+            try { for (const [sens, min] of corrections) await api.corrigerPour(qui, isoBxl(action.jour, min), sens, motif); reussi('Pointage(s) ajouté(s) ✅') }
+            catch (e) { echec(e) }
+          }} />
+      )}
+      {action?.type === 'absence' && (
+        <FenetreAbsence personnes={[({ id: qui, prenom: (personnes.find((x) => x.id === qui) ?? profil).prenom, nom: (personnes.find((x) => x.id === qui) ?? profil).nom, service: (personnes.find((x) => x.id === qui) ?? profil).service } as Personne)]} codes={codes} personne={({ id: qui, prenom: (personnes.find((x) => x.id === qui) ?? profil).prenom, nom: (personnes.find((x) => x.id === qui) ?? profil).nom, service: (personnes.find((x) => x.id === qui) ?? profil).service } as Personne)} jour={action.jour} onFermer={() => setAction(null)}
+          onValider={async (personneId, saisie) => { try { await api.encoderAbsence(personneId, saisie); reussi('Absence encodée ✅') } catch (e) { echec(e) } }} />
+      )}
+      <Toast message={message} />
     </main>
   )
 }
 
-function statut(j: Journee): { texte: string; classe: string } {
-  if (j.nb_pointages === 0 && j.a_prester > 0) return { texte: 'À régulariser', classe: 'ko' }
-  if (j.nb_pointages > 0 && !j.complete) return { texte: 'Sortie manquante', classe: 'attente' }
+function statut(j: Journee): { texte: string; classe: string; regulariser?: boolean } {
+  if (j.nb_pointages === 0 && j.a_prester > 0) return { texte: 'À régulariser', classe: 'ko', regulariser: true }
+  if (j.nb_pointages > 0 && !j.complete) return { texte: 'Sortie manquante', classe: 'attente', regulariser: true }
   if (j.depassement > 0) return { texte: 'Au-delà du max', classe: 'attente' }
   if (j.prevues > 0 && j.a_prester === 0) return { texte: 'Absent (justifié)', classe: 'neutre' }
   if (j.prevues === 0 && j.nb_pointages === 0) return { texte: 'Repos', classe: 'neutre' }

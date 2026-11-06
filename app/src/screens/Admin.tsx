@@ -79,7 +79,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh', 'direction'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
-        {section === 'journal' && <><ErreursAppli api={api} /><Journal api={api} erreur={erreur} /></>}
+        {section === 'journal' && <><div className="grille-cartes"><EtatSysteme api={api} /><ErreursAppli api={api} /></div><Journal api={api} erreur={erreur} /></>}
       </div>
       )}
       <Toast message={message} />
@@ -843,6 +843,42 @@ const ACTIONS: Record<string, string> = { INSERT: 'Ajout', UPDATE: 'Modification
 
 /** Journal : qui a changé quoi et quand (règles, personnes, soldes, congés, pointages…). Lecture seule, rien ne s'efface. */
 // Erreurs remontées automatiquement par l'appli (écran planté chez quelqu'un) : pour l'IT, pendant le pilote surtout
+const TACHES: Record<string, string> = { 'cfb-envoi': 'Envoi des notifications', 'cfb-rappels': 'Rappels automatiques', 'cfb-surveillance': 'Surveillance',
+  'cfb-conservation': 'Nettoyage nocturne', 'cfb-anonymisation': 'Anonymisation des partis' }
+const ilYa = (iso: string | null) => {
+  if (!iso) return 'jamais'
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60_000)
+  return m < 1 ? 'à l’instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`
+}
+
+/** État du système (admin, admin RH) : la surveillance horaire alerte aussi l'admin général par notification. */
+function EtatSysteme({ api }: { api: Api }) {
+  const [etat, setEtat] = useState<Awaited<ReturnType<Api['santeSysteme']>> | null>(null)
+  const [erreur, setErreur] = useState(false)
+  const charger = useCallback(() => { setErreur(false); api.santeSysteme().then(setEtat).catch(() => setErreur(true)) }, [api])
+  useEffect(() => { charger() }, [charger])
+  if (erreur) return null
+  if (!etat) return <section className="carte"><h2>État du système</h2><p className="vide">Vérification…</p></section>
+  const taches = Object.entries(etat.derniers_passages).sort(([a], [b]) => (TACHES[a] ?? a).localeCompare(TACHES[b] ?? b))
+  return (
+    <section className="carte etat-systeme">
+      <div className="ligne entre"><h2>État du système</h2>
+        {etat.ok ? <span className="pilule ok">Tout fonctionne</span> : <span className="pilule ko">{etat.problemes.length} problème(s)</span>}</div>
+      {etat.problemes.length > 0 && <ul className="liste">{etat.problemes.map((p) => (
+        <li key={p.code}><span className="texte-ligne"><strong className="negatif">{p.titre}</strong>{p.detail && <div className="doux petit">{p.detail}</div>}</span></li>
+      ))}</ul>}
+      {etat.avertissements.length > 0 && <ul className="liste">{etat.avertissements.map((p) => (
+        <li key={p.code}><span className="texte-ligne"><strong className="attention">{p.titre}</strong>{p.detail && <div className="doux petit">{p.detail}</div>}</span></li>
+      ))}</ul>}
+      {taches.length > 0 && <dl className="taches-systeme">{taches.map(([t, d]) => (
+        <div key={t}><dt>{TACHES[t] ?? t}</dt><dd>{ilYa(d)}</dd></div>
+      ))}</dl>}
+      <div className="ligne entre"><span className="doux petit">Vérifié {ilYa(etat.verifie_le)} · contrôle automatique toutes les heures, alerte à l’admin général en cas de panne.</span>
+        <button className="lien petit" onClick={charger}>Actualiser</button></div>
+    </section>
+  )
+}
+
 function ErreursAppli({ api }: { api: Api }) {
   const [liste, setListe] = useState<Awaited<ReturnType<Api['erreursRecentes']>> | null>(null)
   useEffect(() => { api.erreursRecentes(7).then(setListe).catch(() => setListe([])) }, [api])
