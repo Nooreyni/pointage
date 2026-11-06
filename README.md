@@ -1,6 +1,6 @@
 # CFB Pointage
 
-**Appli en ligne (projet dev, données fictives)** : https://pointage.nooreyni35.workers.dev
+**Appli en ligne (projet dev, personnel réel importé, comptes créés au fil de l'eau)** : https://pointage.nooreyni35.workers.dev
 
 Application de pointage et de congés (PWA mobile + PC) du Centre Familial de Bruxelles, remplaçante de Dinclock.
 Conçue pour être **réinstallée ailleurs sans recoder** : toutes les règles sont des paramètres (Admin → Paramètres).
@@ -23,14 +23,14 @@ Prérequis : [Node.js LTS](https://nodejs.org).
 - **macOS / Linux** : `./demarrer.sh`
 
 Le premier lancement installe l'appli (≈ 1 min), puis le navigateur s'ouvre tout seul.
-Connexion au projet de **dev** (données fictives) ou « Essayer en mode démo » (sans serveur).
+Connexion au projet de **dev** (personnel réel, comptes créés par la RH) ou « Essayer en mode démo » (données fictives, sans serveur).
 
 ## Structure
 | Dossier | Contenu |
 |---|---|
 | `supabase/migrations/` | Schéma PostgreSQL versionné (source de vérité : règles, droits, calculs) |
 | `supabase/functions/envoyer-notifications/` | Service d'envoi des notifications (Deno, sans dépendance) |
-| `supabase/seed.sql` | Données **fictives** de développement |
+| `supabase/seed.sql` | Données **fictives** pour les tests (base locale uniquement, jamais sur dev ni production) |
 | `supabase/tests/` | Tests SQL (PostgreSQL jetable, horloge figée) |
 | `app/` | Appli React + TypeScript (Vite), installable (PWA) |
 | `scripts/` | Outils d'installation |

@@ -11,7 +11,7 @@ npm run dev
 ```
 Ouvrir http://localhost:5173 :
 - **Mode démo** : http://localhost:5173/?demo=1 (données en mémoire, rien n'est envoyé)
-- **Comptes fictifs** (projet dev uniquement) : choisir un compte `@cfb.test` + mot de passe dev (admin général : `adminit.cfb@centrefamilial.be`, mot de passe transmis à part)
+- **Projet dev** : personnel réel importé ; chacun se connecte avec le compte créé par la RH (admin général de dev : `adminit.cfb@centrefamilial.be`, mot de passe transmis à part)
 
 ## Commandes
 | Commande | Rôle |
