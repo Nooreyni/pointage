@@ -1045,6 +1045,30 @@ select test.connecte('Sofia'); set role authenticated;
 select test.erreur('select public.sante_systeme()', 'Surveillance : état réservé à l''admin et l''admin RH', 'réservée');
 reset role;
 
+-- ===================== Testeurs et avis =====================
+select test.connecte('Admin'); set role authenticated;
+select public.definir_testeur(test_inès, true) from (select id as test_inès from public.admin_personnes where prenom = 'Inès') x;
+select test.ok((select testeur from public.admin_personnes where prenom = 'Inès'), 'Testeur : désigné par l''admin général');
+reset role;
+select test.ok((select accueil_fait_le is null from pointage.personnes where id = test.pid('Inès')), 'Testeur : la visite guidée lui est reproposée');
+select test.connecte('Inès'); set role authenticated;
+select test.ok((select testeur from public.mon_profil), 'Testeur : visible dans son profil');
+select test.erreur($$select public.donner_avis('idee', '  ')$$, 'Avis : une idée sans texte est refusée', 'quelques mots');
+select test.erreur($$select public.donner_avis('bravo')$$, 'Avis : type inconnu refusé', 'Choisis');
+select test.ok(public.donner_avis('probleme', 'Le bouton ne répond pas', 'Suivi RH') > 0, 'Avis : problème envoyé');
+select test.ok(public.donner_avis('reglage_ok', null, 'Réglages', (select cle from pointage.parametres limit 1)) > 0, 'Avis : réglage confirmé sans texte');
+select test.ok((select count(*) = 2 from public.mes_avis()), 'Avis : le testeur retrouve ses avis');
+select test.erreur('select * from public.avis_recus()', 'Avis : liste réservée à l''admin général', 'réservée');
+select test.erreur(format('select public.definir_testeur(%L, true)', test_id), 'Testeur : seul l''admin général désigne', 'réservée')
+  from (select id as test_id from public.mon_profil) x;
+reset role;
+select test.ok(test.notifs('Admin', 'avis_testeur') = 2, 'Avis : l''admin général est prévenu à chaque avis');
+select test.connecte('Admin'); set role authenticated;
+select test.ok((select count(*) = 2 and bool_and(traite_le is null) from public.avis_recus()), 'Avis : l''admin les voit');
+select public.traiter_avis((select max(id) from public.avis_recus()));
+select test.ok((select count(*) filter (where traite_le is null) = 1 from public.avis_recus()), 'Avis : « Traité » les range');
+reset role;
+
 -- ===================== Bilan =====================
 \o
 \set QUIET 0

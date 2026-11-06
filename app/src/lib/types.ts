@@ -16,8 +16,14 @@ export interface Profil {
   heure_arrivee?: number | null  // horaires habituels déclarés (minutes depuis minuit) ; null = appris d'après les pointages
   heure_depart?: number | null
   accueil_fait_le?: string | null // parcours d'accueil terminé (ou passé)
+  testeur?: boolean               // teste l'outil avant le pilote : visite guidée + bouton « Mon avis »
 }
 
+export type TypeAvis = 'probleme' | 'idee' | 'question' | 'ok' | 'reglage_ok' | 'reglage_changer'
+export interface Avis {
+  id: number; type: TypeAvis; ecran: string | null; parametre: string | null; message: string | null; cree_le: string; traite_le: string | null
+  personne_id?: string; prenom?: string; nom?: string; role?: string; parametre_libelle?: string | null
+}
 export interface ProblemeSante { code: string; titre: string; detail?: string }
 export interface SanteSysteme { ok: boolean; problemes: ProblemeSante[]; avertissements: ProblemeSante[]; derniers_passages: Record<string, string | null>; verifie_le: string }
 export type ChampSignale = 'nom' | 'email' | 'service' | 'role' | 'regime' | 'horaire' | 'autre'
@@ -295,6 +301,7 @@ export interface AdminPersonne {
   regime_id: number | null
   regime: string | null
   regime_depuis: string | null
+  testeur?: boolean
 }
 
 export interface SaisiePersonne {
@@ -452,6 +459,11 @@ export interface Api {
   signalementsOuverts(): Promise<Signalement[]>
   traiterSignalement(id: number): Promise<void>
   santeSysteme(): Promise<SanteSysteme>
+  donnerAvis(type: TypeAvis, message?: string, ecran?: string, parametre?: string): Promise<number>
+  mesAvis(): Promise<Avis[]>
+  avisRecus(): Promise<Avis[]>
+  traiterAvis(id: number, traite?: boolean): Promise<void>
+  definirTesteur(personneId: string, testeur: boolean): Promise<void>
   deposerJustificatif(d: Demande, fichier: File): Promise<void>
   justificatifsManquants(): Promise<Demande[]>
   lienJustificatif(chemin: string): Promise<string>

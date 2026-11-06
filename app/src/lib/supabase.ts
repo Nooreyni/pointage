@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ApercuDepart, Horaire, SanteSysteme, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { ApercuDepart, Avis, Horaire, SanteSysteme, Signalement, Modification, MouvementCompteur, LigneMensuelle, LigneTeletravail, MotDePasseGenere, ServiceSuivi, Acces, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Api, Anomalie, AnomalieRH, CodeAbsence, Demande, DemandePointage, EtatCloture, HeureAValider, Journee, Notif, Personne,
   LigneCpas, Pointage, Presence, Profil, PropositionConges, SaisieDemande, Sens, Simulation, Solde, StatsDirection,
   TypePointage } from './types'
@@ -418,6 +418,21 @@ export function apiSupabase(): Api {
     },
     async santeSysteme() {
       return verifier(await sb.rpc('sante_systeme')) as SanteSysteme
+    },
+    async donnerAvis(type, message, ecran, parametre) {
+      return verifier(await sb.rpc('donner_avis', { p_type: type, p_message: message ?? null, p_ecran: ecran ?? null, p_parametre: parametre ?? null })) as number
+    },
+    async mesAvis() {
+      return verifier(await sb.rpc('mes_avis')) as Avis[]
+    },
+    async avisRecus() {
+      return verifier(await sb.rpc('avis_recus')) as Avis[]
+    },
+    async traiterAvis(id, traite = true) {
+      verifier(await sb.rpc('traiter_avis', { p_id: id, p_traite: traite }))
+    },
+    async definirTesteur(personneId, testeur) {
+      verifier(await sb.rpc('definir_testeur', { p_personne: personneId, p_testeur: testeur }))
     },
     async servicesSuivis() {
       return verifier(await sb.rpc('services_suivis')) as ServiceSuivi[]

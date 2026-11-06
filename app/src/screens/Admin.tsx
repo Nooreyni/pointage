@@ -15,10 +15,12 @@ import HoraireHabituel from '../components/HoraireHabituel'
 import { IcChevron } from '../components/Icones'
 import { Pagination, usePagination } from '../components/Pagination'
 import { LienPersonne, LienReglages, type OngletFiche } from '../lib/navigation'
+import { FenetreAvis, LIBELLES_AVIS, quand } from '../components/Avis'
+import type { Avis } from '../lib/types'
 
 const DOMAINES_CFB = ['centrefamilial.be', 'ceforbxl.be']
 
-export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal'
+export type Section = 'services' | 'regimes' | 'acces' | 'compteurs' | 'parametres' | 'reseau' | 'journal' | 'avis'
 type Message = { texte: string; erreur?: boolean }
 
 export const ROLES: Record<Role, string> = {
@@ -60,6 +62,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
   const sections: [Section, string][] = [
     ['services', 'Services'], ['regimes', 'Régimes'], ['acces', 'Accès'], ['compteurs', 'Compteurs'], ['parametres', 'Paramètres'],
     ['reseau', estAdmin ? 'Réseau & fériés' : 'Jours fériés'], ['journal', 'Journal'],
+    ...(estAdmin ? [['avis', 'Avis des testeurs'] as [Section, string]] : []),
   ]
 
   return (
@@ -79,6 +82,7 @@ export default function Admin({ api, profil, sectionInitiale, vue = 'reglages', 
         {section === 'compteurs' && <Compteurs api={api} estAdmin={['admin', 'admin_rh', 'direction'].includes(profil.role)} erreur={erreur} setMessage={setMessage} />}
         {section === 'parametres' && <Parametres api={api} profil={profil} erreur={erreur} setMessage={setMessage} />}
         {section === 'reseau' && <ReseauFeries api={api} estAdmin={estAdmin} erreur={erreur} setMessage={setMessage} />}
+        {section === 'avis' && estAdmin && <AvisTesteurs api={api} personnes={personnes ?? []} erreur={erreur} setMessage={setMessage} onTesteurs={charger} />}
         {section === 'journal' && <><div className="grille-cartes"><EtatSysteme api={api} /><ErreursAppli api={api} /></div><Journal api={api} erreur={erreur} /></>}
       </div>
       )}
@@ -609,6 +613,7 @@ function Parametres({ api, profil, erreur, setMessage }: { api: Api; profil: Pro
   const [edition, setEdition] = useState<{ cle: string; valeur: string } | null>(null)
   const [q, setQ] = useState('')
   const [aConfirmer, setAConfirmer] = useState(false)
+  const [avisSur, setAvisSur] = useState<Parametre | null>(null)
   const charger = useCallback(() => { api.parametres().then(setListe).catch(erreur) }, [api, erreur])
   useEffect(() => { charger() }, [charger])
   const source = `Réglé par ${profil.prenom} ${profil.nom} le ${new Date().toLocaleDateString('fr-BE')}`
@@ -663,6 +668,7 @@ function Parametres({ api, profil, erreur, setMessage }: { api: Api; profil: Pro
             </button>
           )}
           {p.provisoire && !enEdition && <button className="lien petit" onClick={() => enregistrer(p, p.valeur, 'Valeur confirmée')}>Confirmer</button>}
+          {profil.testeur && !enEdition && <button className="lien petit" onClick={() => setAvisSur(p)} title="Donner mon avis sur ce réglage">Commenter</button>}
         </div>
       </li>
     )
@@ -677,7 +683,10 @@ function Parametres({ api, profil, erreur, setMessage }: { api: Api; profil: Pro
         </div>
         <label className="case-a-cocher petit"><input type="checkbox" checked={aConfirmer} onChange={(e) => setAConfirmer(e.target.checked)} />Seulement les valeurs à confirmer</label>
         <p className="doux petit" style={{ margin: 0 }}>Active ou coupe une fonction avec son interrupteur ; ses réglages apparaissent juste en dessous. Chaque changement est enregistré dans le journal (qui, quand).</p>
+        {profil.testeur && <p className="petit attention" style={{ margin: 0 }}>Test : pour chaque réglage, « Commenter » envoie ton avis à l’IT (je confirme / à changer), sans rien modifier.</p>}
       </section>
+      {avisSur && <FenetreAvis api={api} ecran="Réglages › Paramètres" parametre={{ cle: avisSur.cle, libelle: avisSur.libelle, valeur: valeurLisible(avisSur) }}
+                              onFermer={() => setAvisSur(null)} onEnvoye={(t) => { setAvisSur(null); setMessage({ texte: t }) }} />}
       <div className="grille-cartes maconnerie">
         {categories.map((c) => {
           const items = racines.filter((p) => (p.categorie || 'Autres') === c && visible(p)).sort((a, b) => (a.ordre ?? 100) - (b.ordre ?? 100) || a.libelle.localeCompare(b.libelle))
@@ -939,5 +948,74 @@ function Journal({ api, erreur }: { api: Api; erreur: (e: unknown) => void }) {
       ))}</ul>
       <Pagination pager={pager} quoi="modifications" />
     </section>
+  )
+}
+
+/**
+ * Avis des testeurs (admin général) : qui teste, ce qu'ils ont dit, « Traité » quand c'est pris en compte.
+ * Désigner un testeur lui reproposera la visite guidée à sa prochaine ouverture.
+ */
+function AvisTesteurs({ api, personnes, erreur, setMessage, onTesteurs }: {
+  api: Api; personnes: AdminPersonne[]; erreur: (e: unknown) => void; setMessage: (m: Message) => void; onTesteurs: () => void
+}) {
+  const [liste, setListe] = useState<Avis[] | null>(null)
+  const [tout, setTout] = useState(false)
+  const [ajout, setAjout] = useState('')
+  const charger = useCallback(() => { api.avisRecus().then(setListe).catch(erreur) }, [api, erreur])
+  useEffect(() => { charger() }, [charger])
+  const testeurs = personnes.filter((p) => p.testeur)
+  const candidats = personnes.filter((p) => !p.testeur && p.compte_lie && !p.date_sortie).sort((a, b) => a.nom.localeCompare(b.nom))
+  const ouverts = (liste ?? []).filter((a) => !a.traite_le)
+  const affiches = tout ? (liste ?? []) : ouverts
+  const pager = usePagination(affiches, 20, tout)
+  const changerTesteur = async (id: string, actif: boolean) => {
+    try { await api.definirTesteur(id, actif); setMessage({ texte: actif ? 'Testeur ajouté : la visite guidée s’ouvrira à sa prochaine connexion' : 'Testeur retiré' }); setAjout(''); onTesteurs() } catch (e) { erreur(e) }
+  }
+  const traiter = async (a: Avis, traite: boolean) => { try { await api.traiterAvis(a.id, traite); charger() } catch (e) { erreur(e) } }
+
+  return (
+    <div className="grille-cartes">
+      <section className="carte">
+        <h2>Testeurs <span className="doux petit">({testeurs.length})</span></h2>
+        <p className="doux petit" style={{ margin: 0 }}>Ils voient une visite guidée à l’ouverture, un bouton « Mon avis » sur chaque écran et « Commenter » sur chaque réglage.</p>
+        <ul className="liste-simple">
+          {testeurs.map((p) => (
+            <li key={p.id} className="ligne entre"><span>{p.prenom} {p.nom} <span className="doux petit">· {ROLES[p.role]}</span></span>
+              <button className="lien petit" onClick={() => changerTesteur(p.id, false)}>Retirer</button></li>
+          ))}
+          {!testeurs.length && <li className="doux petit">Aucun testeur pour l’instant.</li>}
+        </ul>
+        <form className="ligne" onSubmit={(e) => { e.preventDefault(); if (ajout) changerTesteur(ajout, true) }}>
+          <select id="ajout-testeur" className="choix" aria-label="Ajouter un testeur" value={ajout} onChange={(e) => setAjout(e.target.value)}>
+            <option value="">Ajouter une personne (avec compte)…</option>
+            {candidats.map((p) => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
+          </select>
+          <button className="bouton petit" disabled={!ajout}>Ajouter</button>
+        </form>
+      </section>
+      <section className="carte col-pleine">
+        <div className="ligne entre barre-outils">
+          <h2>Avis reçus {ouverts.length > 0 && <span className="pilule attente">{ouverts.length} à traiter</span>}</h2>
+          <label className="case-a-cocher petit"><input type="checkbox" checked={tout} onChange={(e) => setTout(e.target.checked)} />Voir aussi les avis traités</label>
+        </div>
+        {liste === null ? <div className="squelette">Chargement…</div> : !affiches.length ? <p className="doux petit">Aucun avis {tout ? '' : 'à traiter'} pour l’instant.</p> : (
+          <ul className="liste-avis">
+            {pager.items.map((a) => (
+              <li key={a.id} className={a.traite_le ? 'traite' : ''}>
+                <div className="ligne entre">
+                  <span><span className={`pilule ${a.type === 'probleme' || a.type === 'reglage_changer' ? 'attente' : a.type === 'ok' || a.type === 'reglage_ok' ? 'ok' : 'neutre'}`}>{LIBELLES_AVIS[a.type]}</span>
+                    {' '}<strong>{a.prenom} {a.nom}</strong> <span className="doux petit">· {a.parametre_libelle ?? a.ecran ?? '—'} · {quand(a.cree_le)}</span></span>
+                  {a.traite_le
+                    ? <button className="lien petit" onClick={() => traiter(a, false)}>Rouvrir</button>
+                    : <button className="bouton secondaire petit" onClick={() => traiter(a, true)}>Traité</button>}
+                </div>
+                {a.message && <p className="petit" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{a.message}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Pagination pager={pager} quoi="avis" />
+      </section>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 // Mode démo : données FICTIVES en mémoire, sans serveur (présentation et tests d'interface).
 // Les règles de calcul reprennent celles du serveur (pause 30 min au-delà de 6 h, plafond 9 h).
-import type { Acces, Signalement, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
+import type { Avis, Acces, Signalement, AdminPersonne, AdminService, Compteur, Ferie, Parametre, PersonneVisible, Regime, Reseau } from './types'
 import type { Anomalie, AnomalieRH, Api, CodeAbsence, Demande, EtatCloture, HeureAValider, Journee, Notif, Personne, Pointage, Presence,
   ApercuDepart, LigneCpas, LigneMensuelle, Modification, MouvementCompteur, LigneTeletravail, Profil, SaisieDemande, Sens, Simulation, StatsDirection } from './types'
 import { decalerJour, isoBxl, jourBxl } from './temps'
@@ -122,12 +122,19 @@ export function apiDemo(persona: Persona = 'employe'): Api {
   // Exemple de signalement à traiter (démo RH / admin)
   const signalements: Signalement[] = [{ id: 1, champ: 'service', message: 'Je suis passée au CEFOR depuis le 1er octobre', cree_le: new Date(Date.now() - 86_400_000).toISOString(),
     traite_le: null, personne_id: 'p2', prenom: 'Sofia', nom: 'Janssens', service: 'SAF' }]
+  // Exemple d'avis de testeur (démo admin)
+  const avis: Avis[] = [{ id: 1, type: 'reglage_changer', ecran: 'Réglages', parametre: 'pause_midi_min', parametre_libelle: 'Pause de midi déduite automatiquement',
+    message: 'Chez nous la pause est de 45 min pour les temps pleins', cree_le: new Date(Date.now() - 3_600_000).toISOString(), traite_le: null,
+    personne_id: 'p9', prenom: 'Nadia', nom: 'Benali', role: 'rh' }]
   const aujourdhui = jourBxl()
+  const modeTesteur = typeof location !== 'undefined' && new URLSearchParams(location.search).has('testeur')
   // Jour de télétravail habituel : mercredi pour l'employée, vendredi pour le chef (exemples)
   const base = { id: 'demo', type: 'interne' as const, regime: 'Temps plein 38h', minutes_jour: REGIME,
                  jours_teletravail: persona === 'employe' ? [3] : persona === 'chef' ? [5] : [] as number[],
                  // démo : parcours d'accueil déjà fait (il se rouvre depuis Mon compte › « Refaire le parcours d'accueil »)
-                 accueil_fait_le: '2026-01-01T08:00:00Z' as string | null }
+                 // démo : « ?testeur=1 » montre le mode testeur (visite guidée à l'ouverture, bouton « Mon avis »)
+                 testeur: modeTesteur,
+                 accueil_fait_le: modeTesteur ? null : '2026-01-01T08:00:00Z' as string | null }
   const profil: Profil = persona === 'chef'
     ? { ...base, prenom: 'Marc', nom: 'Dupont', email: 'marc.dupont@cfb.test', role: 'employe', service: 'SAF', est_chef_service: true }
     : persona === 'admin'
@@ -833,6 +840,22 @@ export function apiDemo(persona: Persona = 'employe'): Api {
                avertissements: [{ code: 'sans_canal', titre: '3 notification(s) non délivrée(s) sur 24 h', detail: '2 personne(s) sans notifications activées ni e-mail de secours' }],
                derniers_passages: { 'cfb-envoi': il(3), 'cfb-rappels': il(11), 'cfb-surveillance': il(42), 'cfb-conservation': il(600), 'cfb-anonymisation': il(576) } }
     },
+    async donnerAvis(type, message, ecran, parametre) {
+      if (['probleme', 'idee', 'question', 'reglage_changer'].includes(type) && !message?.trim()) throw new Error('Écris quelques mots')
+      const id = Date.now()
+      avis.unshift({ id, type, message: message?.trim() || null, ecran: ecran ?? null, parametre: parametre ?? null, cree_le: new Date().toISOString(), traite_le: null,
+                     personne_id: profil.id, prenom: profil.prenom, nom: profil.nom, role: profil.role })
+      return id
+    },
+    async mesAvis() { return avis.filter((x) => x.personne_id === profil.id) },
+    async avisRecus() {
+      if (persona !== 'admin') throw new Error('Action réservée à : admin')
+      return [...avis]
+    },
+    async traiterAvis(id, traite = true) {
+      const a = avis.find((x) => x.id === id); if (a) a.traite_le = traite ? new Date().toISOString() : null
+    },
+    async definirTesteur() { if (persona !== 'admin') throw new Error('Action réservée à : admin') },
     async signalementsOuverts() {
       if (!['rh', 'admin'].includes(persona)) throw new Error('Action réservée à : rh, admin_rh, admin')
       return signalements.filter((x) => !x.traite_le)

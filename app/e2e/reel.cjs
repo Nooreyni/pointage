@@ -170,6 +170,8 @@ const verifier = (cond, message) => { if (!cond) throw new Error(message) }
     await page.click('nav.nav button:has-text("Gestion")'); await page.click('.sous-nav button:has-text("Réglages")'); await page.waitForTimeout(800)
     const n = (await page.$$('[role=tablist][aria-label=Réglages] button')).length
     for (let i = 0; i < n; i++) { await page.click(`[role=tablist][aria-label=Réglages] button >> nth=${i}`); await page.waitForTimeout(700) }
+    verifier(/Testeurs/.test(await page.textContent('main')), 'section « Avis des testeurs » vide')
+    await page.click('[role=tablist][aria-label=Réglages] button:has-text("Journal")'); await page.waitForTimeout(700)
     verifier(/Erreurs de l’appli/.test(await page.textContent('main')), 'carte « Erreurs de l’appli » absente du Journal')
     propre(page, 'réglages'); await page.close()
   })

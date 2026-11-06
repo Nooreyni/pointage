@@ -67,6 +67,7 @@ export const AIDE: EcranAide[] = [
     { q: 'Changer une règle', r: 'Paramètres : chaque fonction a son interrupteur ou sa valeur. « À confirmer » signale une valeur provisoire.' },
     { q: 'Désigner un chef de service', r: 'Services › le service › coche le ou les chefs.' },
     { q: 'Qui a modifié quoi ?', r: 'Journal : toutes les modifications, avec l’auteur et la date.' },
+    { q: 'Faire tester l’outil et recueillir des avis', r: 'Réglages › Avis des testeurs (admin général) : ajoute une personne comme testeur. Elle voit une visite guidée à sa prochaine ouverture, un bouton « Mon avis » sur chaque écran et « Commenter » sur chaque réglage. Chaque avis t’arrive en alerte ; « Traité » le range.' },
     { q: 'L’outil fonctionne-t-il bien ?', r: 'Journal › « État du système » : tâches automatiques, envois des notifications, erreurs. Vérifié toutes les heures ; en cas de problème, l’admin général reçoit une alerte (une fois par jour et par problème).' },
   ] },
   { id: 'alertes', titre: 'Alertes', enBref: 'Tes notifications : décisions sur tes demandes, rappels, oublis de pointage.', questions: [

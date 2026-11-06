@@ -1068,3 +1068,21 @@ select.choix, .outils-personnes select { border: 1px solid var(--bord-fort); bor
 .taches-systeme dt { font-size: 12.5px; color: var(--texte-doux); }
 .taches-systeme dd { margin: 2px 0 0; font-weight: 600; font-size: 14px; }
 .bouton-pilule { border: 0; cursor: pointer; font-family: inherit; }
+
+/* Mode testeur : bouton « Mon avis » flottant (au-dessus de la barre du bas sur mobile) et liste des avis (admin) */
+.bouton-avis {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(78px + env(safe-area-inset-bottom)); z-index: var(--z-nav);
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border: 0; border-radius: 999px;
+  background: var(--bleu-fonce); color: #fff; font-weight: 700; font-size: 14.5px; box-shadow: var(--ombre-flottante);
+}
+.bouton-avis:hover { filter: brightness(1.12); }
+.bouton-avis:focus-visible { outline: 3px solid var(--jaune); outline-offset: 2px; }
+@media (min-width: 900px) { .bouton-avis { bottom: 24px; right: 24px; } }
+@media print { .bouton-avis { display: none; } }
+.liste-avis, .liste-simple { list-style: none; margin: 0; padding: 0; display: grid; }
+.liste-simple li { padding: 6px 0; border-bottom: 1px solid var(--bord); }
+.liste-avis li { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--bord); }
+.liste-avis li:last-child, .liste-simple li:last-child { border-bottom: 0; }
+.liste-avis li.traite { opacity: .6; }
+.app-testeur .contenu { padding-bottom: 96px; }
+@media (max-width: 899px) { .app-testeur .contenu { padding-bottom: 150px; } }

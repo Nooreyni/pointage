@@ -7,6 +7,7 @@ import { desactiverPush } from '../lib/push'
 import { IcAgenda, IcAide, IcCalendrier, IcChevronBas, IcCloche, IcEquipe, IcHorloge, IcLoupe, IcRh, IcStats } from '../components/Icones'
 import AideEcran from '../components/AideEcran'
 import Accueil from '../components/Accueil'
+import { BoutonAvis } from '../components/Avis'
 import { aidePour } from '../lib/aide'
 import Recherche, { type Cible } from '../components/Recherche'
 import { ReglagesContext } from '../lib/reglages'
@@ -176,6 +177,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   }
   const allerVers = (d: Destination) => (d === 'conges-valider' ? aller('conges', 'valider')
     : d === 'reglages-journal' ? naviguer({ vers: 'reglages', section: 'journal' })
+    : d === 'reglages-avis' ? naviguer({ vers: 'reglages', section: 'avis' })
     : d.startsWith('fiche:') ? naviguer({ vers: 'personne', id: d.slice(6), onglet: 'identite' }) : aller(d as Onglet))
   const libelleRole = profil.est_chef_service && profil.role === 'employe' ? 'Chef de service' : ROLES[profil.role]
   const initiales = (profil.prenom[0] + profil.nom[0]).toUpperCase()
@@ -217,7 +219,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
   return (
     <ReglagesContext.Provider value={reglages}>
     <NavContext.Provider value={nav}>
-    <div className="app">
+    <div className={`app${profil.testeur ? " app-testeur" : ""}`}>
       <header className="entete">
         <div className="marque"><img src={`${import.meta.env.BASE_URL}icons/icon.svg`} alt="" />CFB Pointage</div>
         <div className="espace" />
@@ -313,6 +315,7 @@ export default function Espace({ api, onQuitter, vueDemo }: {
       {actif === 'equipe' && <Equipe api={api} profil={profil} rechercheInitiale={rechercheEquipe} onOuvrirFiche={(id) => { setFicheDe(id); aller('heures') }} />}
       {actif === 'alertes' && <Alertes api={api} notifs={notifs} onVu={marquerLu} onAller={allerVers} aFaire={{ anomalies: nbAnomalies, aValider }} />}
       </Suspense>
+      {profil.testeur ? <BoutonAvis api={api} ecran={(groupeActif && groupeActif.vues.length > 1 ? groupeActif.libelle + ' › ' : '') + (vues.find(([id]) => id === actif)?.[1] ?? actif)} /> : null}
     </div>
     </NavContext.Provider>
     </ReglagesContext.Provider>
